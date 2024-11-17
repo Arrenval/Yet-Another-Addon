@@ -47,7 +47,7 @@ def register():
     utils.UsefulProperties.export_bools()
     utils.UsefulProperties.ui_buttons()
     utils.UsefulProperties.mesh_pointers()
-    utils.UsefulProperties.torso_key_floats()
+    utils.UsefulProperties.chest_key_floats()
     
     for cls in uireg:
         bpy.utils.register_class(cls)

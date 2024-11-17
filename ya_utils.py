@@ -202,7 +202,7 @@ class UsefulProperties(bpy.types.PropertyGroup):
             setattr(prop, prop_name, obj)
 
     @staticmethod
-    def torso_key_floats():
+    def chest_key_floats():
         # Creates float properties for chest shape keys controlled by values.
         # Automaticall assigns drivers to the models to be controlled by the UI.
         key_filter = ["squeeze", "squish", "pushup", "omoi", "sag", "nipnops", "sayonara", "mini"]
