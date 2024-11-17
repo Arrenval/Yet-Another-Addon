@@ -203,77 +203,48 @@ class UsefulProperties(bpy.types.PropertyGroup):
 
     @staticmethod
     def torso_key_floats():
+        # Creates float properties for chest shape keys controlled by values.
+        # Automaticall assigns drivers to the models to be controlled by the UI.
         key_filter = ["squeeze", "squish", "pushup", "omoi", "sag", "nipnops", "sayonara", "mini"]
-        obj = bpy.data.meshes["Torso"]
+        torso = bpy.data.meshes["Torso"]
+        mq = bpy.data.meshes["Mannequin"]
         
+        targets = {
+             "torso": torso,
+             "mq":    mq,
+        }
+        
+        for name, obj in targets.items():
+            key_list = get_filtered_shape_keys(obj, key_filter)
 
-        key_list = get_filtered_shape_keys(obj, key_filter)
-        
-        for key, category, key_name in key_list:
-            if category == "gena/watermeloncrushers":
-                    category = "legs"
-            if category == "nails":
-                    category = "hands"
-        
+            for key, category, key_name in key_list:
+                if category == "gena/watermeloncrushers":
+                        category = "legs"
+                if category == "nails":
+                        category = "hands"
             
-            default = 0
-            if key == "squeeze" and category != "small":
-                min = -50
-                if category == "large":
-                    default = 30
-            else:
-                min = 0
-            
-            prop_name = f"key_{key}_{category}_torso"
-            prop = FloatProperty(
-                name="",
-                default=default,
-                min=min,
-                max=100,
-                soft_min=0,
-                precision=0,
-                subtype="PERCENTAGE"    
-            )
+                
+                default = 0
+                if key == "squeeze" and category != "small":
+                    min = -50
+                    if category == "large":
+                        default = 30
+                else:
+                    min = 0
+                
+                prop_name = f"key_{key}_{category}_{name}"
+                prop = FloatProperty(
+                    name="",
+                    default=default,
+                    min=min,
+                    max=100,
+                    soft_min=0,
+                    precision=0,
+                    subtype="PERCENTAGE"    
+                )
 
-            setattr(UsefulProperties, prop_name, prop)
-            UsefulProperties.add_shape_key_drivers(obj, key_name, prop_name)
-
-    @staticmethod
-    def mq_chest_key_floats():
-        key_filter = ["squeeze", "squish", "pushup", "omoi", "sag", "nipnops", "sayonara", "mini"]
-        obj = bpy.data.meshes["Mannequin"]
-        
-
-        key_list = get_filtered_shape_keys(obj, key_filter)
-        
-        for key, category, key_name in key_list:
-            if category == "gena/watermeloncrushers":
-                    category = "legs"
-            if category == "nails":
-                    category = "hands"
-        
-            
-            default = 0
-            if key == "squeeze" and category != "small":
-                min = -50
-                if category == "large":
-                    default = 30
-            else:
-                min = 0
-            
-            prop_name = f"key_{key}_{category}_mq"
-            prop = FloatProperty(
-                name="",
-                default=default,
-                min=min,
-                max=100,
-                soft_min=0,
-                precision=0,
-                subtype="PERCENTAGE"    
-            )
-
-            setattr(UsefulProperties, prop_name, prop)
-            UsefulProperties.add_shape_key_drivers(obj, key_name, prop_name)
+                setattr(UsefulProperties, prop_name, prop)
+                UsefulProperties.add_shape_key_drivers(obj, key_name, prop_name)
 
     def add_shape_key_drivers(obj, key_name, prop_name):
         

@@ -48,7 +48,6 @@ def register():
     utils.UsefulProperties.ui_buttons()
     utils.UsefulProperties.mesh_pointers()
     utils.UsefulProperties.torso_key_floats()
-    utils.UsefulProperties.mq_chest_key_floats()
     
     for cls in uireg:
         bpy.utils.register_class(cls)

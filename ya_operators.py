@@ -34,7 +34,6 @@ class MESH_OT_YA_ApplyShapes(Operator):
 
     def apply_shape_values(apply_target, category, shape_presets):
             ya_props = bpy.context.scene.ya_props
-           
             for shape_key in shape_presets:
                 norm_key = shape_key.lower().replace(" ","").replace("-","")
                 category_lower = category.lower()
@@ -42,7 +41,7 @@ class MESH_OT_YA_ApplyShapes(Operator):
                 if norm_key == "sag" and category_lower == "large":
                     category_lower = "omoi"
                 
-                prop = f"key_{norm_key}_{category_lower}"
+                prop = f"key_{norm_key}_{category_lower}_{apply_target}"
                 if hasattr(ya_props, prop):
                     setattr(ya_props, prop, 100 * shape_presets[shape_key])
             
@@ -58,7 +57,7 @@ class MESH_OT_YA_ApplyShapes(Operator):
                 if norm_key == "sag" and category_lower == "large":
                     category_lower = "omoi"
                 
-                prop = f"key_{norm_key}_{category_lower}"
+                prop = f"key_{norm_key}_{category_lower}_{apply_target}"
                 if hasattr(ya_props, prop):
                     setattr(ya_props, prop, 100 * reset[reset_key])
                 
@@ -92,13 +91,13 @@ class MESH_OT_YA_ApplyShapes(Operator):
 
         # What models to change based on user input
         if apply_torso:
-            ApplyShapes.reset_shape_values(torso, category)
-            ApplyShapes.apply_shape_values(torso, category, shape_presets)
+            ApplyShapes.reset_shape_values("torso", category)
+            ApplyShapes.apply_shape_values("torso", category, shape_presets)
             ApplyShapes.mute_shapes(torso, category)
 
         if apply_mq:
-            ApplyShapes.reset_shape_values(mannequin, category)
-            ApplyShapes.apply_shape_values(mannequin, category, shape_presets)
+            ApplyShapes.reset_shape_values("mq", category)
+            ApplyShapes.apply_shape_values("mq", category, shape_presets)
             ApplyShapes.mute_shapes(mannequin, category)
         
         if apply_torso or apply_mq:
@@ -116,6 +115,7 @@ class MESH_OT_YA_ApplySizeCategoryLarge(Operator):
     bl_options = {'UNDO'}
 
     def execute(self, context):
+        print("Executing")
         apply_mq, apply_torso = utils.apply_shapes_targets(self, context)
         category = "Large"
 
