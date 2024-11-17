@@ -12,7 +12,7 @@ from bpy.types import Operator
 # Ease of use alongside blender's timers.
 ya_is_exporting: bool = False
 
-class FILE_OT_simple_export(Operator):
+class FILE_OT_SimpleExport(Operator):
     bl_idname = "file.simple_export"
     bl_label = "Open FBX Export Window"
     bl_options = {'REGISTER', 'UNDO'}
@@ -456,7 +456,7 @@ class FILE_OT_YA_BatchExport(Operator):
                 use_custom_props=True
                 )
     
-    
+
 # Responsible for dealing with visible collections during the export process.
 class FILE_OT_YA_CollectionManager(Operator):
     bl_idname = "file.collection_manager"

@@ -27,7 +27,7 @@ def dynamic_column_buttons(columns, layout, section_prop, labels, category, butt
     return box  
 
 
-class VIEW3D_PT_YA_OVERVIEW(bpy.types.Panel):
+class VIEW3D_PT_YA_Overview(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Devkit"
@@ -256,7 +256,7 @@ class VIEW3D_PT_YA_OVERVIEW(bpy.types.Panel):
             return utils.get_object_from_mesh("Mannequin")
 
 
-class VIEW3D_PT_YA_WEIGHTS(bpy.types.Panel):
+class VIEW3D_PT_YA_Tools(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Devkit"
@@ -271,7 +271,7 @@ class VIEW3D_PT_YA_WEIGHTS(bpy.types.Panel):
         row.operator("mesh.remove_empty_vgroups", text= "Remove Empty Groups")
 
 
-class VIEW3D_PT_YA_FILE_MANAGER(bpy.types.Panel):
+class VIEW3D_PT_YA_FileManager(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Devkit"

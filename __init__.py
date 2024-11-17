@@ -20,7 +20,7 @@ import ya_file_manager as file
 
 classreg = [
     utils.UsefulProperties,
-    file.FILE_OT_simple_export,
+    file.FILE_OT_SimpleExport,
     file.FILE_OT_YA_CollectionManager,
     file.FILE_OT_YA_BatchExport,  
     operators.MESH_OT_YA_RemoveEmptyVGroups, 
@@ -32,9 +32,9 @@ classreg = [
     ]
 
 uireg = [ 
-    UI.VIEW3D_PT_YA_OVERVIEW, 
-    UI.VIEW3D_PT_YA_WEIGHTS, 
-    UI.VIEW3D_PT_YA_FILE_MANAGER,
+    UI.VIEW3D_PT_YA_Overview, 
+    UI.VIEW3D_PT_YA_Tools, 
+    UI.VIEW3D_PT_YA_FileManager,
     ]
 
 def register():
