@@ -79,8 +79,7 @@ class MESH_OT_YA_ApplyShapes(Operator):
 
     def execute(self, context):
         ApplyShapes = MESH_OT_YA_ApplyShapes
-        apply_mq = context.scene.ya_props.shape_mq_bool
-        apply_torso = context.scene.ya_props.shape_torso_bool
+        apply_mq = context.scene.ya_props.shape_mq_chest_bool
         
         torso = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
         mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
@@ -90,20 +89,19 @@ class MESH_OT_YA_ApplyShapes(Operator):
         shape_presets = get_shape_presets(size)
 
         # What models to change based on user input
-        if apply_torso:
-            ApplyShapes.reset_shape_values("torso", category)
-            ApplyShapes.apply_shape_values("torso", category, shape_presets)
-            ApplyShapes.mute_shapes(torso, category)
-
         if apply_mq:
             ApplyShapes.reset_shape_values("mq", category)
             ApplyShapes.apply_shape_values("mq", category, shape_presets)
             ApplyShapes.mute_shapes(mannequin, category)
+        else:
+            ApplyShapes.reset_shape_values("torso", category)
+            ApplyShapes.apply_shape_values("torso", category, shape_presets)
+            ApplyShapes.mute_shapes(torso, category)
         
-        if apply_torso or apply_mq:
-            bpy.context.view_layer.objects.active = utils.get_object_from_mesh("Torso")
-        else:  
+        if apply_mq:
             bpy.context.view_layer.objects.active = utils.get_object_from_mesh("Mannequin")
+        else:  
+            bpy.context.view_layer.objects.active = utils.get_object_from_mesh("Torso")
         bpy.context.view_layer.update()
         return {"FINISHED"}
 
@@ -116,18 +114,18 @@ class MESH_OT_YA_ApplySizeCategoryLarge(Operator):
 
     def execute(self, context):
         print("Executing")
-        apply_mq, apply_torso = utils.apply_shapes_targets(self, context)
+        apply_mq = context.scene.ya_props.shape_mq_chest_bool
         category = "Large"
 
         torso = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
         mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
 
          # What models to change based on user input
-        if apply_torso:
-            MESH_OT_YA_ApplyShapes.mute_shapes(torso, category)
-
+        
         if apply_mq:
             MESH_OT_YA_ApplyShapes.mute_shapes(mannequin, category)
+        else:
+            MESH_OT_YA_ApplyShapes.mute_shapes(torso, category)
 
         
         return {"FINISHED"}
@@ -140,19 +138,20 @@ class MESH_OT_YA_ApplySizeCategoryMedium(Operator):
     bl_options = {'UNDO'}
 
     def execute(self, context):
-        apply_mq, apply_torso = utils.apply_shapes_targets(self, context)
+        apply_mq = context.scene.ya_props.shape_mq_chest_bool
         category = "Medium"
 
         torso = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
         mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
 
          # What models to change based on user input
-        if apply_torso:
-            MESH_OT_YA_ApplyShapes.mute_shapes(torso, category)
+        
+            
 
         if apply_mq:
             MESH_OT_YA_ApplyShapes.mute_shapes(mannequin, category)
-
+        else:
+            MESH_OT_YA_ApplyShapes.mute_shapes(torso, category)
         
         return {"FINISHED"}
 
@@ -164,19 +163,20 @@ class MESH_OT_YA_ApplySizeCategorySmall(Operator):
     bl_options = {'UNDO'}
 
     def execute(self, context):
-        apply_mq, apply_torso = utils.apply_shapes_targets(self, context)
+        apply_mq = context.scene.ya_props.shape_mq_chest_bool
         category = "Small"
 
         torso = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
         mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
 
          # What models to change based on user input
-        if apply_torso:
-            MESH_OT_YA_ApplyShapes.mute_shapes(torso, category)
+        
+            
 
         if apply_mq:
             MESH_OT_YA_ApplyShapes.mute_shapes(mannequin, category)
-
+        else:
+            MESH_OT_YA_ApplyShapes.mute_shapes(torso, category)
         
         return {"FINISHED"}
 

@@ -24,16 +24,8 @@ def dynamic_column_buttons(columns, layout, section_prop, labels, category, butt
             columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon)
         else:
             print(f"{name} has no assigned property!")
-    return box
+    return box  
 
-def size_value_columns(mesh, category):
-    obj = utils.get_object_from_mesh(mesh)
-    shape_keys = obj.data.shape_keys.key_blocks
-
-    key_filter = ["Squeeze", "Squish", "Push-Up", "Omoi", "Sag", "Nip Nops"]
-    
-    return None
-    
 
 class VIEW3D_PT_YA_OVERVIEW(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
@@ -83,6 +75,7 @@ class VIEW3D_PT_YA_OVERVIEW(bpy.types.Panel):
                 rows=10)
         
         if not button_adv:
+            
 
             button = section_prop.button_chest_shapes
 
@@ -92,16 +85,26 @@ class VIEW3D_PT_YA_OVERVIEW(bpy.types.Panel):
             
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
             col.prop(section_prop, "button_chest_shapes", text="", icon=icon, emboss=False)
+            
             col2 = row.column(align=True)
             col2.label(text="Chest")
-            depress = True if section_prop.export_body_slot == "Chest" else False
             
             col3 = row.column(align=True)
-            col3.prop(section_prop, "button_advanced_expand", text="", icon="TOOL_SETTINGS")
+            col3.prop(section_prop, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
+
+            col4 = row.column(align=True)
+            col4.prop(section_prop, "button_advanced_expand", text="", icon="TOOL_SETTINGS")
 
             if button:
-                medium_mute = torso.data.shape_keys.key_blocks["MEDIUM ----------------------------"].mute
-                small_mute = torso.data.shape_keys.key_blocks["SMALL ------------------------------"].mute
+                if section_prop.shape_mq_chest_bool:
+                    target = mq
+                    key_target = "mq"
+                else:
+                    target = torso
+                    key_target = "torso"
+
+                medium_mute = target.data.shape_keys.key_blocks["MEDIUM ----------------------------"].mute
+                small_mute = target.data.shape_keys.key_blocks["SMALL ------------------------------"].mute
                 large_depress = True if small_mute and medium_mute else False
                 medium_depress = True if not medium_mute and small_mute else False
                 small_depress = True if not small_mute and medium_mute else False
@@ -112,7 +115,8 @@ class VIEW3D_PT_YA_OVERVIEW(bpy.types.Panel):
                 row.operator("MESH_OT_apply_size_category_medium", text= "Medium", depress=medium_depress)
                 row.operator("MESH_OT_apply_size_category_small", text= "Small", depress=small_depress)
 
-                box = layout.box()
+                box.separator(factor=0.5,type="LINE")
+
                 row = box.row()
                 
                 if not small_mute and not medium_mute:
@@ -135,63 +139,58 @@ class VIEW3D_PT_YA_OVERVIEW(bpy.types.Panel):
                         col.label(text="Sag:")
                     col.label(text="Nip Nops:")
 
+
+
                     if large_depress:
                         col2 = split.column(align=True)
-                        col2.prop(section_prop, "key_squeeze_large_torso")
-                        col2.prop(section_prop, "key_squish_large_torso")
-                        col2.prop(section_prop, "key_pushup_large_torso")
-                        col2.prop(section_prop, "key_omoi_large_torso")
-                        col2.prop(section_prop, "key_sag_omoi_torso")
-                        col2.prop(section_prop, "key_nipnops_large_torso")
+                        col2.prop(section_prop, f"key_squeeze_large_{key_target}")
+                        col2.prop(section_prop, f"key_squish_large_{key_target}")
+                        col2.prop(section_prop, f"key_pushup_large_{key_target}")
+                        col2.prop(section_prop, f"key_omoi_large_{key_target}")
+                        col2.prop(section_prop, f"key_sag_omoi_{key_target}")
+                        col2.prop(section_prop, f"key_nipnops_large_{key_target}")
                     
                     elif medium_depress:
                         col2 = split.column(align=True)
-                        col2.prop(section_prop, "key_squeeze_medium_torso")
-                        col2.prop(section_prop, "key_squish_medium_torso")
-                        col2.prop(section_prop, "key_pushup_medium_torso")
-                        col2.prop(section_prop, "key_sayonara_medium_torso")
-                        col2.prop(section_prop, "key_mini_medium_torso")
-                        col2.prop(section_prop, "key_sag_medium_torso")
-                        col2.prop(section_prop, "key_nipnops_medium_torso")
+                        col2.prop(section_prop, f"key_squeeze_medium_{key_target}")
+                        col2.prop(section_prop, f"key_squish_medium_{key_target}")
+                        col2.prop(section_prop, f"key_pushup_medium_{key_target}")
+                        col2.prop(section_prop, f"key_sayonara_medium_{key_target}")
+                        col2.prop(section_prop, f"key_mini_medium_{key_target}")
+                        col2.prop(section_prop, f"key_sag_medium_{key_target}")
+                        col2.prop(section_prop, f"key_nipnops_medium_{key_target}")
 
                     elif small_depress:
                         col2 = split.column(align=True)
-                        col2.prop(section_prop, "key_squeeze_small_torso")
-                        col2.prop(section_prop, "key_nipnops_small_torso")
+                        col2.prop(section_prop, f"key_squeeze_small_{key_target}")
+                        col2.prop(section_prop, f"key_nipnops_small_{key_target}")
 
+                box.separator(factor=0.5,type="LINE")
                 
-                row = layout.row()
-                box = row.box()
-                col = box.column()
-                col.label(text="Presets:",)
-                col.separator(factor=1)
-                col.prop(context.scene.ya_props, "chest_shape_enum")
-                col.separator(factor=2)
-            
-                box = row.box()
-                col2 = box.column()
-                col2.label(text= "Apply to:")
-                icon = 'CHECKMARK' if section_prop.shape_torso_bool else 'PANEL_CLOSE'
-                col2.prop(context.scene.ya_props, "shape_torso_bool", text="Torso", icon=icon)
-                icon = 'CHECKMARK' if section_prop.shape_mq_bool else 'PANEL_CLOSE'
-                col2.prop(context.scene.ya_props, "shape_mq_bool", text="Mannequin", icon=icon)
+                row = box.row()
+                split = row.split(factor=0.25, align=True) 
+                col = split.column(align=True)
+                col.alignment = "RIGHT"
+                col.label(text="Preset:")
                 
-                row = layout.row()
-                row.operator("MESH_OT_apply_shapes", text= "Apply Shape")
+                col2 = split.column(align=True)
+                col2.prop(section_prop, "chest_shape_enum")
+
+                col3 = split.column(align=True)
+                col3.operator("MESH_OT_apply_shapes", text= "Apply Shape")
+               
 
         # YAS MENU
 
         button = section_prop.button_yas_expand                          
 
-        row = layout.row(align=True)
-        split = row.split(factor=1)
-        box = split.box()
-        sub = box.row(align=True)
-        sub.alignment = 'LEFT'
+        box = layout.box()
+        row = box.row(align=True)
+        row.alignment = 'LEFT'
         
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        sub.prop(section_prop, "button_yas_expand", text="", icon=icon, emboss=False)
-        sub.label(text="Yet Another Skeleton")
+        row.prop(section_prop, "button_yas_expand", text="", icon=icon, emboss=False)
+        row.label(text="Yet Another Skeleton")
 
         if button:
             yas_torso = torso.modifiers["YAS Toggle"].show_viewport
@@ -256,6 +255,7 @@ class VIEW3D_PT_YA_OVERVIEW(bpy.types.Panel):
         else:
             return utils.get_object_from_mesh("Mannequin")
 
+
 class VIEW3D_PT_YA_WEIGHTS(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -269,6 +269,7 @@ class VIEW3D_PT_YA_WEIGHTS(bpy.types.Panel):
 
         row = layout.row()
         row.operator("mesh.remove_empty_vgroups", text= "Remove Empty Groups")
+
 
 class VIEW3D_PT_YA_FILE_MANAGER(bpy.types.Panel):
     bl_space_type = "VIEW_3D"

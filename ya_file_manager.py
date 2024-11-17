@@ -61,6 +61,7 @@ class FILE_OT_simple_export(Operator):
             bpy.ops.export_scene.fbx('INVOKE_DEFAULT', **export_settings, filepath=export_path)
         return {'FINISHED'}
 
+
 class FILE_OT_YA_BatchExport(Operator):
     bl_idname = "file.batch_export"
     bl_label = "Export"
@@ -454,6 +455,7 @@ class FILE_OT_YA_BatchExport(Operator):
                 bake_anim=False,
                 use_custom_props=True
                 )
+    
     
 # Responsible for dealing with visible collections during the export process.
 class FILE_OT_YA_CollectionManager(Operator):

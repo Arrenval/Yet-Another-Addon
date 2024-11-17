@@ -41,12 +41,6 @@ all_shapes = {
         "Rue Feet":     ("Rue",         "Feet",         "Feet",   "Changes foot shape to Rue",                           "",               "Rue"),
         "Clawsies":     ("Clawsies",    "Feet",         "Claws",  "Good for kicking",                                    "",               ""),
         }
-    
-def apply_shapes_targets(self, context):
-    apply_mq = context.scene.ya_props.shape_mq_bool
-    apply_torso = context.scene.ya_props.shape_torso_bool
-    
-    return apply_mq, apply_torso
 
 def yas_state(self, context):
     show_modifier = self.toggle_yas
@@ -91,10 +85,10 @@ def get_chest_category(size):
 def get_shape_presets(size):
         """subsize, [shapekey, value]"""
         shape_presets = {
-        "Large":        {"Squeeze" : 0.3,    "Squish" : 0.0,  "Pushp" : 0.0, "Omoi" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
+        "Large":        {"Squeeze" : 0.3,    "Squish" : 0.0,  "Push-Up" : 0.0, "Omoi" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
         "Omoi":         {"Omoi" : 1.0, "Sag" : 0.0},
         "Sugoi Omoi":   {"Omoi" : 1.0, "Sag" : 1.0},
-        "Medium":       {"Squeeze" : 0.0,  "Squish" : 0.0, "Pushp" : 0.0, "Mini" : 0.0, "Sayonara" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
+        "Medium":       {"Squeeze" : 0.0,  "Squish" : 0.0, "Push-Up" : 0.0, "Mini" : 0.0, "Sayonara" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
         "Sayonara":     {"Sayonara" : 1.0, "Sag" : 0.0},
         "Tsukareta":    {"Sag" : 0.6},
         "Tsukareta+":   {"Sag" : 1.0},
@@ -132,6 +126,7 @@ def get_filtered_shape_keys(obj, key_filter: list):
                 key_list.append((norm_key, category_lower, key_name))
         
         return key_list
+
 
 class UsefulProperties(bpy.types.PropertyGroup):
 
@@ -271,17 +266,21 @@ class UsefulProperties(bpy.types.PropertyGroup):
         items=lambda self, context: get_listable_shapes("Chest")
         )  # type: ignore
     
-    shape_mq_bool: BoolProperty(
-        name="", 
+    shape_mq_chest_bool: BoolProperty(
+        name="",
+        description="Switches to the mannequin", 
         default=False, 
-        update=apply_shapes_targets
         ) # type: ignore
     
-    shape_torso_bool: BoolProperty(
+    shape_mq_legs_bool: BoolProperty(
         name="", 
         default=False, 
-        update=apply_shapes_targets
-        ) # type: ignore   
+        ) # type: ignore
+
+    shape_mq_other_bool: BoolProperty(
+        name="", 
+        default=False, 
+        ) # type: ignore 
 
     def update_export_directory(self, context):
        
