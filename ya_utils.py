@@ -134,6 +134,7 @@ class UsefulProperties(bpy.types.PropertyGroup):
         ("export",   "expand",   ""),
         ("import",   "expand",   ""),
         ("chest",    "shapes",   ""),
+        ("leg",      "shapes",   ""),
         ("chest",    "category", ""),
         ("yas",      "expand",   ""),
         ("file",     "expand",   ""),
@@ -251,7 +252,7 @@ class UsefulProperties(bpy.types.PropertyGroup):
             driver = shape_key.driver_add("value").driver
 
             driver.type = "SCRIPTED"
-            driver.expression = "key_value/100"
+            driver.expression = "round(key_value/100, 2)"
 
             var = driver.variables.new()
             var.name = "key_value"

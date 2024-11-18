@@ -349,7 +349,7 @@ class FILE_OT_YA_BatchExport(Operator):
 
 
             category = utils.all_shapes[size][2]
-            ApplyShapes.mute_shapes(ob, category)
+            ApplyShapes.mute_chest_shapes(ob, category)
             ApplyShapes.apply_shape_values(ob, category, filtered_preset)
             bpy.context.view_layer.objects.active = utils.get_object_from_mesh("Torso")
             bpy.context.view_layer.update()
