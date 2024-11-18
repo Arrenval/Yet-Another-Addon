@@ -26,6 +26,20 @@ def dynamic_column_buttons(columns, layout, section_prop, labels, category, butt
             print(f"{name} has no assigned property!")
     return box  
 
+def dynamic_column_operators(columns, layout, labels):
+    box = layout.box()
+    row = box.row(align=True)
+
+    columns_list = [row.column(align=True) for _ in range(columns)]
+
+    for index, (name, (operator, depress)) in enumerate(labels.items()):
+            
+        col_index = index % columns 
+        
+        columns_list[col_index].operator(operator, text=name, depress=depress)
+
+    return box  
+
 
 class VIEW3D_PT_YA_Overview(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
@@ -76,6 +90,7 @@ class VIEW3D_PT_YA_Overview(bpy.types.Panel):
         
         if not button_adv:
             
+            # CHEST
 
             button = section_prop.button_chest_shapes
 
@@ -105,15 +120,25 @@ class VIEW3D_PT_YA_Overview(bpy.types.Panel):
 
                 medium_mute = target.data.shape_keys.key_blocks["MEDIUM ----------------------------"].mute
                 small_mute = target.data.shape_keys.key_blocks["SMALL ------------------------------"].mute
+                buff_mute = target.data.shape_keys.key_blocks["Buff"].mute
+                rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
+                
                 large_depress = True if small_mute and medium_mute else False
                 medium_depress = True if not medium_mute and small_mute else False
                 small_depress = True if not small_mute and medium_mute else False
+                buff_depress = True if not buff_mute else False
+                rue_depress = True if not rue_mute else False
+                
 
                 box = layout.box()
                 row = box.row(align=True)
-                row.operator("MESH_OT_apply_size_category_large", text= "Large", depress=large_depress)
-                row.operator("MESH_OT_apply_size_category_medium", text= "Medium", depress=medium_depress)
-                row.operator("MESH_OT_apply_size_category_small", text= "Small", depress=small_depress)
+                row.operator("mesh.apply_size_category_large", text= "Large", depress=large_depress)
+                row.operator("mesh.apply_size_category_medium", text= "Medium", depress=medium_depress)
+                row.operator("mesh.apply_size_category_small", text= "Small", depress=small_depress)
+
+                row = box.row(align=True)
+                row.operator("mesh.apply_buff", text= "Buff", depress=buff_depress)
+                row.operator("mesh.apply_rue_torso", text= "Rue", depress=rue_depress)
 
                 box.separator(factor=0.5,type="LINE")
 
@@ -138,8 +163,6 @@ class VIEW3D_PT_YA_Overview(bpy.types.Panel):
                     if large_depress or medium_depress:
                         col.label(text="Sag:")
                     col.label(text="Nip Nops:")
-
-
 
                     if large_depress:
                         col2 = split.column(align=True)
@@ -177,8 +200,92 @@ class VIEW3D_PT_YA_Overview(bpy.types.Panel):
                 col2.prop(section_prop, "chest_shape_enum")
 
                 col3 = split.column(align=True)
-                col3.operator("MESH_OT_apply_shapes", text= "Apply Shape")
-               
+                col3.operator("mesh.apply_shapes", text= "Apply Shape")
+
+        button = section_prop.button_leg_shapes
+
+        box = layout.box()
+        row = box.row(align=True)
+        col = row.column(align=True)
+        
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        col.prop(section_prop, "button_leg_shapes", text="", icon=icon, emboss=False)
+        
+        col2 = row.column(align=True)
+        col2.label(text="Legs")
+        
+        col3 = row.column(align=True)
+        col3.prop(section_prop, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
+
+        if button:
+            if section_prop.shape_mq_legs_bool:
+                target = mq
+            else:
+                target = legs
+
+            skull_mute = target.data.shape_keys.key_blocks["Skull Crushers"].mute
+            mini_mute = target.data.shape_keys.key_blocks["Mini"].mute
+            rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
+
+            genb_mute = target.data.shape_keys.key_blocks["Gen B"].mute
+            genc_mute = target.data.shape_keys.key_blocks["Gen C"].mute
+            gensfw_mute = target.data.shape_keys.key_blocks["Gen SFW"].mute
+
+            small_mute = target.data.shape_keys.key_blocks["Small Butt"].mute
+            soft_mute = target.data.shape_keys.key_blocks["Soft Butt"].mute
+
+            hip_yab_mute = target.data.shape_keys.key_blocks["Hip Dips (for YAB)"].mute
+            hip_rue_mute = target.data.shape_keys.key_blocks["Less Hip Dips (for Rue)"].mute
+
+            melon_depress = True if skull_mute and mini_mute else False
+            skull_depress = True if not skull_mute else False
+            mini_depress = True if not mini_mute else False
+            rue_depress = True if not rue_mute else False
+
+            gena_depress = True if genb_mute and gensfw_mute and genc_mute else False
+            genb_depress = True if not genb_mute else False
+            genc_depress = True if not genc_mute else False
+            gensfw_depress = True if not gensfw_mute else False
+
+            small_depress = True if not small_mute else False
+            soft_depress = True if not soft_mute else False
+            hip_depress = True if not hip_yab_mute or not hip_rue_mute else False
+            
+
+            box = layout.box()
+            row = box.row(align=True)
+            
+            split = row.split(factor=0.279, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Genitalia:")
+            split.operator("mesh.apply_gena", text= "A", depress=gena_depress)
+            split.operator("mesh.apply_genb", text= "B", depress=genb_depress)
+            split.operator("mesh.apply_genc", text= "C", depress=genc_depress)
+            split.operator("mesh.apply_gensfw", text= "SFW", depress=gensfw_depress)
+            
+      
+
+            row = box.row(align=True)
+            split = row.split(factor=0.27, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Leg sizes:")
+            split.operator("mesh.apply_melon", text= "Melon", depress=melon_depress)
+            split.operator("mesh.apply_skull", text= "Skull", depress=skull_depress)
+            split.operator("mesh.apply_mini", text= "Mini", depress=mini_depress)
+
+            row = box.row(align=True)
+            split = row.split(factor=0.262, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Butt options:")
+            split.operator("mesh.apply_small_butt", text= "Small", depress=small_depress)
+            split.operator("mesh.apply_soft_butt", text= "Soft", depress=soft_depress)
+
+            row = box.row(align=True)
+            split = row.split(factor=0.265, align=True)
+            split.operator("mesh.apply_hip_dips", text= "Alt Hips", depress=hip_depress)
+            split.operator("mesh.apply_rue_legs", text= "Rue", depress=rue_depress)
+
+            box.separator(factor=0.5,type="LINE")  
 
         # YAS MENU
 
