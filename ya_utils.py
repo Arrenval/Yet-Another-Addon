@@ -228,6 +228,7 @@ class UsefulProperties(bpy.types.PropertyGroup):
                     min = 0
                 
                 prop_name = f"key_{key}_{category}_{name}"
+                
                 prop = FloatProperty(
                     name="",
                     default=default,
