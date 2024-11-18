@@ -43,7 +43,9 @@ def register():
 
     bpy.types.Scene.ya_props = PointerProperty(
         type=utils.UsefulProperties)
-
+    
+    
+    utils.addon_version = bl_info["version"]
     utils.UsefulProperties.export_bools()
     utils.UsefulProperties.ui_buttons()
     utils.UsefulProperties.mesh_pointers()
@@ -57,6 +59,8 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
     del bpy.types.Scene.ya_props
+    del utils.addon_version
+    
        
 
 if __name__ == "__main__":
