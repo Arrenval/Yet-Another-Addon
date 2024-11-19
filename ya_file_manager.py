@@ -5,8 +5,9 @@ import ya_utils as utils
 
 from itertools import combinations
 from functools import partial
-from ya_operators import MESH_OT_YA_ApplyShapes as ApplyShapes
+from ya_shape_ops import MESH_OT_YA_ApplyShapes as ApplyShapes
 from bpy.types import Operator
+from bpy.props import StringProperty
 
 # Global variable for making sure all functions can properly track the current export.
 # Ease of use alongside blender's timers.
@@ -62,8 +63,8 @@ class FILE_OT_SimpleExport(Operator):
         return {'FINISHED'}
 
 
-class FILE_OT_YA_BatchExport(Operator):
-    bl_idname = "file.batch_export"
+class FILE_OT_YA_BatchQueue(Operator):
+    bl_idname = "file.batch_queue"
     bl_label = "Export"
     bl_description = "Exports your files based on your selections"
     bl_options = {'UNDO'}
@@ -140,7 +141,7 @@ class FILE_OT_YA_BatchExport(Operator):
                 return {'CANCELLED'} 
         
         bpy.ops.file.collection_manager(extra_json = to_keep)
-        FILE_OT_YA_BatchExport.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
+        FILE_OT_YA_BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
 
         return {'FINISHED'}
     
@@ -166,27 +167,40 @@ class FILE_OT_YA_BatchExport(Operator):
         mesh = self.ob_mesh_dict[body_slot]
         target = utils.get_object_from_mesh(mesh).data.shape_keys.key_blocks
 
-        leg_sizes = ["Melon", "Skull", "Mini Legs"]
+        leg_sizes = {
+            "Melon": self.size_options["Melon"],
+            "Skull": self.size_options["Skull"], 
+            "Mini Legs": self.size_options["Mini Legs"]
+            }
 
         if body_slot != "Legs":
             gen = None             
             for size, options_groups in self.actual_combinations.items(): 
                 for options in options_groups:
                     self.queue.append((options, size, gen, target))
+            return "Main queue finished."
 
         # Legs need different handling due to genitalia combos     
-        else:
-            for size in leg_sizes:
-                if self.size_options[size]:
-                    for gen, options_groups in self.actual_combinations.items(): 
-                        for options in options_groups:
-                            if self.body_slot == "Chest/Legs":
-                                self.leg_queue.append((options, size, gen, target))
-                            else:
-                                self.queue.append((options, size, gen, target))   
+        for size, enabled in leg_sizes.items():
+            if enabled:
+                for gen, options_groups in self.actual_combinations.items(): 
+                    for options in options_groups:
+                        if self.body_slot == "Chest/Legs":
+                            self.leg_queue.append((options, size, gen, target))
+                        else:
+                            self.queue.append((options, size, gen, target))
+        if self.leg_queue != []:
+            return "No leg options selected."
+        
+        return "Leg queue finished."
  
     def shape_combinations(self, body_slot):
-        possible_parts  = ["Rue Legs", "Small Butt", "Soft Butt", "Hip Dips", "Buff", "Rue", "Rue Hands", "YAB Hands", "Clawsies"]
+        possible_parts  = [
+            "Rue Legs", "Small Butt", "Soft Butt", "Hip Dips",
+            "Buff", "Rue", 
+            "Rue Hands", "YAB Hands", 
+            "Clawsies"
+            ]
         actual_parts = []
         all_combinations = set()
         actual_combinations = {}
@@ -194,10 +208,8 @@ class FILE_OT_YA_BatchExport(Operator):
         
         #Excludes possible parts based on which body slot they belong to
         for shape, (name, slot, category, description, body, key) in utils.all_shapes.items():
-            if any(shape in possible_parts for parts in possible_parts):
-                if body_slot == slot:
-                     if self.size_options[shape]:
-                        actual_parts.append(shape)  
+            if any(shape in possible_parts for parts in possible_parts) and body_slot == slot and self.size_options[shape]:
+                actual_parts.append(shape)  
 
         for r in range(0, len(actual_parts) + 1):
             if body_slot == "Hands":
@@ -210,12 +222,15 @@ class FILE_OT_YA_BatchExport(Operator):
             if body_slot == "Legs":
                 if self.size_options[shape] and category == "Vagina":
                     actual_combinations[shape] = all_combinations
+
             elif body_slot == "Chest" and slot == "Chest":
                 if self.size_options[shape] and category != "":
                     actual_combinations[shape] = all_combinations
+
             elif body_slot == "Hands":
                 if self.size_options[shape] and category == "Nails":
                     actual_combinations[shape] = all_combinations
+
             elif body_slot == "Feet":
                 if self.size_options[shape] and category == "Feet":
                     actual_combinations[shape] = all_combinations
@@ -229,7 +244,7 @@ class FILE_OT_YA_BatchExport(Operator):
         global ya_is_exporting
         ya_is_exporting = False
 
-        callback = partial(FILE_OT_YA_BatchExport.export_queue, context, queue, leg_queue, body_slot, gen_options)
+        callback = partial(FILE_OT_YA_BatchQueue.export_queue, context, queue, leg_queue, body_slot, gen_options)
         
         bpy.app.timers.register(callback, first_interval=0.5) 
 
@@ -244,10 +259,10 @@ class FILE_OT_YA_BatchExport(Operator):
         ya_is_exporting = True
         options, size, gen, target = queue.pop()
         
-        FILE_OT_YA_BatchExport.mute_keys(body_slot, target)
+        FILE_OT_YA_BatchQueue.mute_keys(body_slot, target)
 
-        main_name = FILE_OT_YA_BatchExport.name_generator(options, size, gen, gen_options, body_slot)
-        FILE_OT_YA_BatchExport.apply_shape_toggle(options, size, gen, body_slot, target)
+        main_name = FILE_OT_YA_BatchQueue.name_generator(options, size, gen, gen_options, body_slot)
+        FILE_OT_YA_BatchQueue.apply_shape_toggle(options, size, gen, body_slot, target)
 
         if body_slot == "Hands":
 
@@ -276,19 +291,19 @@ class FILE_OT_YA_BatchExport(Operator):
         if body_slot == "Chest/Legs":
             for leg_task in second_queue:
                 options, size, gen, target = leg_task
-                if FILE_OT_YA_BatchExport.check_rue_match(options, main_name):
+                if FILE_OT_YA_BatchQueue.check_rue_match(options, main_name):
                     body_slot = "Legs"
                     
-                    FILE_OT_YA_BatchExport.mute_keys(body_slot, target)
-                    FILE_OT_YA_BatchExport.apply_shape_toggle(options, size, gen, body_slot, target)
+                    FILE_OT_YA_BatchQueue.mute_keys(body_slot, target)
+                    FILE_OT_YA_BatchQueue.apply_shape_toggle(options, size, gen, body_slot, target)
 
-                    leg_name = FILE_OT_YA_BatchExport.name_generator(options, size, gen, gen_options, body_slot)
+                    leg_name = FILE_OT_YA_BatchQueue.name_generator(options, size, gen, gen_options, body_slot)
                     main_name = leg_name + " - " + main_name
-                    main_name = FILE_OT_YA_BatchExport.clean_file_name(main_name)
+                    main_name = FILE_OT_YA_BatchQueue.clean_file_name(main_name)
 
-                    FILE_OT_YA_BatchExport.export_template(context, main_name)
+                    FILE_OT_YA_FileExport.export_template(file_name=main_name)
         else:
-            FILE_OT_YA_BatchExport.export_template(context, main_name)
+            FILE_OT_YA_FileExport.export_template(file_name=main_name)
 
         ya_is_exporting = False
 
@@ -366,16 +381,15 @@ class FILE_OT_YA_BatchExport(Operator):
 
         #Loops over the options and applies the shapes name to file_names
         for shape, (name, slot, category, description, body, key) in utils.all_shapes.items():
-            if any(shape in options for option in options):
-                if not shape.startswith("Gen") and name != "YAB":
-                    if name == "Hip Dips":
-                        name = "Alt Hip" 
-                    file_names.append(name)
+            if any(shape in options for option in options) and not shape.startswith("Gen") and name != "YAB":
+                if name == "Hip Dips":
+                    name = "Alt Hip" 
+                file_names.append(name)
         
         # Checks if any Genitalia shapes and applies the shortened name 
         # Ignores gen_name if only one option is selected
         if gen != None and gen.startswith("Gen") and gen_options > 1:
-                gen_name = gen.replace("Gen ","")       
+            gen_name = gen.replace("Gen ","")       
         
         # Tweaks name output for the sizes
         size_name = size.replace(" Legs", "").replace("YAB ", "")
@@ -390,6 +404,7 @@ class FILE_OT_YA_BatchExport(Operator):
 
         if body_slot == "Feet":
             file_names = reversed(file_names)
+
         if gen_name != None:
             file_names.append(gen_name)
         
@@ -402,17 +417,27 @@ class FILE_OT_YA_BatchExport(Operator):
         reset_shape_keys = []
 
         for shape, (name, slot, shape_category, description, body, key) in utils.all_shapes.items():
-                if key != "" and slot == body_slot:
-                    if shape == "Hip Dips":
-                        reset_shape_keys.append("Hip Dips (for YAB)")
-                        reset_shape_keys.append("Less Hip Dips (for Rue)")
-                    else:
-                        reset_shape_keys.append(key)
+            if key != "" and slot == body_slot:
+                if shape == "Hip Dips":
+                    reset_shape_keys.append("Hip Dips (for YAB)")
+                    reset_shape_keys.append("Less Hip Dips (for Rue)")
+                else:
+                    reset_shape_keys.append(key)
 
         for key in reset_shape_keys:   
             ob[key].mute = True
+
     
-    # These are the actual export functions that are called when a specific shape is applied and ready for export
+class FILE_OT_YA_FileExport(Operator):
+    bl_idname = "file.file_export"
+    bl_label = "Export"
+    bl_description = ""
+    bl_options = {'UNDO'}
+
+    file_name: StringProperty()
+
+    def execute(self, context):
+            FILE_OT_YA_FileExport.export_template(context, self.file_name)
 
     def export_template(context, file_name):
         gltf = context.scene.ya_props.export_gltf
@@ -424,9 +449,8 @@ class FILE_OT_YA_BatchExport(Operator):
             filetype = ".fbx"
 
         export_path = os.path.join(selected_directory, f"{file_name}{filetype}")
-        FILE_OT_YA_BatchExport.get_export_settings(export_path, gltf)
+        FILE_OT_YA_FileExport.get_export_settings(export_path, gltf)
         
-
     def get_export_settings(export_path, gltf):
         if gltf:
             return bpy.ops.export_scene.fbx(
@@ -455,7 +479,7 @@ class FILE_OT_YA_BatchExport(Operator):
                 bake_anim=False,
                 use_custom_props=True
                 )
-    
+
 
 # Responsible for dealing with visible collections during the export process.
 class FILE_OT_YA_CollectionManager(Operator):
