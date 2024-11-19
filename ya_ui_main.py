@@ -1,6 +1,5 @@
 import bpy
 import ya_utils as utils
-import ya_operators as operators
 
 from bpy.props import StringProperty, BoolProperty, EnumProperty
 
@@ -426,7 +425,7 @@ class VIEW3D_PT_YA_FileManager(bpy.types.Panel):
             col = row.column(align=True)
             col.operator("FILE_OT_simple_export", text="Simple Export")
             col2 = row.column(align=True)
-            col2.operator("FILE_OT_batch_export", text="Batch Export")
+            col2.operator("FILE_OT_batch_queue", text="Batch Export")
             
             
             export_text = "GLTF" if section_prop.export_gltf else "FBX"
@@ -605,7 +604,7 @@ class VIEW3D_PT_YA_FileManager(bpy.types.Panel):
             row = layout.row(align=True)
             row.prop(context.scene.ya_props, "export_directory", text="")
             row = layout.row(align=True)
-            row.operator("FILE_OT_batch_export", text="Export FBX")
+            row.operator("FILE_OT_batch_queue", text="Export FBX")
             row = layout.row()
             row.prop(context.scene.ya_props, "export_body_slot", text="")
             row = layout.row(align=True)
@@ -634,7 +633,7 @@ class VIEW3D_PT_YA_FileManager(bpy.types.Panel):
             row = layout.row(align=True)
             row.prop(context.scene.ya_props, "export_directory", text="")
             row = layout.row(align=True)
-            row.operator("FILE_OT_batch_export", text="Export FBX")
+            row.operator("FILE_OT_batch_queue", text="Export FBX")
             row = layout.row()
             row.prop(context.scene.ya_props, "export_body_slot", text="")
             row = layout.row(align=True)

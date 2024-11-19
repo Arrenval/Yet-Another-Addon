@@ -15,14 +15,14 @@ bl_info = {
 
 import ya_utils as utils
 import ya_ui_main as UI
-import ya_operators as operators
+import ya_shape_ops as operators
 import ya_file_manager as file
 
 classreg = [
     utils.UsefulProperties,
     file.FILE_OT_SimpleExport,
     file.FILE_OT_YA_CollectionManager,
-    file.FILE_OT_YA_BatchExport,  
+    file.FILE_OT_YA_BatchQueue,  
     operators.MESH_OT_YA_RemoveEmptyVGroups, 
     operators.MESH_OT_YA_ApplyShapes, 
     operators.MESH_OT_YA_ApplySizeCategoryLarge, 
