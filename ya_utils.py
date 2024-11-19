@@ -135,6 +135,7 @@ class UsefulProperties(bpy.types.PropertyGroup):
         ("import",   "expand",   ""),
         ("chest",    "shapes",   ""),
         ("leg",      "shapes",   ""),
+        ("other",    "shapes",   ""),
         ("chest",    "category", ""),
         ("yas",      "expand",   ""),
         ("file",     "expand",   ""),
@@ -239,8 +240,10 @@ class UsefulProperties(bpy.types.PropertyGroup):
                     precision=0,
                     subtype="PERCENTAGE"    
                 )
-
-                setattr(UsefulProperties, prop_name, prop)
+                if hasattr(UsefulProperties, prop_name):
+                    return None
+                else:
+                    setattr(UsefulProperties, prop_name, prop)
                 UsefulProperties.add_shape_key_drivers(obj, key_name, prop_name)
 
     def add_shape_key_drivers(obj, key_name, prop_name):
@@ -275,7 +278,8 @@ class UsefulProperties(bpy.types.PropertyGroup):
         ) # type: ignore
     
     shape_mq_legs_bool: BoolProperty(
-        name="", 
+        name="",
+        description="Switches to the mannequin", 
         default=False, 
         ) # type: ignore
 

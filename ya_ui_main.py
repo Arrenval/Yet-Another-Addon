@@ -285,7 +285,21 @@ class VIEW3D_PT_YA_Overview(bpy.types.Panel):
             split.operator("mesh.apply_hip_dips", text= "Alt Hips", depress=hip_depress)
             split.operator("mesh.apply_rue_legs", text= "Rue", depress=rue_depress)
 
-            box.separator(factor=0.5,type="LINE")  
+        button = section_prop.button_other_shapes
+
+        box = layout.box()
+        row = box.row(align=True)
+        col = row.column(align=True)
+        
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        col.prop(section_prop, "button_other_shapes", text="", icon=icon, emboss=False)
+        
+        col2 = row.column(align=True)
+        col2.label(text="Hands/Feet")
+        
+        col3 = row.column(align=True)
+        col3.prop(section_prop, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
+ 
 
         # YAS MENU
 
