@@ -1,6 +1,5 @@
 import bpy
 import ya_utils as utils
-import ya_shape_ops as operators
 
 from bpy.props import StringProperty, BoolProperty, EnumProperty
 
