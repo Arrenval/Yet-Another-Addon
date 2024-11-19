@@ -140,7 +140,7 @@ class FILE_OT_YA_BatchQueue(Operator):
                 self.report({'ERROR'}, "No valid combinations!")
                 return {'CANCELLED'} 
         
-        bpy.ops.file.collection_manager(extra_json = to_keep)
+        bpy.ops.utils.collection_manager(extra_json = to_keep)
         FILE_OT_YA_BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
 
         return {'FINISHED'}
@@ -269,24 +269,24 @@ class FILE_OT_YA_BatchQueue(Operator):
             if size == "Straight" or size == "Curved":
                 collections = ["Hands", "Clawsies"]
                 extra = json.dumps(collections)
-                bpy.ops.file.collection_manager(extra_json = extra)
+                bpy.ops.utils.collection_manager(extra_json = extra)
     
             else:
                 collections = ["Hands", "Nails"]
                 extra = json.dumps(collections)
-                bpy.ops.file.collection_manager(extra_json = extra)
+                bpy.ops.utils.collection_manager(extra_json = extra)
     
         if body_slot == "Feet":
 
             if "Clawsies" in options:
                 collections = ["Feet", "Toe Clawsies"]
                 extra = json.dumps(collections)
-                bpy.ops.file.collection_manager(extra_json = extra)
+                bpy.ops.utils.collection_manager(extra_json = extra)
     
             else:
                 collections = ["Feet", "Toenails"]
                 extra = json.dumps(collections)
-                bpy.ops.file.collection_manager(extra_json = extra)
+                bpy.ops.utils.collection_manager(extra_json = extra)
         
         if body_slot == "Chest/Legs":
             for leg_task in second_queue:
@@ -479,67 +479,4 @@ class FILE_OT_YA_FileExport(Operator):
                 bake_anim=False,
                 use_custom_props=True
                 )
-
-
-# Responsible for dealing with visible collections during the export process.
-class FILE_OT_YA_CollectionManager(Operator):
-    bl_idname = "file.collection_manager"
-    bl_label = "Export"
-    bl_description = "Combines chest options and exports them"
-    bl_options = {'UNDO'}
-
-    extra_json:          bpy.props.StringProperty() # type: ignore
-
-    def __init__(self):
-        self.coll = bpy.data.collections
-        self.collections_to_keep = [
-            self.coll["Skeleton"],
-            self.coll["Resources"],
-            self.coll["Data Sources"],
-            self.coll["UV/Weights"],
-            self.coll["Nail UVs"],
-            self.coll["Rue"],
-            self.coll["YAS"],
-            self.coll["Piercings"]
-        ]
-   
-    def execute(self, context):
-            extra_collections = json.loads(self.extra_json) 
-
-            for collection in extra_collections:
-                new_collection = self.coll[collection]
-
-                self.collections_to_keep.append(new_collection)
-
-            self.exclude_collections()
-            bpy.context.view_layer.layer_collection.children['Resources'].hide_viewport = True
-            return {"FINISHED"}
-
-    def exclude_collections(self):
-        # Eclude all collections except those to keep
-        all_collections = bpy.data.collections
-        
-        # First set visible to avoid children being enabled
-        for collection in self.collections_to_keep:
-            self.toggle_collection_exclude(collection, exclude=False)
-
-        # Exclude remaining collections
-        for collection in all_collections:
-            if collection not in self.collections_to_keep:
-                self.toggle_collection_exclude(collection, exclude=True)
-    
-    def toggle_collection_exclude(self, collection, exclude=True):
-            # Get the layer collections for the current scene and context
-            for layer_collection in bpy.context.view_layer.layer_collection.children:
-                self.recursively_toggle_exclude(layer_collection, collection, exclude)
-
-    def recursively_toggle_exclude(self, layer_collection, collection, exclude):
-        # check all layers for children and apply exclude state
-        if layer_collection.collection == collection:
-            layer_collection.exclude = exclude
-        
-        # Recursive check for child collections
-        for child in layer_collection.children:
-            self.recursively_toggle_exclude(child, collection, exclude)
-
 
