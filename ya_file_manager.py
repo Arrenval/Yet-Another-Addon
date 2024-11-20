@@ -19,47 +19,16 @@ class FILE_OT_SimpleExport(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        gltf = context.scene.ya_props.export_gltf
-        
-        if gltf:
-            filename = "untitled.gltf"
-            gltf_export_settings = {
-                "use_selection": False,
-                "use_active_collection": False,
-                "export_animations": False,
-                "export_extras": True,
-                "export_leaf_bone": False,
-                "export_apply": True,
-                "use_visible": True,
-                "export_try_sparse_sk": False,
-                "export_attributes": True,
-                "export_tangents": True
-            }
-        else:
-            filename = "untitled.fbx"
-            export_settings = {
-                "use_selection": False,
-                "use_active_collection": False,
-                "bake_anim": False,
-                "use_custom_props": True,
-                "use_triangles": False,
-                "add_leaf_bones": False,
-                "use_mesh_modifiers": True,
-                "use_visible": True
-            }
-            
-
+        gltf = context.scene.ya_props.export_gltf 
         directory = context.scene.ya_props.export_directory
-        export_path = os.path.join(directory, filename)
+        export_path = os.path.join(directory, "untitled")
+        export_settings = FILE_OT_YA_FileExport.get_export_settings(gltf)
 
         if gltf:
-            bpy.ops.export_scene.gltf('INVOKE_DEFAULT', 
-                                      **gltf_export_settings, 
-                                      filepath=export_path, 
-                                      export_format="GLTF_SEPARATE", 
-                                      export_texture_dir="GLTF Textures")
+            bpy.ops.export_scene.gltf('INVOKE_DEFAULT', filepath=export_path + ".gltf", **export_settings)
         else:
-            bpy.ops.export_scene.fbx('INVOKE_DEFAULT', **export_settings, filepath=export_path)
+            bpy.ops.export_scene.fbx('INVOKE_DEFAULT', filepath=export_path + ".fbx", **export_settings)
+        
         return {'FINISHED'}
 
 
@@ -96,26 +65,7 @@ class FILE_OT_YA_BatchQueue(Operator):
             return {'CANCELLED'} 
 
         self.size_options = self.get_size_options(context)
-        collections = []
-        
-        if self.body_slot == "Chest":
-            collections = ["Chest"]
-            if self.size_options["Piercings"]:
-                collections.append("Nipple Piercings")
-
-        elif self.body_slot == "Legs":
-            collections = ["Legs"]
-            if self.size_options["Pubes"]:
-                collections.append("Pubes")
-
-        elif self.body_slot == "Chest/Legs":
-            collections = ["Chest", "Legs"]
-            if self.size_options["Piercings"]:
-                collections.append("Nipple Piercings")
-            if self.size_options["Pubes"]:
-                collections.append("Pubes")
-
-        to_keep = json.dumps(collections)
+        to_keep = self.collection_state
 
         if self.body_slot == "Chest/Legs":
             self.actual_combinations = self.shape_combinations("Chest")
@@ -147,7 +97,28 @@ class FILE_OT_YA_BatchQueue(Operator):
     
     # The following functions is executed to establish the queue and valid options 
     # before handing all variables over to queue processing
+    def collection_state(self):
+        collections = []
 
+        if self.body_slot == "Chest":
+            collections = ["Chest"]
+            if self.size_options["Piercings"]:
+                collections.append("Nipple Piercings")
+
+        elif self.body_slot == "Legs":
+            collections = ["Legs"]
+            if self.size_options["Pubes"]:
+                collections.append("Pubes")
+
+        elif self.body_slot == "Chest/Legs":
+            collections = ["Chest", "Legs"]
+            if self.size_options["Piercings"]:
+                collections.append("Nipple Piercings")
+            if self.size_options["Pubes"]:
+                collections.append("Pubes")
+
+        return json.dumps(collections)
+    
     def get_size_options(self, context):
         options = {}
         prop = context.scene.ya_props
@@ -259,10 +230,10 @@ class FILE_OT_YA_BatchQueue(Operator):
         ya_is_exporting = True
         options, size, gen, target = queue.pop()
         
-        FILE_OT_YA_BatchQueue.mute_keys(body_slot, target)
+        FILE_OT_YA_BatchQueue.reset_model_state(body_slot, target)
 
         main_name = FILE_OT_YA_BatchQueue.name_generator(options, size, gen, gen_options, body_slot)
-        FILE_OT_YA_BatchQueue.apply_shape_toggle(options, size, gen, body_slot, target)
+        FILE_OT_YA_BatchQueue.apply_model_state(options, size, gen, body_slot, target)
 
         if body_slot == "Hands":
 
@@ -294,16 +265,16 @@ class FILE_OT_YA_BatchQueue(Operator):
                 if FILE_OT_YA_BatchQueue.check_rue_match(options, main_name):
                     body_slot = "Legs"
                     
-                    FILE_OT_YA_BatchQueue.mute_keys(body_slot, target)
-                    FILE_OT_YA_BatchQueue.apply_shape_toggle(options, size, gen, body_slot, target)
+                    FILE_OT_YA_BatchQueue.reset_model_state(body_slot, target)
+                    FILE_OT_YA_BatchQueue.apply_model_state(options, size, gen, body_slot, target)
 
                     leg_name = FILE_OT_YA_BatchQueue.name_generator(options, size, gen, gen_options, body_slot)
                     main_name = leg_name + " - " + main_name
                     main_name = FILE_OT_YA_BatchQueue.clean_file_name(main_name)
 
-                    FILE_OT_YA_FileExport.export_template(file_name=main_name)
+                    FILE_OT_YA_FileExport.export_template(context, file_name=main_name)
         else:
-            FILE_OT_YA_FileExport.export_template(file_name=main_name)
+            FILE_OT_YA_FileExport.export_template(context, file_name=main_name)
 
         ya_is_exporting = False
 
@@ -312,7 +283,7 @@ class FILE_OT_YA_BatchQueue(Operator):
         else:
             return None
 
-    # These functions are largely responsible for applying the correct model state and appropriate file name.
+    # These functions are responsible for applying the correct model state and appropriate file name.
     # They are called from the export_queue function.
 
     def check_rue_match (options, file_name):
@@ -339,7 +310,7 @@ class FILE_OT_YA_BatchQueue(Operator):
         
         return file_name[:second] + file_name[second + len("Rue - "):]
 
-    def apply_shape_toggle(options, size, gen, body_slot, ob):
+    def apply_model_state(options, size, gen, body_slot, ob):
         if body_slot == "Chest/Legs":
             body_slot = "Chest"
 
@@ -357,15 +328,15 @@ class FILE_OT_YA_BatchQueue(Operator):
             keys_to_filter = ["Squeeze", "Squish", "Push-Up", "Nip Nops"]
             preset = utils.get_shape_presets(size)
             filtered_preset = {}
+           
 
             for key in preset.keys():
                 if not any(key.endswith(sub) for sub in keys_to_filter):
                     filtered_preset[key] = preset[key]
 
-
             category = utils.all_shapes[size][2]
             ApplyShapes.mute_chest_shapes(ob, category)
-            ApplyShapes.apply_shape_values(ob, category, filtered_preset)
+            ApplyShapes.apply_shape_values("torso", category, filtered_preset)
             bpy.context.view_layer.objects.active = utils.get_object_from_mesh("Torso")
             bpy.context.view_layer.update()
                 
@@ -410,7 +381,7 @@ class FILE_OT_YA_BatchQueue(Operator):
         
         return " - ".join(list(file_names))
     
-    def mute_keys(body_slot, ob):
+    def reset_model_state(body_slot, ob):
         if body_slot == "Chest/Legs":
             body_slot = "Chest"
 
@@ -434,7 +405,8 @@ class FILE_OT_YA_FileExport(Operator):
     bl_description = ""
     bl_options = {'UNDO'}
 
-    file_name: StringProperty()
+    file_name: str = StringProperty()
+    preset: str = StringProperty()
 
     def execute(self, context):
             FILE_OT_YA_FileExport.export_template(context, self.file_name)
@@ -443,40 +415,45 @@ class FILE_OT_YA_FileExport(Operator):
         gltf = context.scene.ya_props.export_gltf
         selected_directory = context.scene.ya_props.export_directory
 
-        if gltf:
-            filetype = ".gltf"
-        else: 
-            filetype = ".fbx"
+        export_path = os.path.join(selected_directory, file_name)
+        export_settings = FILE_OT_YA_FileExport.get_export_settings(export_path, gltf)
 
-        export_path = os.path.join(selected_directory, f"{file_name}{filetype}")
-        FILE_OT_YA_FileExport.get_export_settings(export_path, gltf)
-        
-    def get_export_settings(export_path, gltf):
         if gltf:
-            return bpy.ops.export_scene.fbx(
-                filepath=export_path,
-                export_format="GLTF_SEPARATE", 
-                export_texture_dir="GLTF Textures",
-                use_visible= True,
-                use_selection= False,
-                use_active_collection= False,
-                export_animations= False,
-                export_extras= True,
-                export_leaf_bone= False,
-                export_apply= True,
-                export_try_sparse_sk= False,
-                export_attributes= True,
-                export_tangents= True 
-                )
-
+            bpy.ops.export_scene.gltf(filepath=export_path + ".gltf", **export_settings)
         else:
-            return bpy.ops.export_scene.fbx(
-                filepath=export_path,
-                use_visible=True,
-                use_triangles=False,
-                use_mesh_modifiers=True,
-                add_leaf_bones=False,
-                bake_anim=False,
-                use_custom_props=True
-                )
+            bpy.ops.export_scene.fbx(filepath=export_path + ".fbx", **export_settings)
+        
+        
+    def get_export_settings(gltf):
+        if gltf:
+            return {
+                "export_format": "GLTF_SEPARATE", 
+                "export_texture_dir": "GLTF Textures",
+                "use_selection": False,
+                "use_active_collection": False,
+                "export_animations": False,
+                "export_extras": True,
+                "export_leaf_bone": False,
+                "export_apply": True,
+                "use_visible": True,
+                "export_try_sparse_sk": False,
+                "export_attributes": True,
+                "export_tangents": True,
+                "export_influence_nb": 8,
+                "export_active_vertex_color_when_no_material": True,
+                "export_all_vertex_colors": True,
+                "export_image_format": "NONE"
+            }
+        
+        else:
+            return {
+                "use_selection": False,
+                "use_active_collection": False,
+                "bake_anim": False,
+                "use_custom_props": True,
+                "use_triangles": False,
+                "add_leaf_bones": False,
+                "use_mesh_modifiers": True,
+                "use_visible": True,
+            }
 
