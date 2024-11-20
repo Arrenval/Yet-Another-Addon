@@ -20,8 +20,8 @@ import ya_file_manager as file
 
 classreg = [
     utils.UsefulProperties,
+    utils.UTILS_OT_YA_CollectionManager,
     file.FILE_OT_SimpleExport,
-    file.FILE_OT_YA_CollectionManager,
     file.FILE_OT_YA_BatchQueue,  
     operators.MESH_OT_YA_RemoveEmptyVGroups, 
     operators.MESH_OT_YA_ApplyShapes, 
@@ -41,6 +41,17 @@ classreg = [
     operators.MESH_OT_YA_ApplySmallButt,
     operators.MESH_OT_YA_ApplySoftButt,
     operators.MESH_OT_YA_ApplyHips,
+    operators.MESH_OT_YA_ApplyRueHands,
+    operators.MESH_OT_YA_ApplyLongNails,
+    operators.MESH_OT_YA_ApplyShortNails,
+    operators.MESH_OT_YA_ApplyBallerinaNails,
+    operators.MESH_OT_YA_ApplyStabbiesNails,
+    operators.MESH_OT_YA_ApplyClawsies,
+    operators.MESH_OT_YA_HandNailVisibility,
+    operators.MESH_OT_YA_HandClawVisibiliy,
+    operators.MESH_OT_YA_FeetNailVisibility,
+    operators.MESH_OT_YA_FeetClawVisibiliy,
+    operators.MESH_OT_YA_ApplyRueFeet,
     operators.YA_OBJECT_OT_SetBodyPart,
     ]
 
@@ -63,6 +74,7 @@ def register():
     utils.UsefulProperties.ui_buttons()
     utils.UsefulProperties.mesh_pointers()
     utils.UsefulProperties.chest_key_floats()
+    utils.UsefulProperties.feet_key_floats()
     
     for cls in uireg:
         bpy.utils.register_class(cls)

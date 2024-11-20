@@ -1,6 +1,7 @@
 import bpy
 import os
-
+import json
+from bpy.types import Operator
 from bpy.props import StringProperty, BoolProperty, EnumProperty, PointerProperty, FloatProperty
 
 #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
@@ -131,14 +132,14 @@ def get_filtered_shape_keys(obj, key_filter: list):
 class UsefulProperties(bpy.types.PropertyGroup):
 
     ui_buttons_list = [
-        ("export",   "expand",   ""),
-        ("import",   "expand",   ""),
-        ("chest",    "shapes",   ""),
-        ("leg",      "shapes",   ""),
-        ("other",    "shapes",   ""),
+        ("export",   "expand",   "Opens the category"),
+        ("import",   "expand",   "Opens the category"),
+        ("chest",    "shapes",   "Opens the category"),
+        ("leg",      "shapes",   "Opens the category"),
+        ("other",    "shapes",   "Opens the category"),
         ("chest",    "category", ""),
-        ("yas",      "expand",   ""),
-        ("file",     "expand",   ""),
+        ("yas",      "expand",   "Opens the category"),
+        ("file",     "expand",   "Opens the category"),
         ("advanced", "expand",   "Switches between a simplified and full view of the shape keys"),
         ("dynamic",  "view",     "Toggles between a dynamic collection viewer and one constrained to the active object"),
         ]
@@ -201,7 +202,7 @@ class UsefulProperties(bpy.types.PropertyGroup):
     @staticmethod
     def chest_key_floats():
         # Creates float properties for chest shape keys controlled by values.
-        # Automaticall assigns drivers to the models to be controlled by the UI.
+        # Automatically assigns drivers to the models to be controlled by the UI.
         key_filter = ["squeeze", "squish", "pushup", "omoi", "sag", "nipnops", "sayonara", "mini"]
         torso = bpy.data.meshes["Torso"]
         mq = bpy.data.meshes["Mannequin"]
@@ -215,12 +216,6 @@ class UsefulProperties(bpy.types.PropertyGroup):
             key_list = get_filtered_shape_keys(obj, key_filter)
 
             for key, category, key_name in key_list:
-                if category == "gena/watermeloncrushers":
-                        category = "legs"
-                if category == "nails":
-                        category = "hands"
-            
-                
                 default = 0
                 if key == "squeeze" and category != "small":
                     min = -50
@@ -246,6 +241,41 @@ class UsefulProperties(bpy.types.PropertyGroup):
                     setattr(UsefulProperties, prop_name, prop)
                 UsefulProperties.add_shape_key_drivers(obj, key_name, prop_name)
 
+    @staticmethod
+    def feet_key_floats():
+        # Creates float properties for feet shape keys controlled by values.
+        # Automatically assigns drivers to the models to be controlled by the UI.
+        key_filter = ["heels", "cinderella", "miniheels"]
+        feet = bpy.data.meshes["Feet"]
+        mq = bpy.data.meshes["Mannequin"]
+        
+        targets = {
+             "feet": feet,
+             "mq":    mq,
+        }
+        
+        for name, obj in targets.items():
+            key_list = get_filtered_shape_keys(obj, key_filter)
+
+            for key, category, key_name in key_list:      
+                
+                prop_name = f"key_{key}_{name}"
+                
+                prop = FloatProperty(
+                    name="",
+                    default=0,
+                    min=0,
+                    max=100,
+                    precision=0,
+                    subtype="PERCENTAGE"    
+                )
+                if hasattr(UsefulProperties, prop_name):
+                    return None
+                else:
+                    setattr(UsefulProperties, prop_name, prop)
+                    print(prop_name)
+                UsefulProperties.add_shape_key_drivers(obj, key_name, prop_name)
+
     def add_shape_key_drivers(obj, key_name, prop_name):
         
         if key_name in obj.shape_keys.key_blocks:
@@ -269,7 +299,7 @@ class UsefulProperties(bpy.types.PropertyGroup):
         name= "",
         description= "Select a size",
         items=lambda self, context: get_listable_shapes("Chest")
-        )  # type: ignore
+        )   # type: ignore
     
     shape_mq_chest_bool: BoolProperty(
         name="",
@@ -281,12 +311,13 @@ class UsefulProperties(bpy.types.PropertyGroup):
         name="",
         description="Switches to the mannequin", 
         default=False, 
-        ) # type: ignore
+        )  # type: ignore
 
     shape_mq_other_bool: BoolProperty(
-        name="", 
+        name="",
+        description="Switches to the mannequin",  
         default=False, 
-        ) # type: ignore 
+        )   # type: ignore
 
     def update_export_directory(self, context):
        
@@ -343,7 +374,6 @@ class UsefulProperties(bpy.types.PropertyGroup):
             ("Chest/Legs", "Chest/Legs", "When you want to export Chest with Leg models.")]
         )  # type: ignore
 
-    
     bpy.types.Object.toggle_yas = bpy.props.BoolProperty(
     name="",
     description="Enable yiggle weights",
@@ -365,7 +395,7 @@ class UTILS_OT_YA_CollectionManager(Operator):
     bl_description = "Combines chest options and exports them"
     bl_options = {'UNDO'}
 
-    extra_json:          bpy.props.StringProperty() # type: ignore
+    extra_json: str = bpy.props.StringProperty() 
 
     def __init__(self):
         self.coll = bpy.data.collections

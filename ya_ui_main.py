@@ -76,7 +76,8 @@ class VIEW3D_PT_YA_Overview(bpy.types.Panel):
             depress = True if section_prop.export_body_slot == "Chest" else False
             row.alignment = "RIGHT"
             row.prop(section_prop, "button_advanced_expand", text="", icon="TOOL_SETTINGS")
-       
+            
+
             row = layout.row()
             row.template_list(
                 "MESH_UL_shape_keys", 
@@ -95,19 +96,14 @@ class VIEW3D_PT_YA_Overview(bpy.types.Panel):
 
             box = layout.box()
             row = box.row(align=True)
-            col = row.column(align=True)
             
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-            col.prop(section_prop, "button_chest_shapes", text="", icon=icon, emboss=False)
+            row.prop(section_prop, "button_chest_shapes", text="", icon=icon, emboss=False)
+            row.label(text="Chest")
             
-            col2 = row.column(align=True)
-            col2.label(text="Chest")
-            
-            col3 = row.column(align=True)
-            col3.prop(section_prop, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
-
-            col4 = row.column(align=True)
-            col4.prop(section_prop, "button_advanced_expand", text="", icon="TOOL_SETTINGS")
+            button_row = row.row(align=True)
+            button_row.prop(section_prop, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
+            button_row.prop(section_prop, "button_advanced_expand", text="", icon="TOOL_SETTINGS")
 
             if button:
                 if section_prop.shape_mq_chest_bool:
@@ -199,106 +195,200 @@ class VIEW3D_PT_YA_Overview(bpy.types.Panel):
                 col2.prop(section_prop, "chest_shape_enum")
 
                 col3 = split.column(align=True)
-                col3.operator("mesh.apply_shapes", text= "Apply Shape")
+                col3.operator("mesh.apply_shapes", text= "Apply")
 
-        button = section_prop.button_leg_shapes
+            # LEGS
 
-        box = layout.box()
-        row = box.row(align=True)
-        col = row.column(align=True)
-        
-        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        col.prop(section_prop, "button_leg_shapes", text="", icon=icon, emboss=False)
-        
-        col2 = row.column(align=True)
-        col2.label(text="Legs")
-        
-        col3 = row.column(align=True)
-        col3.prop(section_prop, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
-
-        if button:
-            if section_prop.shape_mq_legs_bool:
-                target = mq
-            else:
-                target = legs
-
-            skull_mute = target.data.shape_keys.key_blocks["Skull Crushers"].mute
-            mini_mute = target.data.shape_keys.key_blocks["Mini"].mute
-            rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
-
-            genb_mute = target.data.shape_keys.key_blocks["Gen B"].mute
-            genc_mute = target.data.shape_keys.key_blocks["Gen C"].mute
-            gensfw_mute = target.data.shape_keys.key_blocks["Gen SFW"].mute
-
-            small_mute = target.data.shape_keys.key_blocks["Small Butt"].mute
-            soft_mute = target.data.shape_keys.key_blocks["Soft Butt"].mute
-
-            hip_yab_mute = target.data.shape_keys.key_blocks["Hip Dips (for YAB)"].mute
-            hip_rue_mute = target.data.shape_keys.key_blocks["Less Hip Dips (for Rue)"].mute
-
-            melon_depress = True if skull_mute and mini_mute else False
-            skull_depress = True if not skull_mute else False
-            mini_depress = True if not mini_mute else False
-            rue_depress = True if not rue_mute else False
-
-            gena_depress = True if genb_mute and gensfw_mute and genc_mute else False
-            genb_depress = True if not genb_mute else False
-            genc_depress = True if not genc_mute else False
-            gensfw_depress = True if not gensfw_mute else False
-
-            small_depress = True if not small_mute else False
-            soft_depress = True if not soft_mute else False
-            hip_depress = True if not hip_yab_mute or not hip_rue_mute else False
-            
+            button = section_prop.button_leg_shapes
 
             box = layout.box()
             row = box.row(align=True)
             
-            split = row.split(factor=0.279, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="Genitalia:")
-            split.operator("mesh.apply_gena", text= "A", depress=gena_depress)
-            split.operator("mesh.apply_genb", text= "B", depress=genb_depress)
-            split.operator("mesh.apply_genc", text= "C", depress=genc_depress)
-            split.operator("mesh.apply_gensfw", text= "SFW", depress=gensfw_depress)
+            icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+            row.prop(section_prop, "button_leg_shapes", text="", icon=icon, emboss=False)
+            row.label(text="Legs")
             
-      
+            button_row = row.row(align=True)
+            button_row.prop(section_prop, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
 
-            row = box.row(align=True)
-            split = row.split(factor=0.27, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="Leg sizes:")
-            split.operator("mesh.apply_melon", text= "Melon", depress=melon_depress)
-            split.operator("mesh.apply_skull", text= "Skull", depress=skull_depress)
-            split.operator("mesh.apply_mini", text= "Mini", depress=mini_depress)
+            if button:
+                if section_prop.shape_mq_legs_bool:
+                    target = mq
+                else:
+                    target = legs
 
-            row = box.row(align=True)
-            split = row.split(factor=0.262, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="Butt options:")
-            split.operator("mesh.apply_small_butt", text= "Small", depress=small_depress)
-            split.operator("mesh.apply_soft_butt", text= "Soft", depress=soft_depress)
+                skull_mute = target.data.shape_keys.key_blocks["Skull Crushers"].mute
+                mini_mute = target.data.shape_keys.key_blocks["Mini"].mute
+                rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
 
-            row = box.row(align=True)
-            split = row.split(factor=0.265, align=True)
-            split.operator("mesh.apply_hip_dips", text= "Alt Hips", depress=hip_depress)
-            split.operator("mesh.apply_rue_legs", text= "Rue", depress=rue_depress)
+                genb_mute = target.data.shape_keys.key_blocks["Gen B"].mute
+                genc_mute = target.data.shape_keys.key_blocks["Gen C"].mute
+                gensfw_mute = target.data.shape_keys.key_blocks["Gen SFW"].mute
 
-        button = section_prop.button_other_shapes
+                small_mute = target.data.shape_keys.key_blocks["Small Butt"].mute
+                soft_mute = target.data.shape_keys.key_blocks["Soft Butt"].mute
 
-        box = layout.box()
-        row = box.row(align=True)
-        col = row.column(align=True)
+                hip_yab_mute = target.data.shape_keys.key_blocks["Hip Dips (for YAB)"].mute
+                hip_rue_mute = target.data.shape_keys.key_blocks["Less Hip Dips (for Rue)"].mute
+
+                melon_depress = True if skull_mute and mini_mute else False
+                skull_depress = True if not skull_mute else False
+                mini_depress = True if not mini_mute else False
+                rue_depress = True if not rue_mute else False
+
+                gena_depress = True if genb_mute and gensfw_mute and genc_mute else False
+                genb_depress = True if not genb_mute else False
+                genc_depress = True if not genc_mute else False
+                gensfw_depress = True if not gensfw_mute else False
+
+                small_depress = True if not small_mute else False
+                soft_depress = True if not soft_mute else False
+                hip_depress = True if not hip_yab_mute or not hip_rue_mute else False
+                
+
+                box = layout.box()
+                row = box.row(align=True)
+                
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Genitalia:")
+                button_row = split.row(align=True)
+                button_row.operator("mesh.apply_gena", text= "A", depress=gena_depress)
+                button_row.operator("mesh.apply_genb", text= "B", depress=genb_depress)
+                button_row.operator("mesh.apply_genc", text= "C", depress=genc_depress)
+                button_row.operator("mesh.apply_gensfw", text= "SFW", depress=gensfw_depress)
+                
         
-        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        col.prop(section_prop, "button_other_shapes", text="", icon=icon, emboss=False)
-        
-        col2 = row.column(align=True)
-        col2.label(text="Hands/Feet")
-        
-        col3 = row.column(align=True)
-        col3.prop(section_prop, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
- 
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Leg sizes:")
+                button_row = split.row(align=True)
+                button_row.operator("mesh.apply_melon", text= "Melon", depress=melon_depress)
+                button_row.operator("mesh.apply_skull", text= "Skull", depress=skull_depress)
+                button_row.operator("mesh.apply_mini", text= "Mini", depress=mini_depress)
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Butt options:")
+                button_row = split.row(align=True)
+                button_row.operator("mesh.apply_small_butt", text= "Small", depress=small_depress)
+                button_row.operator("mesh.apply_soft_butt", text= "Soft", depress=soft_depress)
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.operator("mesh.apply_hip_dips", text= "Alt Hips", depress=hip_depress)
+                button_row = split.row(align=True)
+                button_row.operator("mesh.apply_rue_legs", text= "Rue", depress=rue_depress)
+
+            button = section_prop.button_other_shapes
+
+            box = layout.box()
+            row = box.row(align=True)
+            icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+            row.prop(section_prop, "button_other_shapes", text="", icon=icon, emboss=False)
+            row.label(text="Hands/Feet")
+            
+            button_row = row.row(align=True)
+            button_row.prop(section_prop, "shape_mq_other_bool", text="", icon="ARMATURE_DATA")
+
+            if button:
+                if section_prop.shape_mq_other_bool:
+                    target = mq
+                    target_f = mq
+                    key_target = "mq"
+                else:
+                    target = hands
+                    target_f = feet
+                    key_target = "feet"
+                    clawsies_mute = target.data.shape_keys.key_blocks["Curved"].mute
+                    clawsies_depress = True if clawsies_mute else False
+                    clawsies_col = bpy.context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude
+                    toeclawsies_col = bpy.context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude
+
+                short_mute = target.data.shape_keys.key_blocks["Short Nails"].mute
+                ballerina_mute = target.data.shape_keys.key_blocks["Ballerina"].mute
+                stabbies_mute = target.data.shape_keys.key_blocks["Stabbies"].mute
+                rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
+                rue_f_mute = target_f.data.shape_keys.key_blocks["Rue"].mute
+
+                long_depress = True if short_mute and ballerina_mute and stabbies_mute else False
+                short_depress = True if not short_mute else False
+                ballerina_depress = True if not ballerina_mute else False
+                stabbies_depress = True if not stabbies_mute else False
+                rue_depress = True if not rue_mute else False
+                rue_f_depress = True if not rue_f_mute else False
+                nails_col = bpy.context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude
+                toenails_col = bpy.context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude
+            
+                box = layout.box()
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Hands:")
+                button_row = split.row(align=True)
+                button_row.operator("mesh.apply_rue_hands", text= "Rue", depress=rue_depress)
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Nails:")
+                button_row = split.row(align=True)
+                icon = "HIDE_ON" if nails_col else "HIDE_OFF"
+                if not section_prop.shape_mq_other_bool:
+                    button_row.operator("mesh.visible_hand_nails", text="", icon=icon, depress=not nails_col)
+                button_row.operator("mesh.apply_long_nails", text= "Long", depress=long_depress)
+                button_row.operator("mesh.apply_short_nails", text= "Short", depress=short_depress)
+                button_row.operator("mesh.apply_ballerina_nails", text= "Ballerina", depress=ballerina_depress)
+                button_row.operator("mesh.apply_stabbies_nails", text= "Stabbies", depress=stabbies_depress)
+
+                if not section_prop.shape_mq_other_bool:
+                    row = box.row(align=True)
+                    split = row.split(factor=0.25, align=True)
+                    split.alignment = "RIGHT"
+                    split.label(text="Clawsies:")
+                    button_row = split.row(align=True)
+                    icon = "HIDE_ON" if clawsies_col else "HIDE_OFF"
+                    button_row.operator("mesh.visible_hand_clawsies", text="", icon=icon, depress=not clawsies_col)
+                    button_row.operator("mesh.apply_hand_clawsies", text= "Straight", depress=clawsies_depress)
+                    button_row.operator("mesh.apply_hand_clawsies", text= "Curved", depress=not clawsies_depress)
+
+                box.separator(type="LINE")
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Feet:")
+                button_row = split.row(align=True)
+                button_row.operator("mesh.apply_rue_feet", text= "Rue", depress=rue_depress)
+
+                if not section_prop.shape_mq_other_bool:
+                    row = box.row(align=True)
+                    col = row.column(align=True)
+                    row = col.row(align=True)
+                    split = row.split(factor=0.25, align=True)
+                    split.alignment = 'RIGHT'  # Align label to the right
+                    split.label(text="Nails/Claws:")
+                    icon = "HIDE_ON" if nails_col else "HIDE_OFF"
+                    split.operator("mesh.visible_feet_nails", text="", icon=icon, depress=not toenails_col)
+                    split.operator("mesh.visible_feet_clawsies", text="", icon=icon, depress=not clawsies_col)
+                
+                row = box.row(align=True)
+                split = row.split(factor=0.25)
+                col = split.column(align=True)
+                col.alignment = "RIGHT"
+                col.label(text="Heels:")
+                col.label(text="Cinderella:")
+                col.label(text="Mini Heels:")
+            
+                col2 = split.column(align=True)
+                col2.prop(section_prop, f"key_heels_{key_target}")
+                col2.prop(section_prop, f"key_cinderella_{key_target}")
+                col2.prop(section_prop, f"key_miniheels_{key_target}")
+
 
         # YAS MENU
 
@@ -313,44 +403,32 @@ class VIEW3D_PT_YA_Overview(bpy.types.Panel):
         row.label(text="Yet Another Skeleton")
 
         if button:
-            yas_torso = torso.modifiers["YAS Toggle"].show_viewport
-            yas_mq = mq.modifiers["YAS Toggle"].show_viewport
-            yas_legs = legs.modifiers["YAS Toggle"].show_viewport
-            yas_hands = hands.modifiers["YAS Toggle"].show_viewport
-            yas_feet = feet.modifiers["YAS Toggle"].show_viewport
-
-            depress = True if yas_torso else False
-
-            row = layout.row(align=True)
-            box = row.box()
-            col2 = box.column(align=True)
-            col2.label(text="Legs:")
-            icon = 'CHECKMARK' if legs.toggle_yas else 'PANEL_CLOSE'
-            col2.prop(legs, "toggle_yas", text="YAS", icon=icon)
-            icon = 'CHECKMARK' if legs.toggle_yas_gen else 'PANEL_CLOSE'
-            col2.prop(legs, "toggle_yas_gen", text="Genitalia", icon=icon)
-
-            box = row.box()
-            col = box.column(align=True)
-            col.label(text="Mannequin:")
-            icon = 'CHECKMARK' if mq.toggle_yas else 'PANEL_CLOSE'
-            col.prop(mq, "toggle_yas", text="YAS", icon=icon)
-            icon = 'CHECKMARK' if mq.toggle_yas_gen else 'PANEL_CLOSE'
-            col.prop(mq, "toggle_yas_gen", text="Genitalia", icon=icon)
 
             box = layout.box()
             row = box.row(align=True)
-            depress = True if yas_torso else False
             icon = 'CHECKMARK' if torso.toggle_yas else 'PANEL_CLOSE'
             row.prop(torso, "toggle_yas", text="Chest", icon=icon)
             icon = 'CHECKMARK' if hands.toggle_yas else 'PANEL_CLOSE'
             row.prop(hands, "toggle_yas", text="Hands", icon=icon)
             icon = 'CHECKMARK' if feet.toggle_yas else 'PANEL_CLOSE'
             row.prop(feet, "toggle_yas", text="Feet", icon=icon)
-            
 
-            
+            row = box.row(align=True)
+            col2 = row.column(align=True)
+            col2.label(text="Legs:")
+            icon = 'CHECKMARK' if legs.toggle_yas else 'PANEL_CLOSE'
+            col2.prop(legs, "toggle_yas", text="YAS", icon=icon)
+            icon = 'CHECKMARK' if legs.toggle_yas_gen else 'PANEL_CLOSE'
+            col2.prop(legs, "toggle_yas_gen", text="Genitalia", icon=icon)
 
+            col = row.column(align=True)
+            col.label(text="Mannequin:")
+            icon = 'CHECKMARK' if mq.toggle_yas else 'PANEL_CLOSE'
+            col.prop(mq, "toggle_yas", text="YAS", icon=icon)
+            icon = 'CHECKMARK' if mq.toggle_yas_gen else 'PANEL_CLOSE'
+            col.prop(mq, "toggle_yas_gen", text="Genitalia", icon=icon)
+         
+            
     def collection_context(self, context):
         # Links mesh name to the standard collections)
         body_part_collections = {
