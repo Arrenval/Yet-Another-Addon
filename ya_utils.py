@@ -1,7 +1,6 @@
 import bpy
 import os
-import json
-from bpy.types import Operator
+from bpy.types import Operator, PropertyGroup
 from bpy.props import StringProperty, BoolProperty, EnumProperty, PointerProperty, FloatProperty
 
 #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
@@ -128,8 +127,11 @@ def get_filtered_shape_keys(obj, key_filter: list):
         
         return key_list
 
+class CollectionState(PropertyGroup):
+    collection_name: bpy.props.StringProperty() # type: ignore
 
-class UsefulProperties(bpy.types.PropertyGroup):
+
+class UsefulProperties(PropertyGroup):
 
     ui_buttons_list = [
         ("export",   "expand",   "Opens the category"),
@@ -159,7 +161,7 @@ class UsefulProperties(bpy.types.PropertyGroup):
             name_lower = name.lower()
 
             default = False
-            if name_lower == "advanded":
+            if name_lower == "advanced":
                 default = True
             
             prop_name = f"button_{name_lower}_{category_lower}"
@@ -273,7 +275,6 @@ class UsefulProperties(bpy.types.PropertyGroup):
                     return None
                 else:
                     setattr(UsefulProperties, prop_name, prop)
-                    print(prop_name)
                 UsefulProperties.add_shape_key_drivers(obj, key_name, prop_name)
 
     def add_shape_key_drivers(obj, key_name, prop_name):
@@ -388,14 +389,27 @@ class UsefulProperties(bpy.types.PropertyGroup):
     update=yas_gen_state
     )
 
+    collection_state: bpy.props.CollectionProperty(type=CollectionState) # type: ignore
+
+    consoletools_directory: StringProperty(
+        name="ConsoleTools Directory",
+        subtype="FILE_PATH", 
+        maxlen=255,
+        options={'HIDDEN'},
+        )  # type: ignore
+    
+    consoletools_status: StringProperty(
+        default="Check for ConsoleTools:",
+        maxlen=255
+
+        )  # type: ignore
+
 
 class UTILS_OT_YA_CollectionManager(Operator):
     bl_idname = "utils.collection_manager"
     bl_label = "Export"
     bl_description = "Combines chest options and exports them"
     bl_options = {'UNDO'}
-
-    extra_json: str = bpy.props.StringProperty() 
 
     def __init__(self):
         self.coll = bpy.data.collections
@@ -410,17 +424,19 @@ class UTILS_OT_YA_CollectionManager(Operator):
             self.coll["Piercings"]
         ]
    
-    def execute(self, context):
-            extra_collections = json.loads(self.extra_json) 
+    def execute(self, context): 
+        collections = bpy.context.scene.ya_props.collection_state
+        
+        for state in collections:
+            name = state.collection_name
+            new_collection = self.coll[name]
+            self.collections_to_keep.append(new_collection)
+        
+        self.collections_to_keep = set(self.collections_to_keep)
 
-            for collection in extra_collections:
-                new_collection = self.coll[collection]
-
-                self.collections_to_keep.append(new_collection)
-
-            self.exclude_collections()
-            bpy.context.view_layer.layer_collection.children['Resources'].hide_viewport = True
-            return {"FINISHED"}
+        self.exclude_collections()
+        bpy.context.view_layer.layer_collection.children['Resources'].hide_viewport = True
+        return {"FINISHED"}
 
     def exclude_collections(self):
         # Eclude all collections except those to keep

@@ -14,59 +14,72 @@ bl_info = {
     }
 
 import ya_utils as utils
-import ya_ui_main as UI
-import ya_shape_ops as operators
+import ya_ui_ops as ui_ops
+import ya_tool_ops as tool_ops
+import ya_shape_ops as shape_ops
 import ya_file_manager as file
+import ya_ui_main as ui
 
 classreg = [
+    utils.CollectionState,
     utils.UsefulProperties,
     utils.UTILS_OT_YA_CollectionManager,
     file.FILE_OT_SimpleExport,
-    file.FILE_OT_YA_BatchQueue,  
-    operators.MESH_OT_YA_RemoveEmptyVGroups, 
-    operators.MESH_OT_YA_ApplyShapes, 
-    operators.MESH_OT_YA_ApplySizeCategoryLarge, 
-    operators.MESH_OT_YA_ApplySizeCategoryMedium, 
-    operators.MESH_OT_YA_ApplySizeCategorySmall,
-    operators.MESH_OT_YA_ApplyBuff,
-    operators.MESH_OT_YA_ApplyRueTorso,
-    operators.MESH_OT_YA_ApplyMelon,
-    operators.MESH_OT_YA_ApplySkull,
-    operators.MESH_OT_YA_ApplyMini,
-    operators.MESH_OT_YA_ApplyRueLegs,
-    operators.MESH_OT_YA_ApplyGenA,
-    operators.MESH_OT_YA_ApplyGenB,
-    operators.MESH_OT_YA_ApplyGenC,
-    operators.MESH_OT_YA_ApplyGenSFW,
-    operators.MESH_OT_YA_ApplySmallButt,
-    operators.MESH_OT_YA_ApplySoftButt,
-    operators.MESH_OT_YA_ApplyHips,
-    operators.MESH_OT_YA_ApplyRueHands,
-    operators.MESH_OT_YA_ApplyLongNails,
-    operators.MESH_OT_YA_ApplyShortNails,
-    operators.MESH_OT_YA_ApplyBallerinaNails,
-    operators.MESH_OT_YA_ApplyStabbiesNails,
-    operators.MESH_OT_YA_ApplyClawsies,
-    operators.MESH_OT_YA_HandNailVisibility,
-    operators.MESH_OT_YA_HandClawVisibiliy,
-    operators.MESH_OT_YA_FeetNailVisibility,
-    operators.MESH_OT_YA_FeetClawVisibiliy,
-    operators.MESH_OT_YA_ApplyRueFeet,
-    operators.YA_OBJECT_OT_SetBodyPart,
+    file.FILE_OT_YA_BatchQueue,
+    file.FILE_OT_YA_ConsoleTools,
+    tool_ops.MESH_OT_YA_RemoveEmptyVGroups,
+    shape_ops.MESH_OT_YA_ApplyShapes, 
+    shape_ops.MESH_OT_YA_ApplySizeCategoryLarge, 
+    shape_ops.MESH_OT_YA_ApplySizeCategoryMedium, 
+    shape_ops.MESH_OT_YA_ApplySizeCategorySmall,
+    shape_ops.MESH_OT_YA_ApplyBuff,
+    shape_ops.MESH_OT_YA_ApplyRueTorso,
+    shape_ops.MESH_OT_YA_ApplyMelon,
+    shape_ops.MESH_OT_YA_ApplySkull,
+    shape_ops.MESH_OT_YA_ApplyMini,
+    shape_ops.MESH_OT_YA_ApplyRueLegs,
+    shape_ops.MESH_OT_YA_ApplyGenA,
+    shape_ops.MESH_OT_YA_ApplyGenB,
+    shape_ops.MESH_OT_YA_ApplyGenC,
+    shape_ops.MESH_OT_YA_ApplyGenSFW,
+    shape_ops.MESH_OT_YA_ApplySmallButt,
+    shape_ops.MESH_OT_YA_ApplySoftButt,
+    shape_ops.MESH_OT_YA_ApplyHips,
+    shape_ops.MESH_OT_YA_ApplyRueHands,
+    shape_ops.MESH_OT_YA_ApplyLongNails,
+    shape_ops.MESH_OT_YA_ApplyShortNails,
+    shape_ops.MESH_OT_YA_ApplyBallerinaNails,
+    shape_ops.MESH_OT_YA_ApplyStabbiesNails,
+    shape_ops.MESH_OT_YA_ApplyClawsies,
+    shape_ops.MESH_OT_YA_HandNailVisibility,
+    shape_ops.MESH_OT_YA_HandClawVisibiliy,
+    shape_ops.MESH_OT_YA_FeetNailVisibility,
+    shape_ops.MESH_OT_YA_FeetClawVisibiliy,
+    shape_ops.MESH_OT_YA_ApplyRueFeet,
     ]
 
-uireg = [ 
-    UI.VIEW3D_PT_YA_Overview, 
-    UI.VIEW3D_PT_YA_Tools, 
-    UI.VIEW3D_PT_YA_FileManager,
+uireg = [
+    ui_ops.UI_OT_YA_SetBodyPart,   
+    ui_ops.UI_OT_YA_ConsoleToolsDirectory,    
+    ui.YAOverview, 
+    ui.YATools, 
+    ui.YAFileManager,
     ]
+
+def menu_emptyvgroup_append(self, context):
+    self.layout.separator(type="LINE")
+    self.layout.operator("mesh.remove_empty_vgroups", text="Remove Empty Vertex Groups")
 
 def register():
+
     for cls in classreg:
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.ya_props = PointerProperty(
         type=utils.UsefulProperties)
+    
+    bpy.types.Scene.collection_state = bpy.props.CollectionProperty(
+        type=utils.CollectionState)
     
     
     utils.addon_version = bl_info["version"]
@@ -79,14 +92,20 @@ def register():
     for cls in uireg:
         bpy.utils.register_class(cls)
 
+    bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
+
 def unregister():
+
     for cls in reversed(classreg + uireg):
         bpy.utils.unregister_class(cls)
 
     del bpy.types.Scene.ya_props
     del utils.addon_version
-    
-       
+    del bpy.types.Scene.collection_state
+    bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_emptyvgroup_append)
 
+    
+
+    
 if __name__ == "__main__":
     register()

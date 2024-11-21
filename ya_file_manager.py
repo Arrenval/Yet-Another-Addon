@@ -1,6 +1,7 @@
 import bpy
 import os
 import json
+import winreg
 import ya_utils as utils
 
 from itertools import combinations
@@ -59,13 +60,11 @@ class FILE_OT_YA_BatchQueue(Operator):
         self.gltf = prop.export_gltf
         self.body_slot = prop.export_body_slot
         
-        print (selected_directory)
         if not os.path.exists(selected_directory):
             self.report({'ERROR'}, "No directory selected for export!")
             return {'CANCELLED'} 
 
         self.size_options = self.get_size_options(context)
-        to_keep = self.collection_state
 
         if self.body_slot == "Chest/Legs":
             self.actual_combinations = self.shape_combinations("Chest")
@@ -89,15 +88,17 @@ class FILE_OT_YA_BatchQueue(Operator):
             if self.leg_queue == []:
                 self.report({'ERROR'}, "No valid combinations!")
                 return {'CANCELLED'} 
-        
-        bpy.ops.utils.collection_manager(extra_json = to_keep)
+            
+        self.collection_state(context)
+        bpy.ops.utils.collection_manager()
         FILE_OT_YA_BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
 
         return {'FINISHED'}
     
     # The following functions is executed to establish the queue and valid options 
     # before handing all variables over to queue processing
-    def collection_state(self):
+    def collection_state(self, context):
+        context.scene.ya_props.collection_state.clear()
         collections = []
 
         if self.body_slot == "Chest":
@@ -117,8 +118,10 @@ class FILE_OT_YA_BatchQueue(Operator):
             if self.size_options["Pubes"]:
                 collections.append("Pubes")
 
-        return json.dumps(collections)
-    
+        for name in collections:
+            collection_state = context.scene.ya_props.collection_state.add()
+            collection_state.collection_name = name
+
     def get_size_options(self, context):
         options = {}
         prop = context.scene.ya_props
@@ -273,6 +276,7 @@ class FILE_OT_YA_BatchQueue(Operator):
                     main_name = FILE_OT_YA_BatchQueue.clean_file_name(main_name)
 
                     FILE_OT_YA_FileExport.export_template(context, file_name=main_name)
+        
         else:
             FILE_OT_YA_FileExport.export_template(context, file_name=main_name)
 
@@ -288,17 +292,13 @@ class FILE_OT_YA_BatchQueue(Operator):
 
     def check_rue_match (options, file_name):
         
-        if any("Rue" in option for option in options):
-            if "Rue" in file_name:
+        if "Rue" in file_name:
+            if any("Rue" in option for option in options):
                 return True
             else:
                 return False
-            
-        elif "Rue" in file_name:
-            return False
-
-        else:
-            return True
+    
+        return True
 
     def clean_file_name (file_name):
         first = file_name.find("Rue - ")
@@ -405,8 +405,8 @@ class FILE_OT_YA_FileExport(Operator):
     bl_description = ""
     bl_options = {'UNDO'}
 
-    file_name: str = StringProperty()
-    preset: str = StringProperty()
+    file_name: StringProperty() # type: ignore
+    preset: StringProperty() # type: ignore
 
     def execute(self, context):
             FILE_OT_YA_FileExport.export_template(context, self.file_name)
@@ -416,13 +416,12 @@ class FILE_OT_YA_FileExport(Operator):
         selected_directory = context.scene.ya_props.export_directory
 
         export_path = os.path.join(selected_directory, file_name)
-        export_settings = FILE_OT_YA_FileExport.get_export_settings(export_path, gltf)
+        export_settings = FILE_OT_YA_FileExport.get_export_settings(gltf)
 
         if gltf:
             bpy.ops.export_scene.gltf(filepath=export_path + ".gltf", **export_settings)
         else:
             bpy.ops.export_scene.fbx(filepath=export_path + ".fbx", **export_settings)
-        
         
     def get_export_settings(gltf):
         if gltf:
@@ -456,4 +455,59 @@ class FILE_OT_YA_FileExport(Operator):
                 "use_mesh_modifiers": True,
                 "use_visible": True,
             }
+
+
+class FILE_OT_YA_ConsoleTools(Operator):
+    bl_idname = "file.file_console_tools"
+    bl_label = "Export"
+    bl_description = ""
+    bl_options = {'UNDO'}
+
+    def execute(self, context):
+        consoletools = self.console_tools_location(context)
+
+        if os.path.exists(consoletools):
+            context.scene.ya_props.consoletools_directory = consoletools
+            context.scene.ya_props.consoletools_status = "ConsoleTools Ready!"
+        else:
+            context.scene.ya_props.consoletools_directory = "Not Found."
+            context.scene.ya_props.consoletools_status = "Couldn't find ConsoleTools."
+        
+        return {"FINISHED"}
+    
+    def console_tools_location(self, context):
+        textools = "FFXIV TexTools"
+        textools_path = ""
+        
+        registry_path = r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+        
+        reg_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, registry_path)
+        
+        for i in range(0, winreg.QueryInfoKey(reg_key)[0]):
+            subkey_name = winreg.EnumKey(reg_key, i)
+            
+            subkey = winreg.OpenKey(reg_key, subkey_name)
+            
+            try:
+                display_name, type = winreg.QueryValueEx(subkey, "DisplayName")
+                
+                if textools.lower() in display_name.lower():
+                    textools_path, type = winreg.QueryValueEx(subkey, "InstallLocation")
+                    break
+                
+            except FileNotFoundError:
+                continue
+            
+            finally:
+                winreg.CloseKey(subkey)
+        
+        winreg.CloseKey(reg_key)
+
+        textools_path = textools_path.strip('"')
+        consoletools_path = os.path.join(textools_path, "FFXIV_TexTools", "ConsoleTools.exe")
+        
+        return consoletools_path
+            
+        
+
 
