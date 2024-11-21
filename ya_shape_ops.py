@@ -3,29 +3,6 @@ from bpy.types import Operator
 from ya_utils import get_shape_presets, get_chest_category, get_chest_size_keys
 import ya_utils as utils
 
-class MESH_OT_YA_RemoveEmptyVGroups(Operator):
-    bl_idname = "mesh.remove_empty_vgroups"
-    bl_label = "Weights"
-    bl_description = "Removes Vertex Groups with no weights. Ignores IVCS and YAS groups"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        ob = bpy.context.active_object
-        prefixes = ["ya_", "iv_"]
-
-        # Iterates over all vertex groups and its vertices to see if it is empty
-        for vg in ob.vertex_groups:
-            emptyvg = not any(vg.index in [g.group for g in v.groups] for v in ob.data.vertices)
-            vgname = vg.name
-            
-            # Ignores yas and ivcs prefixed groups
-            if emptyvg and not vgname.startswith(tuple(prefixes)):
-                ob.vertex_groups.remove(vg)
-                # print (f"Removed {vgname}.")
-
-        return {"FINISHED"}
-    
-
 class MESH_OT_YA_ApplyShapes(Operator):
     bl_idname = "mesh.apply_shapes"
     bl_label = ""
@@ -59,7 +36,6 @@ class MESH_OT_YA_ApplyShapes(Operator):
         return {"FINISHED"}
 
     def apply_shape_values(apply_target, category, shape_presets):
-        print("Executing")
         ya_props = bpy.context.scene.ya_props
         for shape_key in shape_presets:
             norm_key = shape_key.lower().replace(" ","").replace("-","")
@@ -715,6 +691,7 @@ class MESH_OT_YA_FeetClawVisibiliy(Operator):
 
         return {"FINISHED"}
 
+
 class MESH_OT_YA_HandNailVisibility(Operator):
     bl_idname = "mesh.visible_hand_nails"
     bl_label = ""
@@ -745,14 +722,3 @@ class MESH_OT_YA_HandClawVisibiliy(Operator):
         return {"FINISHED"}
 
 
-class YA_OBJECT_OT_SetBodyPart(bpy.types.Operator):
-    bl_idname = "object.set_body_part"
-    bl_label = "Select body slot to export."
-    bl_description = "The icons almost make sense"
-
-    body_part: bpy.props.StringProperty() # type: ignore
-
-    def execute(self, context):
-        # Update the export_body_part with the selected body part
-        context.scene.ya_props.export_body_slot = self.body_part
-        return {'FINISHED'}
