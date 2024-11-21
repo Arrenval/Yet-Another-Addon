@@ -1,9 +1,10 @@
 import bpy
+
 from bpy.types import Operator
 
 
 class MESH_OT_YA_RemoveEmptyVGroups(Operator):
-    bl_idname = "mesh.remove_empty_vgroups"
+    bl_idname = "ya.remove_empty_vgroups"
     bl_label = "Weights"
     bl_description = "Removes Vertex Groups with no weights. Ignores IVCS and YAS groups"
     bl_options = {'UNDO'}

@@ -1,5 +1,6 @@
 import bpy
 import ya_utils as utils
+
 from bpy.types import Panel
 
 def dynamic_column_buttons(columns, box, section_prop, labels, category, button_type):
@@ -224,13 +225,17 @@ class YAOverview(Panel):
         rue_depress = True if not rue_mute else False
         
         row = box.row(align=True)
-        row.operator("mesh.apply_size_category_large", text= "Large", depress=large_depress)
-        row.operator("mesh.apply_size_category_medium", text= "Medium", depress=medium_depress)
-        row.operator("mesh.apply_size_category_small", text= "Small", depress=small_depress)
+        row.operator("ya.apply_chest_category", text= "Large", depress=large_depress).key = "Large"
+        row.operator("ya.apply_chest_category", text= "Medium", depress=medium_depress).key = "Medium"
+        row.operator("ya.apply_chest_category", text= "Small", depress=small_depress).key = "Small"
 
         row = box.row(align=True)
-        row.operator("mesh.apply_buff", text= "Buff", depress=buff_depress)
-        row.operator("mesh.apply_rue_torso", text= "Rue", depress=rue_depress)
+        operator = row.operator("ya.apply_other_option", text= "Buff", depress=buff_depress)
+        operator.key = "Buff"
+        operator.target = "Torso"
+        operator = row.operator("ya.apply_other_option", text= "Rue", depress=rue_depress)
+        operator.key = "Rue"
+        operator.target = "Torso"
 
         box.separator(factor=0.5,type="LINE")
 
@@ -292,7 +297,7 @@ class YAOverview(Panel):
         col2.prop(section_prop, "chest_shape_enum")
 
         col3 = split.column(align=True)
-        col3.operator("mesh.apply_shapes", text= "Apply")
+        col3.operator("ya.apply_shapes", text= "Apply")
 
     def leg_shapes(self, box, section_prop, mq, legs):
         if section_prop.shape_mq_legs_bool:
@@ -334,10 +339,10 @@ class YAOverview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Genitalia:")
         button_row = split.row(align=True)
-        button_row.operator("mesh.apply_gena", text= "A", depress=gena_depress)
-        button_row.operator("mesh.apply_genb", text= "B", depress=genb_depress)
-        button_row.operator("mesh.apply_genc", text= "C", depress=genc_depress)
-        button_row.operator("mesh.apply_gensfw", text= "SFW", depress=gensfw_depress)
+        button_row.operator("ya.apply_gen", text= "A", depress=gena_depress).key = "Gen A"
+        button_row.operator("ya.apply_gen", text= "B", depress=genb_depress).key = "Gen B"
+        button_row.operator("ya.apply_gen", text= "C", depress=genc_depress).key = "Gen C"
+        button_row.operator("ya.apply_gen", text= "SFW", depress=gensfw_depress).key = "Gen SFW"
         
 
 
@@ -346,23 +351,31 @@ class YAOverview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Leg sizes:")
         button_row = split.row(align=True)
-        button_row.operator("mesh.apply_melon", text= "Melon", depress=melon_depress)
-        button_row.operator("mesh.apply_skull", text= "Skull", depress=skull_depress)
-        button_row.operator("mesh.apply_mini", text= "Mini", depress=mini_depress)
+        button_row.operator("ya.apply_legs", text= "Melon", depress=melon_depress).key = "Melon"
+        button_row.operator("ya.apply_legs", text= "Skull", depress=skull_depress).key = "Skull"
+        button_row.operator("ya.apply_legs", text= "Mini", depress=mini_depress).key = "Mini"
 
         row = box.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Butt options:")
         button_row = split.row(align=True)
-        button_row.operator("mesh.apply_small_butt", text= "Small", depress=small_depress)
-        button_row.operator("mesh.apply_soft_butt", text= "Soft", depress=soft_depress)
+        operator = button_row.operator("ya.apply_other_option", text= "Small", depress=small_depress)
+        operator.key = "Small Butt"
+        operator.target = "Legs"
+        operator = button_row.operator("ya.apply_other_option", text= "Soft", depress=soft_depress)
+        operator.key = "Soft Butt"
+        operator.target = "Legs"
 
         row = box.row(align=True)
         split = row.split(factor=0.25, align=True)
-        split.operator("mesh.apply_hip_dips", text= "Alt Hips", depress=hip_depress)
+        operator = split.operator("ya.apply_other_option", text= "Alt Hips", depress=hip_depress)
+        operator.key = "Hip"
+        operator.target = "Legs"
         button_row = split.row(align=True)
-        button_row.operator("mesh.apply_rue_legs", text= "Rue", depress=rue_depress)
+        operator = button_row.operator("ya.apply_other_option", text= "Rue", depress=rue_depress)
+        operator.key = "Rue"
+        operator.target = "Legs"
 
     def other_shapes(self, box, section_prop, mq, hands, feet):
         if section_prop.shape_mq_other_bool:
@@ -398,7 +411,9 @@ class YAOverview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Hands:")
         button_row = split.row(align=True)
-        button_row.operator("mesh.apply_rue_hands", text= "Rue", depress=rue_depress)
+        operator = button_row.operator("ya.apply_other_option", text= "Rue", depress=rue_depress)
+        operator.key = "Rue"
+        operator.target = "Hands"
 
         row = box.row(align=True)
         split = row.split(factor=0.25, align=True)
@@ -407,11 +422,13 @@ class YAOverview(Panel):
         button_row = split.row(align=True)
         icon = "HIDE_ON" if nails_col else "HIDE_OFF"
         if not section_prop.shape_mq_other_bool:
-            button_row.operator("mesh.visible_hand_nails", text="", icon=icon, depress=not nails_col)
-        button_row.operator("mesh.apply_long_nails", text= "Long", depress=long_depress)
-        button_row.operator("mesh.apply_short_nails", text= "Short", depress=short_depress)
-        button_row.operator("mesh.apply_ballerina_nails", text= "Ballerina", depress=ballerina_depress)
-        button_row.operator("mesh.apply_stabbies_nails", text= "Stabbies", depress=stabbies_depress)
+            operator = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not nails_col)
+            operator.key = "Nails"
+            operator.target = "Hands"
+        button_row.operator("ya.apply_nails", text= "Long", depress=long_depress).key = "Long"
+        button_row.operator("ya.apply_nails", text= "Short", depress=short_depress).key = "Short"
+        button_row.operator("ya.apply_nails", text= "Ballerina", depress=ballerina_depress).key = "Ballerina"
+        button_row.operator("ya.apply_nails", text= "Stabbies", depress=stabbies_depress).key = "Stabbies"
 
         if not section_prop.shape_mq_other_bool:
             row = box.row(align=True)
@@ -420,9 +437,15 @@ class YAOverview(Panel):
             split.label(text="Clawsies:")
             button_row = split.row(align=True)
             icon = "HIDE_ON" if clawsies_col else "HIDE_OFF"
-            button_row.operator("mesh.visible_hand_clawsies", text="", icon=icon, depress=not clawsies_col)
-            button_row.operator("mesh.apply_hand_clawsies", text= "Straight", depress=clawsies_depress)
-            button_row.operator("mesh.apply_hand_clawsies", text= "Curved", depress=not clawsies_depress)
+            operator = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not clawsies_col)
+            operator.key = "Clawsies"
+            operator.target = "Hands"
+            operator = button_row.operator("ya.apply_other_option", text= "Straight", depress=clawsies_depress)
+            operator.key = "Curved"
+            operator.target = "Hands"
+            operator = button_row.operator("ya.apply_other_option", text= "Curved", depress=not clawsies_depress)
+            operator.key = "Curved"
+            operator.target = "Hands"
 
         box.separator(type="LINE")
 
@@ -431,7 +454,9 @@ class YAOverview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Feet:")
         button_row = split.row(align=True)
-        button_row.operator("mesh.apply_rue_feet", text= "Rue", depress=rue_f_depress)
+        operator = button_row.operator("ya.apply_other_option", text= "Rue", depress=rue_f_depress)
+        operator.key = "Rue"
+        operator.target = "Feet"
 
         if not section_prop.shape_mq_other_bool:
             row = box.row(align=True)
@@ -441,8 +466,10 @@ class YAOverview(Panel):
             split.alignment = 'RIGHT'  # Align label to the right
             split.label(text="Nails/Claws:")
             icon = "HIDE_ON" if nails_col else "HIDE_OFF"
-            split.operator("mesh.visible_feet_nails", text="", icon=icon, depress=not toenails_col)
-            split.operator("mesh.visible_feet_clawsies", text="", icon=icon, depress=not toeclawsies_col)
+            operator = split.operator("ya.apply_visibility", text="", icon=icon, depress=not toenails_col)
+            operator.key = "Nails"
+            operator.target = "Feet"
+            split.operator("ya.apply_visibility", text="", icon=icon, depress=not toeclawsies_col).target = "Feet"
         
         row = box.row(align=True)
         split = row.split(factor=0.25)
@@ -497,7 +524,7 @@ class YATools(Panel):
         layout = self.layout
 
         row = layout.row()
-        row.operator("mesh.remove_empty_vgroups", text= "Remove Empty Groups")
+        row.operator("ya.remove_empty_vgroups", text= "Remove Empty Groups")
 
 
 class YAFileManager(Panel):
@@ -576,15 +603,16 @@ class YAFileManager(Panel):
         if button:
             box.separator(factor=0.5,type="LINE")
             row = box.row(align=True)
-            row.label(text=section_prop.consoletools_status)
-            row.operator("file.file_console_tools", text="Check")
-            row.operator("wm.consoletools_dir", icon="FILE_FOLDER", text="")
+            split = row.split(factor=0.65, align=True)
+            icon = "CHECKMARK" if section_prop.consoletools_status == "ConsoleTools Ready!" else "X"
+            split.label(text=section_prop.consoletools_status, icon=icon)
+            split.operator("ya.file_console_tools", text="Check")
+            row.operator("ya.consoletools_dir", icon="FILE_FOLDER", text="")
           
-     
-
     def export_category(self, box, section_prop):
         row = box.row(align=True)
         row.prop(section_prop, "export_display_directory", text="")
+        row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
         row = box.row(align=True)
         col = row.column(align=True)
         col.operator("FILE_OT_simple_export", text="Simple Export")
@@ -608,23 +636,23 @@ class YAFileManager(Panel):
 
         
         depress = True if section_prop.export_body_slot == "Chest" else False
-        button = row.operator("object.set_body_part", text="", icon="MOD_CLOTH", depress=depress)
+        button = row.operator("ya.set_body_part", text="", icon="MOD_CLOTH", depress=depress)
         button.body_part = "Chest" 
 
         depress = True if section_prop.export_body_slot == "Legs" else False
-        button = row.operator("object.set_body_part", text="", icon="BONE_DATA", depress=depress)
+        button = row.operator("ya.set_body_part", text="", icon="BONE_DATA", depress=depress)
         button.body_part = "Legs"
 
         depress = True if section_prop.export_body_slot == "Hands" else False
-        button = row.operator("object.set_body_part", text="", icon="VIEW_PAN", depress=depress)
+        button = row.operator("ya.set_body_part", text="", icon="VIEW_PAN", depress=depress)
         button.body_part = "Hands"
 
         depress = True if section_prop.export_body_slot == "Feet" else False
-        button = row.operator("object.set_body_part", text="", icon="VIEW_PERSPECTIVE", depress=depress)
+        button = row.operator("ya.set_body_part", text="", icon="VIEW_PERSPECTIVE", depress=depress)
         button.body_part = "Feet"
 
         depress = True if section_prop.export_body_slot == "Chest/Legs" else False
-        button = row.operator("object.set_body_part", text="", icon="ARMATURE_DATA", depress=depress)
+        button = row.operator("ya.set_body_part", text="", icon="ARMATURE_DATA", depress=depress)
         button.body_part = "Chest/Legs"
             
         # CHEST EXPORT  

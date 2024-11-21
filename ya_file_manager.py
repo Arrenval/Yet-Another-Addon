@@ -15,7 +15,7 @@ from bpy.props import StringProperty
 ya_is_exporting: bool = False
 
 class FILE_OT_SimpleExport(Operator):
-    bl_idname = "file.simple_export"
+    bl_idname = "ya.simple_export"
     bl_label = "Open FBX Export Window"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -34,7 +34,7 @@ class FILE_OT_SimpleExport(Operator):
 
 
 class FILE_OT_YA_BatchQueue(Operator):
-    bl_idname = "file.batch_queue"
+    bl_idname = "ya.batch_queue"
     bl_label = "Export"
     bl_description = "Exports your files based on your selections"
     bl_options = {'UNDO'}
@@ -90,7 +90,7 @@ class FILE_OT_YA_BatchQueue(Operator):
                 return {'CANCELLED'} 
             
         self.collection_state(context)
-        bpy.ops.utils.collection_manager()
+        bpy.ops.ya.collection_manager()
         FILE_OT_YA_BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
 
         return {'FINISHED'}
@@ -400,7 +400,7 @@ class FILE_OT_YA_BatchQueue(Operator):
 
     
 class FILE_OT_YA_FileExport(Operator):
-    bl_idname = "file.file_export"
+    bl_idname = "ya.file_export"
     bl_label = "Export"
     bl_description = ""
     bl_options = {'UNDO'}
@@ -458,7 +458,7 @@ class FILE_OT_YA_FileExport(Operator):
 
 
 class FILE_OT_YA_ConsoleTools(Operator):
-    bl_idname = "file.file_console_tools"
+    bl_idname = "ya.file_console_tools"
     bl_label = "Export"
     bl_description = ""
     bl_options = {'UNDO'}
@@ -470,8 +470,8 @@ class FILE_OT_YA_ConsoleTools(Operator):
             context.scene.ya_props.consoletools_directory = consoletools
             context.scene.ya_props.consoletools_status = "ConsoleTools Ready!"
         else:
-            context.scene.ya_props.consoletools_directory = "Not Found."
-            context.scene.ya_props.consoletools_status = "Couldn't find ConsoleTools."
+            context.scene.ya_props.consoletools_directory = ""
+            context.scene.ya_props.consoletools_status = "Not Found. Click Folder."
         
         return {"FINISHED"}
     

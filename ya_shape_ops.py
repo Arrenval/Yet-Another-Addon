@@ -1,10 +1,12 @@
 import bpy
-from bpy.types import Operator
-from ya_utils import get_shape_presets, get_chest_category, get_chest_size_keys
 import ya_utils as utils
 
+from bpy.types import Operator
+from bpy.props import StringProperty
+from ya_utils import get_shape_presets, get_chest_category, get_chest_size_keys
+
 class MESH_OT_YA_ApplyShapes(Operator):
-    bl_idname = "mesh.apply_shapes"
+    bl_idname = "ya.apply_shapes"
     bl_label = ""
     bl_description = "Applies the chosen shape to the selected models. This overrides any custom shape values"
     bl_options = {'UNDO'}
@@ -128,7 +130,7 @@ class MESH_OT_YA_ApplyShapes(Operator):
         apply_target["Stabbies"].mute = mute_stabbies
     
     def toggle_other(apply_target, key: str, not_legs=True):
-
+       
         if not_legs:
             if apply_target[key].mute:
                 apply_target[key].mute = False
@@ -167,558 +169,184 @@ class MESH_OT_YA_ApplyShapes(Operator):
                 apply_target[key].mute = True
 
 
-class MESH_OT_YA_ApplySizeCategoryLarge(Operator):
-    bl_idname = "mesh.apply_size_category_large"
+class MESH_OT_YA_ApplyChestCategory(Operator):
+    bl_idname = "ya.apply_chest_category"
     bl_label = ""
     bl_description = "Changes size without affecting custom values"
     bl_options = {'UNDO'}
 
+    key: StringProperty() # type: ignore
+
     def execute(self, context):
         apply_mq = context.scene.ya_props.shape_mq_chest_bool
-        category = "Large"
 
         torso = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
         mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
  
         if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_chest_shapes(mannequin, category)
+            MESH_OT_YA_ApplyShapes.mute_chest_shapes(mannequin, self.key)
         else:
-            MESH_OT_YA_ApplyShapes.mute_chest_shapes(torso, category)
+            MESH_OT_YA_ApplyShapes.mute_chest_shapes(torso, self.key)
 
         
         return {"FINISHED"}
 
 
-class MESH_OT_YA_ApplySizeCategoryMedium(Operator):
-    bl_idname = "mesh.apply_size_category_medium"
+class MESH_OT_YA_ApplyLegSizes(Operator):
+    bl_idname = "ya.apply_legs"
     bl_label = ""
-    bl_description = "Changes size without affecting custom values"
+    bl_description = "Applies leg sizes"
     bl_options = {'UNDO'}
 
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_chest_bool
-        category = "Medium"
-
-        torso = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_chest_shapes(mannequin, category)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_chest_shapes(torso, category)
-        
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_ApplySizeCategorySmall(Operator):
-    bl_idname = "mesh.apply_size_category_small"
-    bl_label = ""
-    bl_description = "Changes size without affecting custom values"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_chest_bool
-        category = "Small"
-
-        torso = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_chest_shapes(mannequin, category)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_chest_shapes(torso, category)
-        
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_ApplyBuff(Operator):
-    bl_idname = "mesh.apply_buff"
-    bl_label = ""
-    bl_description = "Applies the buff torso"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_chest_bool
-
-        torso = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Buff"
-        
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.toggle_other(torso, key)
-
-        
-        return {"FINISHED"}
-    
-
-class MESH_OT_YA_ApplyRueTorso(Operator):
-    bl_idname = "mesh.apply_rue_torso"
-    bl_label = ""
-    bl_description = "Applies Rue tummy"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_chest_bool
-
-        torso = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Rue"
-
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.toggle_other(torso, key)
-        
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_ApplyMelon(Operator):
-    bl_idname = "mesh.apply_melon"
-    bl_label = ""
-    bl_description = "Applies Melon Crushers"
-    bl_options = {'UNDO'}
+    key: StringProperty() # type: ignore
 
     def execute(self, context):
         apply_mq = context.scene.ya_props.shape_mq_legs_bool
 
         legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
         mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Melon"
 
         if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_leg_shapes(mannequin, key)
+            MESH_OT_YA_ApplyShapes.mute_leg_shapes(mannequin, self.key)
         else:
-            MESH_OT_YA_ApplyShapes.mute_leg_shapes(legs, key)
+            MESH_OT_YA_ApplyShapes.mute_leg_shapes(legs, self.key)
 
         return {"FINISHED"}
     
 
-class MESH_OT_YA_ApplySkull(Operator):
-    bl_idname = "mesh.apply_skull"
+class MESH_OT_YA_ApplyOther(Operator):
+    bl_idname = "ya.apply_other_option"
     bl_label = ""
-    bl_description = "Applies Skull Crushers"
+    bl_description = "Applies selected option"
     bl_options = {'UNDO'}
+
+    key: StringProperty() # type: ignore
+    target: StringProperty() # type: ignore
 
     def execute(self, context):
         apply_mq = context.scene.ya_props.shape_mq_legs_bool
 
-        legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Skull"
-
-        
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_leg_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_leg_shapes(legs, key)
-
-        return {"FINISHED"}
-    
-
-class MESH_OT_YA_ApplyMini(Operator):
-    bl_idname = "mesh.apply_mini"
-    bl_label = ""
-    bl_description = "Applies Mini Legs. Not compatible with Skull Crushers or alternate hip dips"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_legs_bool
-
-        legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Mini"
-
-        
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_leg_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_leg_shapes(legs, key)
-
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_ApplyRueLegs(Operator):
-    bl_idname = "mesh.apply_rue_legs"
-    bl_label = ""
-    bl_description = "Applies Rue tummy"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_legs_bool
-
-        Legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-
-        key = "Rue"
-        
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, key, not_legs=False)
-        else:
-            MESH_OT_YA_ApplyShapes.toggle_other(Legs, key, not_legs=False)
-
-        return {"FINISHED"}
-    
-
-class MESH_OT_YA_ApplyGenA(Operator):
-    bl_idname = "mesh.apply_gena"
-    bl_label = ""
-    bl_description = "Labia majora"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_legs_bool
-
-        Legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Gen A"
-
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_gen_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_gen_shapes(Legs, key)
-
-        return {"FINISHED"}
-    
-
-class MESH_OT_YA_ApplyGenB(Operator):
-    bl_idname = "mesh.apply_genb"
-    bl_label = ""
-    bl_description = "Visible labia minora"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_legs_bool
-
-        Legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Gen B"
-        
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_gen_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_gen_shapes(Legs, key)
-
-        return {"FINISHED"}
-    
-
-class MESH_OT_YA_ApplyGenC(Operator):
-    bl_idname = "mesh.apply_genc"
-    bl_label = ""
-    bl_description = "Open vagina"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_legs_bool
-
-        Legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Gen C"
-        
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_gen_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_gen_shapes(Legs, key)
-
-        return {"FINISHED"}
-    
-
-class MESH_OT_YA_ApplyGenSFW(Operator):
-    bl_idname = "mesh.apply_gensfw"
-    bl_label = ""
-    bl_description = "Barbie doll"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_legs_bool
-
-        Legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Gen SFW"
-        
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_gen_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_gen_shapes(Legs, key)
-
-        return {"FINISHED"}
-    
-
-class MESH_OT_YA_ApplySmallButt(Operator):
-    bl_idname = "mesh.apply_small_butt"
-    bl_label = ""
-    bl_description = "Makes the butt smaller"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_legs_bool
-
-        legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Small Butt"
-        
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.toggle_other(legs, key)
-
-        return {"FINISHED"}
-    
-
-class MESH_OT_YA_ApplySoftButt(Operator):
-    bl_idname = "mesh.apply_soft_butt"
-    bl_label = ""
-    bl_description = "Makes the butt softer"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_legs_bool
-
-        legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Soft Butt"
-        
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.toggle_other(legs, key)
-
-        return {"FINISHED"}
-    
-
-class MESH_OT_YA_ApplyHips(Operator):
-    bl_idname = "mesh.apply_hip_dips"
-    bl_label = ""
-    bl_description = "Adds hip dips on YAB, removes them on Rue"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_legs_bool
-
-        legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Hip"
-        
-        if apply_mq:
-            if not mannequin["Mini"].mute:
-                self.report({'ERROR'}, "Not compatible with Mini!")
-                return {'CANCELLED'}
-            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, key, not_legs=False)
+        if self.target == "Torso":
+            not_legs = True
+            target = utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
             
+        if self.target == "Legs":
+            not_legs = False
+            target = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
+
+        if self.target == "Hands":
+            not_legs = True
+            target = utils.get_object_from_mesh("Hands").data.shape_keys.key_blocks
+
+        if self.target == "Feet":
+            not_legs = True
+            target = utils.get_object_from_mesh("Feet").data.shape_keys.key_blocks
+
+        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks 
+        
+        if apply_mq:
+            if self.key == "Hip" and not mannequin["Mini"].mute:
+                self.report({"ERROR"}, "Mini not compatible with alternate hips!")
+                return {"CANCELLED"}
+            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, self.key, not_legs)
         else:
-            if not legs["Mini"].mute:
-                self.report({'ERROR'}, "Not compatible with Mini!")
-                return {'CANCELLED'}
-            MESH_OT_YA_ApplyShapes.toggle_other(legs, key, not_legs=False)
+            if self.key == "Hip" and self.target == "Legs" and not target["Mini"].mute:
+                self.report({"ERROR"}, "Mini not compatible with alternate hips!")
+                return {"CANCELLED"}
+            MESH_OT_YA_ApplyShapes.toggle_other(target, self.key, not_legs)
 
         return {"FINISHED"}
+    
 
-
-class MESH_OT_YA_ApplyRueHands(Operator):
-    bl_idname = "mesh.apply_rue_hands"
+class MESH_OT_YA_ApplyGen(Operator):
+    bl_idname = "ya.apply_gen"
     bl_label = ""
-    bl_description = "Applies Rue hands"
+    bl_description = "Apply genitalia shape"
     bl_options = {'UNDO'}
+
+    key: StringProperty() # type: ignore
+
+    def execute(self, context):
+        apply_mq = context.scene.ya_props.shape_mq_legs_bool
+
+        Legs = utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
+        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
+
+        if apply_mq:
+            MESH_OT_YA_ApplyShapes.mute_gen_shapes(mannequin, self.key)
+        else:
+            MESH_OT_YA_ApplyShapes.mute_gen_shapes(Legs, self.key)
+
+        return {"FINISHED"}
+    
+
+class MESH_OT_YA_ApplyNails(Operator):
+    bl_idname = "ya.apply_nails"
+    bl_label = ""
+    bl_description = "Applies nails shape"
+    bl_options = {'UNDO'}
+
+    key: StringProperty() # type: ignore
 
     def execute(self, context):
         apply_mq = context.scene.ya_props.shape_mq_other_bool
 
         hands = utils.get_object_from_mesh("Hands").data.shape_keys.key_blocks
         mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Rue"
 
         if apply_mq:
-            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, key)
+            MESH_OT_YA_ApplyShapes.mute_nail_shapes(mannequin, self.key)
         else:
-            MESH_OT_YA_ApplyShapes.toggle_other(hands, key)
+            MESH_OT_YA_ApplyShapes.mute_nail_shapes(hands, self.key)
 
         return {"FINISHED"}
+    
 
-
-class MESH_OT_YA_ApplyLongNails(Operator):
-    bl_idname = "mesh.apply_long_nails"
+class MESH_OT_YA_ApplyVisibility(Operator):
+    bl_idname = "ya.apply_visibility"
     bl_label = ""
-    bl_description = "Applies long nails"
+    bl_description = "Hides selected nails/claws"
     bl_options = {'UNDO'}
 
+    key: StringProperty() # type: ignore
+    target: StringProperty() # type: ignore
+
     def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_other_bool
+        collection = bpy.context.view_layer.layer_collection.children
+        if self.key == "Nails" and self.target == "Feet":
+            
+            if collection["Feet"].children["Toenails"].exclude:
+                collection["Feet"].children["Toenails"].exclude = False
+            else:
+                collection["Feet"].children["Toenails"].exclude = True
+        
+        elif self.target == "Feet":
 
-        hands = utils.get_object_from_mesh("Hands").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Long"
+            if collection["Feet"].children["Toe Clawsies"].exclude:
+                collection["Feet"].children["Toe Clawsies"].exclude = False
+            else:
+                collection["Feet"].children["Toe Clawsies"].exclude = True
+    
+        elif self.key == "Nails" and self.target == "Hands":
 
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_nail_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_nail_shapes(hands, key)
+            if collection["Hands"].children["Nails"].exclude:
+                collection["Hands"].children["Nails"].exclude = False
+            else:
+                collection["Hands"].children["Nails"].exclude = True
+
+        elif self.target == "Hands" and self.key == "Clawsies":
+
+            if collection["Hands"].children["Clawsies"].exclude:
+                collection["Hands"].children["Clawsies"].exclude = False
+            else:
+                collection["Hands"].children["Clawsies"].exclude = True
+
 
         return {"FINISHED"}
 
 
-class MESH_OT_YA_ApplyShortNails(Operator):
-    bl_idname = "mesh.apply_short_nails"
-    bl_label = ""
-    bl_description = "Applies short nails"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_other_bool
-
-        hands = utils.get_object_from_mesh("Hands").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Short"
-
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_nail_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_nail_shapes(hands, key)
-
-        return {"FINISHED"}
 
 
-class MESH_OT_YA_ApplyBallerinaNails(Operator):
-    bl_idname = "mesh.apply_ballerina_nails"
-    bl_label = ""
-    bl_description = "Applies ballerina nails"
-    bl_options = {'UNDO'}
 
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_other_bool
-
-        hands = utils.get_object_from_mesh("Hands").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Ballerina"
-
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_nail_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_nail_shapes(hands, key)
-
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_ApplyStabbiesNails(Operator):
-    bl_idname = "mesh.apply_stabbies_nails"
-    bl_label = ""
-    bl_description = "Applies stabbies"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_other_bool
-
-        hands = utils.get_object_from_mesh("Hands").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Stabbies"
-
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.mute_nail_shapes(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.mute_nail_shapes(hands, key)
-
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_ApplyClawsies(Operator):
-    bl_idname = "mesh.apply_hand_clawsies"
-    bl_label = ""
-    bl_description = "Applies murder nails of your choosing"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_other_bool
-
-        hands = utils.get_object_from_mesh("Hands").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Curved"
-
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.toggle_other(hands, key)
-
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_ApplyRueFeet(Operator):
-    bl_idname = "mesh.apply_rue_feet"
-    bl_label = ""
-    bl_description = "Applies Rue hands"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        apply_mq = context.scene.ya_props.shape_mq_other_bool
-
-        feet = utils.get_object_from_mesh("Feet").data.shape_keys.key_blocks
-        mannequin = utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-        key = "Rue"
-
-        if apply_mq:
-            MESH_OT_YA_ApplyShapes.toggle_other(mannequin, key)
-        else:
-            MESH_OT_YA_ApplyShapes.toggle_other(feet, key)
-
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_FeetNailVisibility(Operator):
-    bl_idname = "mesh.visible_feet_nails"
-    bl_label = ""
-    bl_description = "Hides nails"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        if bpy.context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude:
-            bpy.context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = False
-        else:
-            bpy.context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = True
-
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_FeetClawVisibiliy(Operator):
-    bl_idname = "mesh.visible_feet_clawsies"
-    bl_label = ""
-    bl_description = "Hides clawsies"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        if bpy.context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude:
-            bpy.context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = False
-        else:
-            bpy.context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = True
-
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_HandNailVisibility(Operator):
-    bl_idname = "mesh.visible_hand_nails"
-    bl_label = ""
-    bl_description = "Hides nails"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        if bpy.context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude:
-            bpy.context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = False
-        else:
-            bpy.context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = True
-
-        return {"FINISHED"}
-
-
-class MESH_OT_YA_HandClawVisibiliy(Operator):
-    bl_idname = "mesh.visible_hand_clawsies"
-    bl_label = ""
-    bl_description = "Hides clawsies"
-    bl_options = {'UNDO'}
-
-    def execute(self, context):
-        if bpy.context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude:
-            bpy.context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = False
-        else:
-            bpy.context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = True
-
-        return {"FINISHED"}
 
 

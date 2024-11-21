@@ -1,7 +1,9 @@
 import bpy
 import os
+
 from bpy.types import Operator, PropertyGroup
 from bpy.props import StringProperty, BoolProperty, EnumProperty, PointerProperty, FloatProperty
+
 
 #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
 all_shapes = {
@@ -103,14 +105,6 @@ def has_shape_keys(ob):
                 return True
         return False
 
-def get_listable_shapes(body_slot):
-    items = []
-
-    for shape, (name, slot, shape_category, description, body, key) in all_shapes.items():
-        if body_slot.lower() == slot.lower() and description != "" and shape_category !="":
-            items.append((name, name, description))
-    return items
-
 def get_filtered_shape_keys(obj, key_filter: list):
         shape_keys = obj.shape_keys.key_blocks
         key_list = []
@@ -126,6 +120,19 @@ def get_filtered_shape_keys(obj, key_filter: list):
                 key_list.append((norm_key, category_lower, key_name))
         
         return key_list
+
+def directory_short(directory):
+    if os.path.exists(directory):
+        full_path = os.path.normpath(directory)
+
+        path_parts = full_path.split(os.sep)
+
+        last_three_folders = os.sep.join(path_parts[-3:])
+
+        return last_three_folders
+    else:
+        return None
+
 
 class CollectionState(PropertyGroup):
     collection_name: bpy.props.StringProperty() # type: ignore
@@ -296,10 +303,30 @@ class UsefulProperties(PropertyGroup):
             var.targets[0].id = bpy.data.scenes["Scene"]
             var.targets[0].data_path = f"ya_props.{prop_name}"  
 
+    def get_listable_shapes(body_slot):
+        items = []
+
+        for shape, (name, slot, shape_category, description, body, key) in all_shapes.items():
+            if body_slot.lower() == slot.lower() and description != "" and shape_category !="":
+                items.append((name, name, description))
+        return items
+
+    def update_directory(category):
+        prop = bpy.context.scene.ya_props
+        actual_prop = f"{category}_directory"
+        display_prop = f"{category}_display_directory"
+
+        display_directory = getattr(prop, display_prop, "")
+
+        if os.path.exists(display_directory):  
+            setattr(prop, actual_prop, display_directory)
+            print (getattr(prop, actual_prop, ""))
+            
+
     chest_shape_enum: EnumProperty(
         name= "",
         description= "Select a size",
-        items=lambda self, context: get_listable_shapes("Chest")
+        items=lambda self, context: UsefulProperties.get_listable_shapes("Chest")
         )   # type: ignore
     
     shape_mq_chest_bool: BoolProperty(
@@ -320,30 +347,11 @@ class UsefulProperties(PropertyGroup):
         default=False, 
         )   # type: ignore
 
-    def update_export_directory(self, context):
-       
-        if self.export_display_directory:
-            
-            
-            if os.path.exists(self.export_display_directory):
-                self.export_directory = self.export_display_directory
-
-                full_path = os.path.normpath(self.export_display_directory)
-
-                path_parts = full_path.split(os.sep)
-
-                last_three_folders = os.sep.join(path_parts[-3:])
-
-                self.export_display_directory = last_three_folders
-        else:
-            self.export_directory = ""
-
     export_display_directory: StringProperty(
         name="Export Folder",
-        default="Select Export Directory", 
-        subtype="DIR_PATH", 
+        default="Select Export Directory",  
         maxlen=255,
-        update=update_export_directory,
+        update=lambda self, context: UsefulProperties.update_directory('export'),
         ) # type: ignore
     
     export_directory: StringProperty(
@@ -406,7 +414,7 @@ class UsefulProperties(PropertyGroup):
 
 
 class UTILS_OT_YA_CollectionManager(Operator):
-    bl_idname = "utils.collection_manager"
+    bl_idname = "ya.collection_manager"
     bl_label = "Export"
     bl_description = "Combines chest options and exports them"
     bl_options = {'UNDO'}
