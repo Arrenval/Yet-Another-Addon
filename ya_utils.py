@@ -1,8 +1,9 @@
 import bpy
 import os
 
+from ya_file_manager import modpack_groups_list
 from bpy.types import Operator, PropertyGroup
-from bpy.props import StringProperty, BoolProperty, EnumProperty, PointerProperty, FloatProperty
+from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatProperty
 
 
 #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
@@ -121,21 +122,30 @@ def get_filtered_shape_keys(obj, key_filter: list):
         
         return key_list
 
-def directory_short(directory):
+def directory_short(directory, amount):
     if os.path.exists(directory):
         full_path = os.path.normpath(directory)
 
         path_parts = full_path.split(os.sep)
 
-        last_three_folders = os.sep.join(path_parts[-3:])
+        last_folders = os.sep.join(path_parts[-amount:])
 
-        return last_three_folders
+        return last_folders
     else:
         return None
+
+def get_modpack_groups(context):
+        return [(str(option.group_value), option.group_name, option.group_description) for option in context.scene.modpack_group_options]
 
 
 class CollectionState(PropertyGroup):
     collection_name: bpy.props.StringProperty() # type: ignore
+
+
+class ModpackGroups(PropertyGroup):
+    group_value: bpy.props.IntProperty() # type: ignore
+    group_name: bpy.props.StringProperty() # type: ignore
+    group_description: bpy.props.StringProperty() # type: ignore
 
 
 class UsefulProperties(PropertyGroup):
@@ -193,21 +203,6 @@ class UsefulProperties(PropertyGroup):
                 )
             setattr(UsefulProperties, prop_name, prop)
     
-    @staticmethod
-    def mesh_pointers():
-        for mesh in UsefulProperties.mesh_list:
-            mesh_lower = mesh.lower()
-            
-            prop_name = f"{mesh_lower}_mesh"
-            prop = PointerProperty(type=bpy.types.Mesh)
-            
-            setattr(UsefulProperties, prop_name, prop)
-
-            prop = bpy.context.scene.ya_props
-            obj = bpy.data.meshes[mesh]
-
-            setattr(prop, prop_name, obj)
-
     @staticmethod
     def chest_key_floats():
         # Creates float properties for chest shape keys controlled by values.
@@ -321,7 +316,6 @@ class UsefulProperties(PropertyGroup):
         if os.path.exists(display_directory):  
             setattr(prop, actual_prop, display_directory)
             print (getattr(prop, actual_prop, ""))
-            
 
     chest_shape_enum: EnumProperty(
         name= "",
@@ -329,6 +323,12 @@ class UsefulProperties(PropertyGroup):
         items=lambda self, context: UsefulProperties.get_listable_shapes("Chest")
         )   # type: ignore
     
+    modpack_groups: EnumProperty(
+        name= "",
+        description= "Select an option to replace",
+        items= lambda self, context: get_modpack_groups(context)
+        )   # type: ignore
+
     shape_mq_chest_bool: BoolProperty(
         name="",
         description="Switches to the mannequin", 
@@ -399,7 +399,9 @@ class UsefulProperties(PropertyGroup):
 
     collection_state: bpy.props.CollectionProperty(type=CollectionState) # type: ignore
 
-    consoletools_directory: StringProperty(
+    modpack_group_options: bpy.props.CollectionProperty(type=ModpackGroups) # type: ignore
+
+    textools_directory: StringProperty(
         name="ConsoleTools Directory",
         subtype="FILE_PATH", 
         maxlen=255,
@@ -410,6 +412,28 @@ class UsefulProperties(PropertyGroup):
         default="Check for ConsoleTools:",
         maxlen=255
 
+        )  # type: ignore
+    
+    game_model_path: StringProperty(
+        name="",
+        description="Path to the model you want to replace",
+        default="Paste path here.",
+        maxlen=255
+
+        )  # type: ignore
+    
+    loadmodpack_display_directory: StringProperty(
+        name="Select PMP",
+        default="Select Modpack",  
+        maxlen=255,
+        update=lambda self, context: UsefulProperties.update_directory('loadmodpack'),
+        ) # type: ignore
+    
+    loadmodpack_directory: StringProperty(
+        default="Select Modpack",
+        subtype="DIR_PATH", 
+        maxlen=255,
+        update=modpack_groups_list
         )  # type: ignore
 
 
@@ -472,7 +496,5 @@ class UTILS_OT_YA_CollectionManager(Operator):
         # Recursive check for child collections
         for child in layer_collection.children:
             self.recursively_toggle_exclude(child, collection, exclude)
-
-
 
 

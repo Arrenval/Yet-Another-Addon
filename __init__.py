@@ -22,11 +22,13 @@ import ya_ui_main as ui
 
 classreg = [
     utils.CollectionState,
+    utils.ModpackGroups,
     utils.UsefulProperties,
     utils.UTILS_OT_YA_CollectionManager,
     file.FILE_OT_SimpleExport,
     file.FILE_OT_YA_BatchQueue,
     file.FILE_OT_YA_ConsoleTools,
+    file.FILE_OT_YA_Modpacker,
     tool_ops.MESH_OT_YA_RemoveEmptyVGroups,
     shape_ops.MESH_OT_YA_ApplyShapes, 
     shape_ops.MESH_OT_YA_ApplyChestCategory,
@@ -40,7 +42,8 @@ classreg = [
 uireg = [
     ui_ops.UI_OT_YA_SetBodyPart,
     ui_ops.UI_OT_YA_DirSelector,   
-    ui_ops.UI_OT_YA_ConsoleToolsDirectory,    
+    ui_ops.UI_OT_YA_ConsoleToolsDirectory,
+    ui_ops.UI_OT_YA_PMPSelector,    
     ui.YAOverview, 
     ui.YATools, 
     ui.YAFileManager,
@@ -61,11 +64,12 @@ def register():
     bpy.types.Scene.collection_state = bpy.props.CollectionProperty(
         type=utils.CollectionState)
     
+    bpy.types.Scene.modpack_group_options = bpy.props.CollectionProperty(
+        type=utils.ModpackGroups)
     
     utils.addon_version = bl_info["version"]
     utils.UsefulProperties.export_bools()
     utils.UsefulProperties.ui_buttons()
-    utils.UsefulProperties.mesh_pointers()
     utils.UsefulProperties.chest_key_floats()
     utils.UsefulProperties.feet_key_floats()
     

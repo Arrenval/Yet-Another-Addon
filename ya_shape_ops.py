@@ -10,7 +10,7 @@ class MESH_OT_YA_ApplyShapes(Operator):
     bl_label = ""
     bl_description = "Applies the chosen shape to the selected models. This overrides any custom shape values"
     bl_options = {'UNDO'}
-
+    
     def execute(self, context):
         ApplyShapes = MESH_OT_YA_ApplyShapes
         apply_mq = context.scene.ya_props.shape_mq_chest_bool
@@ -176,7 +176,7 @@ class MESH_OT_YA_ApplyChestCategory(Operator):
     bl_options = {'UNDO'}
 
     key: StringProperty() # type: ignore
-
+    
     def execute(self, context):
         apply_mq = context.scene.ya_props.shape_mq_chest_bool
 

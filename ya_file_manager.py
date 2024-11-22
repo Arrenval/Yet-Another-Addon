@@ -1,24 +1,35 @@
-import bpy
 import os
+import bpy
 import json
 import winreg
+import shutil
+import zipfile
 import ya_utils as utils
 
-from itertools import combinations
+
+from pathlib import Path
+from typing import List, Dict, Union
 from functools import partial
-from ya_shape_ops import MESH_OT_YA_ApplyShapes as ApplyShapes
+from itertools import combinations
+from dataclasses import dataclass, asdict, field
 from bpy.types import Operator
 from bpy.props import StringProperty
+from ya_shape_ops import MESH_OT_YA_ApplyShapes as ApplyShapes
 
 # Global variable for making sure all functions can properly track the current export.
 # Ease of use alongside blender's timers.
-ya_is_exporting: bool = False
+is_exporting: bool = False
 
 class FILE_OT_SimpleExport(Operator):
     bl_idname = "ya.simple_export"
-    bl_label = "Open FBX Export Window"
+    bl_label = "Open Export Window"
+    bl_description = "Exports single model"
     bl_options = {'REGISTER', 'UNDO'}
 
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT"
+    
     def execute(self, context):
         gltf = context.scene.ya_props.export_gltf 
         directory = context.scene.ya_props.export_directory
@@ -45,6 +56,10 @@ class FILE_OT_YA_BatchQueue(Operator):
             "Hands": "Hands",
             "Feet": "Feet"
             }
+    
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT"
 
     def __init__(self):
         self.size_options = None
@@ -215,22 +230,22 @@ class FILE_OT_YA_BatchQueue(Operator):
     # Export queue is running on a timer interval until the queue is empty.
 
     def process_queue(context, queue, leg_queue, body_slot, gen_options):
-        global ya_is_exporting
-        ya_is_exporting = False
+        global is_exporting
+        is_exporting = False
 
         callback = partial(FILE_OT_YA_BatchQueue.export_queue, context, queue, leg_queue, body_slot, gen_options)
         
         bpy.app.timers.register(callback, first_interval=0.5) 
 
     def export_queue(context, queue, leg_queue, body_slot, gen_options):
-        global ya_is_exporting
+        global is_exporting
 
-        if ya_is_exporting:
+        if is_exporting:
             return 0.1
         
         second_queue = leg_queue
 
-        ya_is_exporting = True
+        is_exporting = True
         options, size, gen, target = queue.pop()
         
         FILE_OT_YA_BatchQueue.reset_model_state(body_slot, target)
@@ -280,7 +295,7 @@ class FILE_OT_YA_BatchQueue(Operator):
         else:
             FILE_OT_YA_FileExport.export_template(context, file_name=main_name)
 
-        ya_is_exporting = False
+        is_exporting = False
 
         if queue:
             return 0.1
@@ -406,7 +421,6 @@ class FILE_OT_YA_FileExport(Operator):
     bl_options = {'UNDO'}
 
     file_name: StringProperty() # type: ignore
-    preset: StringProperty() # type: ignore
 
     def execute(self, context):
             FILE_OT_YA_FileExport.export_template(context, self.file_name)
@@ -459,25 +473,25 @@ class FILE_OT_YA_FileExport(Operator):
 
 class FILE_OT_YA_ConsoleTools(Operator):
     bl_idname = "ya.file_console_tools"
-    bl_label = "Export"
-    bl_description = ""
+    bl_label = "Modpacker"
+    bl_description = "Checks for a valid TexTools install with ConsoleTools"
     bl_options = {'UNDO'}
 
     def execute(self, context):
-        consoletools = self.console_tools_location(context)
+        consoletools, textools = self.console_tools_location(context)
 
         if os.path.exists(consoletools):
-            context.scene.ya_props.consoletools_directory = consoletools
+            context.scene.ya_props.textools_directory = textools
             context.scene.ya_props.consoletools_status = "ConsoleTools Ready!"
         else:
-            context.scene.ya_props.consoletools_directory = ""
+            context.scene.ya_props.textools_directory = ""
             context.scene.ya_props.consoletools_status = "Not Found. Click Folder."
         
         return {"FINISHED"}
     
     def console_tools_location(self, context):
         textools = "FFXIV TexTools"
-        textools_path = ""
+        textools_install = ""
         
         registry_path = r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
         
@@ -492,7 +506,7 @@ class FILE_OT_YA_ConsoleTools(Operator):
                 display_name, type = winreg.QueryValueEx(subkey, "DisplayName")
                 
                 if textools.lower() in display_name.lower():
-                    textools_path, type = winreg.QueryValueEx(subkey, "InstallLocation")
+                    textools_install, type = winreg.QueryValueEx(subkey, "InstallLocation")
                     break
                 
             except FileNotFoundError:
@@ -503,11 +517,337 @@ class FILE_OT_YA_ConsoleTools(Operator):
         
         winreg.CloseKey(reg_key)
 
-        textools_path = textools_path.strip('"')
-        consoletools_path = os.path.join(textools_path, "FFXIV_TexTools", "ConsoleTools.exe")
+        textools_install = textools_install.strip('"')
+        consoletools_path = os.path.join(textools_install, "FFXIV_TexTools", "ConsoleTools.exe")
+        path_parts = consoletools_path.split(os.sep)
+        textools_folder = os.sep.join(path_parts[:-1])
         
-        return consoletools_path
+        
+        return consoletools_path, textools_folder
+
+
+class FILE_OT_YA_Modpacker(Operator):
+    bl_idname = "ya.file_modpacker"
+    bl_label = "Modpacker"
+    bl_description = "Packages FFXIV model files into a Penumbra Modpack"
+    bl_options = {'UNDO'}
+
+    def execute(self, context):
+        ya_props = context.scene.ya_props
+        textools = ya_props.textools_directory
+        game_model = ya_props.game_model_path
+
+        if not game_model:
+            self.report({'ERROR'}, "Please input a path to an FFXIV model")
+            return {'CANCELLED'} 
+        
+        fbx_folder = ya_props.export_directory
+        mdl_folder = os.path.join(fbx_folder, "MDL")
+        temp_folder = os.path.join(fbx_folder, "temp_pmp")
+        folders = (fbx_folder, mdl_folder, temp_folder)
+        
+        selected_option = ya_props.modpack_groups
+        modpack_path = ya_props.loadmodpack_directory
+        modpack_groups = utils.get_modpack_groups(context)
+        mod_data = (selected_option, modpack_path, modpack_groups)
+        
+        self.fbx_to_mdl(textools, folders, game_model)
+        self.mdl_conversion_wait(context, folders, game_model, mod_data)
+
+        return {"FINISHED"}
+    
+    
+    def fbx_to_mdl(self, textools, folders, game_model):
+        fbx_folder, mdl_folder, temp_folder = folders
+        to_convert = [file.name for file in Path(fbx_folder).glob(f'*.fbx') if file.is_file()]
+
+        cmd_name = "FBXtoMDL.cmd"
+        sys_drive = textools.split(os.sep)[0]
+        commands = ["@echo off", f"cd /d {sys_drive}", f"cd {textools}"]
+
+        cmd_path = os.path.join(fbx_folder, cmd_name)
+        if not os.path.isdir(mdl_folder):
+            os.mkdir(os.path.join(fbx_folder, "MDL"))
+
+        cmds_added = 0
+        total_files = len(to_convert)
+        for file in to_convert:
+            files_left = total_files - cmds_added    
+            fbx_to_mdl = f'"{os.path.join(fbx_folder, file)}" "{os.path.join(mdl_folder, file[:-3])}mdl" "{game_model}"'
             
+            if cmds_added % 5 == 0 and cmds_added == 0:
+                commands.append(f"echo {files_left} files to convert...")
+            
+            elif cmds_added % 5 == 0:
+                commands.append(f"echo {files_left} files left...")
+            
+            commands.append(f"echo Converting: {file[0:-4]}")
+            commands.append(f"ConsoleTools.exe /wrap {fbx_to_mdl} >nul")
+            cmds_added += 1
+        
+        commands.append("ping 127.0.0.1 -n 2 >nul")
+        commands.append('start "" /min cmd /c "del \"%~f0\""')
+        commands.append("exit")
+
+        with open(cmd_path, 'w') as file:
+            for cmd in commands:
+                file.write(f"{cmd}\n")
+
+        os.startfile(cmd_path)
+
+    def mdl_conversion_wait(self, context, folders, game_model, mod_data):
+        global is_converting
+        is_converting = True
+
+        callback = partial(FILE_OT_YA_Modpacker.create_modpack, context, folders, game_model, mod_data)
+        
+        bpy.app.timers.register(callback, first_interval=0.5)
+
+    def create_modpack(context, folders, game_model, mod_data):
+        fbx_folder, mdl_folder, temp_folder = folders
+        selected_option, mod_path, mod_groups = mod_data
+
+        is_cmd = [file.name for file in Path(fbx_folder).glob(f'FBXtoMDL.cmd') if file.is_file()]
+       
+       # the .cmd file deletes itself when done, this makes the packing process
+       # wait until it has finished converting the fbx
+        if is_cmd:
+            return 0.5      
+             
+        if not os.path.isdir(temp_folder):
+            os.mkdir(os.path.join(fbx_folder, "temp_pmp"))
+
+        with zipfile.ZipFile(mod_path, "r") as pmp:
+             pmp.extractall(temp_folder)
+
+        for group in mod_groups:
+            if selected_option == group[0]:
+                group_name, group_to_replace = group[1], group[2]       
+        
+        new_group = os.path.join(temp_folder, group_to_replace)
+        FILE_OT_YA_Modpacker.json_and_copy(mdl_folder, temp_folder, game_model, group_name, new_group)
+
+        backup = os.path.join(fbx_folder, "Backup.pmp")
+        shutil.copy(mod_path, backup)
+
+        with zipfile.ZipFile(mod_path, 'w', zipfile.ZIP_DEFLATED) as pmp:
+            for root, dir, files in os.walk(temp_folder):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    pmp.write(file_path, os.path.relpath(file_path, temp_folder))
+
+    
+        if os.path.isdir(temp_folder):
+            shutil.rmtree(temp_folder)
+  
+    def json_and_copy(mdl_folder, temp_folder, game_model, group_name, new_group):
+        to_pack = [file.name for file in Path(mdl_folder).glob(f'*.mdl') if file.is_file()]
+
+        options = [
+            {
+                "Files": {},
+                "FileSwaps": {},
+                "Manipulations": [],
+                "Priority": 0,
+                "Name": "None",
+                "Description": "",
+                "Image": ""
+                }
+                ]
+
+        group_data = {
+            "Name": group_name,
+            "Description": "Test",
+            "Priority": 0,
+            "Image": "",
+            "Page": 1,
+            "Type": "Single",
+            "DefaultSettings": 0,
+            "Options": options,
+            }
+ 
+        for file in to_pack:
+            option_name = file[:-4]
+            option = {
+                "Files": {},
+                "FileSwaps": {},
+                "Manipulations": [],
+                "Priority": 0,
+                "Name": "",
+                "Description": "",
+                "Image": ""
+                }
+
+            file_path = f"{group_name}\\{option_name}\\{file}"
+            option["Files"] = {game_model: file_path}
+            option["Name"] = option_name
+            
+            options.append(option)
+
+        with open(new_group, "w") as file:
+            file.write(PenumbraGroups(**group_data).to_json())
+
+        for file in to_pack:
+            option_name = file[:-4]
+            target_path = os.path.join(temp_folder, group_name, option_name)
+            os.makedirs(target_path, exist_ok=True)
+        
+            shutil.copy(os.path.join(mdl_folder, file), target_path)
+
         
 
+        
+    
 
+def modpack_groups_list(self, context):
+    scene = context.scene
+    scene.modpack_group_options.clear()
+    modpack = scene.ya_props.loadmodpack_directory
+    
+    new_option = scene.modpack_group_options.add()
+    new_option.group_value = int(0)
+    new_option.group_name = "Create new option"  
+    new_option.group_description = ""
+
+    with zipfile.ZipFile(modpack, "r") as pmp:
+        for file_name in pmp.namelist():
+            if file_name.count('/') == 0 and file_name.startswith("group"):
+                number = lambda name: ''.join(char for char in name if char.isdigit())
+                group_name = modpack_groups_name(file_name, pmp)
+
+                new_option = context.scene.modpack_group_options.add()
+                new_option.group_value = int(number(file_name))
+                new_option.group_name = group_name  
+                new_option.group_description = file_name
+    
+def modpack_groups_name(file_name, pmp):
+    
+    with pmp.open(file_name) as file:
+        file_contents = json.load(file)
+        
+        try:
+            
+            group_json = PenumbraGroups(**file_contents)
+            return group_json.Name
+
+        except Exception as e:
+            print(f"{file_name} has an unknown json entry.")
+            return f"{file_name[10:-4]}*"        
+
+@dataclass
+class MetaManip:
+    Entry: Union[int, float, dict] = None
+    #EQDP, EQP, Est
+    Gender: str = None
+    Race: str = None
+    SetID: str = None
+    Slot: str = None
+    #Rsp
+    SubRace: str = None
+    Attribute: str = None
+    #GlobalEqp
+    Type: str = None
+    Condition: str = None
+    #Imc
+    ObjectType: str = None
+    PrimaryId: int = None
+    SecondaryId: int = None
+    Variant: int = None
+    EquipSlot: str = None
+    BodySlot: str = None
+
+@dataclass
+class PenumbraManipulations:
+    Type: str = ""
+    Manipulation: List[MetaManip] = None
+    
+    def __post_init__(self):
+        self.Manipulation = MetaManip(self.Manipulation)
+
+@dataclass
+class ImcDefaultEntry:
+    MaterialId: int = 0
+    DecalId: int = 0
+    VfxId: int = 0
+    MaterialAnimationId: int = 0
+    AttributeAndSound: int = 0
+    AttributeMask: int = 0
+    SoundId: int = 0
+
+@dataclass
+class ImcIdentifier:
+    ObjectType: str = ""
+    PrimaryId: int = 0
+    SecondaryId: int = 0
+    Variant: int = 0
+    EquipSlot: str = ""
+    BodySlot: str = ""
+
+@dataclass
+class GroupOptions:
+    Files: Dict[str, str] = None
+    FileSwaps: Dict[str, str] = None
+    Manipulations: List[PenumbraManipulations] = None
+    Priority: int = 0
+    AttributeMask: int = None
+    Name: str = ""
+    Description: str = ""
+    Image: str = ""
+
+    def __post_init__(self):
+        if self.Manipulations != None:
+            self.Manipulations = [PenumbraManipulations(**manip) for manip in self.Manipulations]
+        
+@dataclass
+class PenumbraGroups:
+    Version: int = 0
+    DefaultEntry: ImcDefaultEntry = None
+    Identifier: ImcIdentifier = None
+    AllVariants: bool = None
+    OnlyAttributes: bool = None
+    Name: str = ""
+    Description: str = ""
+    Priority: int = 0
+    Image: str = ""
+    Page: int = 0
+    Type: str = None
+    DefaultSettings: int = 0
+    Options: List[GroupOptions] = None
+    Manipulations: List[PenumbraManipulations] = None
+
+    def __post_init__(self):
+        if self.Options != None:
+            self.Options = [GroupOptions(**option) for option in self.Options]
+        elif self.Manipulations != None:
+            self.Manipulations = [PenumbraManipulations(**manip) for manip in self.Manipulations]
+        
+
+    def to_json(self):
+        return json.dumps(self.remove_none(asdict(self)), indent=4)
+    
+    def remove_none(self, obj):
+        if isinstance(obj, dict):
+            return {k: self.remove_none(v) for k, v in obj.items() if v is not None}
+        
+        elif isinstance(obj, list):
+            return [self.remove_none(i) for i in obj if i is not None]
+        
+        return obj         
+
+
+@dataclass
+class PenumbraMeta:
+    FileVersion: int = 3
+    Name: str = ""
+    Author: str = ""
+    Description: str = ""
+    Image: str = ""
+    Version: str = ""
+    Website: str = ""
+    ModTags: list = field(default_factory=list)
+    Description: str = ""
+
+    def to_json(self):
+        return json.dumps(asdict(self), indent=4)
+    
+    

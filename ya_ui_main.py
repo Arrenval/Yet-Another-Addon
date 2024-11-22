@@ -608,6 +608,16 @@ class YAFileManager(Panel):
             split.label(text=section_prop.consoletools_status, icon=icon)
             split.operator("ya.file_console_tools", text="Check")
             row.operator("ya.consoletools_dir", icon="FILE_FOLDER", text="")
+            box.separator(factor=0.5,type="LINE")
+            row = box.row(align=True)
+            row.prop(section_prop, "game_model_path", text="Model")
+            row = box.row(align=True)
+            row.prop(section_prop, "loadmodpack_display_directory", text="")
+            row.operator("ya.pmp_selector", icon="FILE_FOLDER", text="")
+            row = box.row(align=True)
+            row.prop(section_prop, "modpack_groups", text="")
+            row = box.row(align=True)
+            row.operator("ya.file_modpacker", text="Test")
           
     def export_category(self, box, section_prop):
         row = box.row(align=True)
@@ -615,9 +625,9 @@ class YAFileManager(Panel):
         row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
         row = box.row(align=True)
         col = row.column(align=True)
-        col.operator("FILE_OT_simple_export", text="Simple Export")
+        col.operator("ya.simple_export", text="Simple Export")
         col2 = row.column(align=True)
-        col2.operator("FILE_OT_batch_queue", text="Batch Export")
+        col2.operator("ya.batch_queue", text="Batch Export")
         
         
         export_text = "GLTF" if section_prop.export_gltf else "FBX"
