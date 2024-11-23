@@ -94,9 +94,10 @@ class UI_OT_YA_ConsoleToolsDirectory(Operator):
         
         return {'FINISHED'}
     
+
 class UI_OT_YA_PMPSelector(Operator):
     bl_idname = "ya.pmp_selector"
-    bl_label = "Select Folder"
+    bl_label = "Select Modpack"
     bl_description = "Select a modpack. If selected, hold Alt to open the folder, hold Shift to open modpack"
     
     filepath: StringProperty() # type: ignore
@@ -139,3 +140,14 @@ class UI_OT_YA_PMPSelector(Operator):
         
         return {'FINISHED'}
     
+
+class UI_OT_YA_CopyToFBX(Operator):
+    bl_idname = "ya.directory_copy"
+    bl_label = "Copy Path"
+    bl_description = "Copies the export directory to your modpack directry. This should be where your FBX files are located"
+
+    def execute(self, context):
+        context.scene.ya_props.savemodpack_directory = context.scene.ya_props.export_directory 
+        return {'FINISHED'}
+
+

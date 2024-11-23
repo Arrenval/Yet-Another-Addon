@@ -574,21 +574,7 @@ class YAFileManager(Panel):
         sub.label(text="Import")
         sub.label(icon="IMPORT")
 
-        if button:
-            row = layout.row(align=True)
-            row.prop(context.scene.ya_props, "export_directory", text="")
-            row = layout.row(align=True)
-            row.operator("FILE_OT_batch_queue", text="Export FBX")
-            row = layout.row()
-            row.prop(context.scene.ya_props, "export_body_slot", text="")
-            row = layout.row(align=True)
-            row.prop(context.scene.ya_props, "export_large_bool", text="Large")
-            row.prop(context.scene.ya_props, "export_medium_bool", text="Medium")
-            row.prop(context.scene.ya_props, "export_small_bool", text="Small")
-            row = layout.row(align=True)
-            row.prop(context.scene.ya_props, "export_buff_bool", text="Buff")
-            row.prop(context.scene.ya_props, "export_rue_bool", text="Rue")
-            row.prop(context.scene.ya_props, "export_piercings_bool", text="Piercings")
+        
 
         button = section_prop.button_file_expand
 
@@ -608,16 +594,70 @@ class YAFileManager(Panel):
             split.label(text=section_prop.consoletools_status, icon=icon)
             split.operator("ya.file_console_tools", text="Check")
             row.operator("ya.consoletools_dir", icon="FILE_FOLDER", text="")
+
             box.separator(factor=0.5,type="LINE")
+
             row = box.row(align=True)
-            row.prop(section_prop, "game_model_path", text="Model")
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Model:")
+            split.prop(section_prop, "game_model_path", text="")
+            model_path = section_prop.game_model_path
+            icon = "CHECKMARK" if model_path.startswith("chara") or model_path.endswith("mdl") else "X"
+            row.label(icon=icon)
+            
             row = box.row(align=True)
-            row.prop(section_prop, "loadmodpack_display_directory", text="")
-            row.operator("ya.pmp_selector", icon="FILE_FOLDER", text="")
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="FBX:")
+            split.prop(section_prop, "savemodpack_display_directory", text="")
+            
+            row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "savemodpack"
+
             row = box.row(align=True)
-            row.prop(section_prop, "modpack_groups", text="")
+            split = row.split(factor=0.25, align=True)
+            split.label(text="")
+            split.operator("ya.directory_copy", text="Copy from Export") 
+
             row = box.row(align=True)
-            row.operator("ya.file_modpacker", text="Test")
+            row.prop(section_prop, "button_modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
+            row.prop(section_prop, "button_modpack_replace", text="Update", icon="CURRENT_FILE",)
+
+            if section_prop.button_modpack_replace:
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Modpack:")
+                split.prop(section_prop, "loadmodpack_display_directory", text="")
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.label(text="")
+                split.operator("ya.pmp_selector", icon="FILE_FOLDER", text="Choose Modpack")
+                
+                
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Replace:")
+                split.prop(section_prop, "modpack_groups", text="")
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Rename:")
+                split.prop(section_prop, "modpack_rename_group", text="")
+
+            row = box.row(align=True)
+            row.operator("ya.file_modpacker", text="Convert & Pack").preset = "convert_pack"
+            row.operator("ya.file_modpacker", text="Convert").preset = "convert"
+            row.operator("ya.file_modpacker", text="Pack").preset = "pack"
+
+            row = box.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Status:")
+            split.prop(section_prop, "modpack_progress", text="", emboss=False)
           
     def export_category(self, box, section_prop):
         row = box.row(align=True)

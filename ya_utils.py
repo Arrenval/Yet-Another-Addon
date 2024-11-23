@@ -161,6 +161,7 @@ class UsefulProperties(PropertyGroup):
         ("file",     "expand",   "Opens the category"),
         ("advanced", "expand",   "Switches between a simplified and full view of the shape keys"),
         ("dynamic",  "view",     "Toggles between a dynamic collection viewer and one constrained to the active object"),
+        ("modpack",  "replace",     "Toggles between a dynamic collection viewer and one constrained to the active object")
         ]
    
     mesh_list = [
@@ -431,11 +432,34 @@ class UsefulProperties(PropertyGroup):
     
     loadmodpack_directory: StringProperty(
         default="Select Modpack",
-        subtype="DIR_PATH", 
+        subtype="FILE_PATH", 
         maxlen=255,
         update=modpack_groups_list
         )  # type: ignore
 
+    savemodpack_display_directory: StringProperty(
+        default="FBX folder",
+        description="FBX location", 
+        maxlen=255,
+        update=lambda self, context: UsefulProperties.update_directory('loadmodpack')
+        )  # type: ignore
+    
+    savemodpack_directory: StringProperty(
+        default="FBX folder", 
+        maxlen=255,
+        )  # type: ignore
+    
+    modpack_rename_group: StringProperty(
+        default="",
+        description="Choose a different name for the mod group", 
+        maxlen=255,
+        )  # type: ignore
+    
+    modpack_progress: StringProperty(
+        default="",
+        description="Keeps track of the modpack progress", 
+        maxlen=255,
+        )  # type: ignore
 
 class UTILS_OT_YA_CollectionManager(Operator):
     bl_idname = "ya.collection_manager"
