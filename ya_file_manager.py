@@ -4,7 +4,8 @@ import json
 import winreg
 import shutil
 import zipfile
-import ya_utils as utils
+import ya_utils as Utils
+import ya_penumbra as Penumbra
 
 
 from pathlib import Path
@@ -141,7 +142,7 @@ class FILE_OT_YA_BatchQueue(Operator):
         options = {}
         prop = context.scene.ya_props
 
-        for shape, (name, slot, shape_category, description, body, key) in utils.all_shapes.items():
+        for shape, (name, slot, shape_category, description, body, key) in Utils.all_shapes.items():
             slot_lower = slot.lower().replace("/", " ")
             name_lower = name.lower().replace(" ", "_")
 
@@ -154,7 +155,7 @@ class FILE_OT_YA_BatchQueue(Operator):
 
     def calculate_queue(self, body_slot):
         mesh = self.ob_mesh_dict[body_slot]
-        target = utils.get_object_from_mesh(mesh).data.shape_keys.key_blocks
+        target = Utils.get_object_from_mesh(mesh).data.shape_keys.key_blocks
 
         leg_sizes = {
             "Melon": self.size_options["Melon"],
@@ -196,7 +197,7 @@ class FILE_OT_YA_BatchQueue(Operator):
 
         
         #Excludes possible parts based on which body slot they belong to
-        for shape, (name, slot, category, description, body, key) in utils.all_shapes.items():
+        for shape, (name, slot, category, description, body, key) in Utils.all_shapes.items():
             if any(shape in possible_parts for parts in possible_parts) and body_slot == slot and self.size_options[shape]:
                 actual_parts.append(shape)  
 
@@ -207,7 +208,7 @@ class FILE_OT_YA_BatchQueue(Operator):
 
         all_combinations = tuple(all_combinations)  
 
-        for shape, (name, slot, category, description, body, key) in utils.all_shapes.items():
+        for shape, (name, slot, category, description, body, key) in Utils.all_shapes.items():
             if body_slot == "Legs":
                 if self.size_options[shape] and category == "Vagina":
                     actual_combinations[shape] = all_combinations
@@ -258,24 +259,24 @@ class FILE_OT_YA_BatchQueue(Operator):
             if size == "Straight" or size == "Curved":
                 collections = ["Hands", "Clawsies"]
                 extra = json.dumps(collections)
-                bpy.ops.utils.collection_manager(extra_json = extra)
+                bpy.ops.Utils.collection_manager(extra_json = extra)
     
             else:
                 collections = ["Hands", "Nails"]
                 extra = json.dumps(collections)
-                bpy.ops.utils.collection_manager(extra_json = extra)
+                bpy.ops.Utils.collection_manager(extra_json = extra)
     
         if body_slot == "Feet":
 
             if "Clawsies" in options:
                 collections = ["Feet", "Toe Clawsies"]
                 extra = json.dumps(collections)
-                bpy.ops.utils.collection_manager(extra_json = extra)
+                bpy.ops.Utils.collection_manager(extra_json = extra)
     
             else:
                 collections = ["Feet", "Toenails"]
                 extra = json.dumps(collections)
-                bpy.ops.utils.collection_manager(extra_json = extra)
+                bpy.ops.Utils.collection_manager(extra_json = extra)
         
         if body_slot == "Chest/Legs":
             for leg_task in second_queue:
@@ -329,7 +330,7 @@ class FILE_OT_YA_BatchQueue(Operator):
         if body_slot == "Chest/Legs":
             body_slot = "Chest"
 
-        for shape, (name, slot, category, description, body, key) in utils.all_shapes.items():
+        for shape, (name, slot, category, description, body, key) in Utils.all_shapes.items():
 
             if shape == size and key != "":
                 ob[key].mute = False
@@ -341,7 +342,7 @@ class FILE_OT_YA_BatchQueue(Operator):
         # Adds the shape value presets alongside size toggles
         if body_slot == "Chest":
             keys_to_filter = ["Squeeze", "Squish", "Push-Up", "Nip Nops"]
-            preset = utils.get_shape_presets(size)
+            preset = Utils.get_shape_presets(size)
             filtered_preset = {}
            
 
@@ -349,10 +350,10 @@ class FILE_OT_YA_BatchQueue(Operator):
                 if not any(key.endswith(sub) for sub in keys_to_filter):
                     filtered_preset[key] = preset[key]
 
-            category = utils.all_shapes[size][2]
+            category = Utils.all_shapes[size][2]
             ApplyShapes.mute_chest_shapes(ob, category)
             ApplyShapes.apply_shape_values("torso", category, filtered_preset)
-            bpy.context.view_layer.objects.active = utils.get_object_from_mesh("Torso")
+            bpy.context.view_layer.objects.active = Utils.get_object_from_mesh("Torso")
             bpy.context.view_layer.update()
                 
         
@@ -366,7 +367,7 @@ class FILE_OT_YA_BatchQueue(Operator):
         gen_name = None
 
         #Loops over the options and applies the shapes name to file_names
-        for shape, (name, slot, category, description, body, key) in utils.all_shapes.items():
+        for shape, (name, slot, category, description, body, key) in Utils.all_shapes.items():
             if any(shape in options for option in options) and not shape.startswith("Gen") and name != "YAB":
                 if name == "Hip Dips":
                     name = "Alt Hip" 
@@ -402,7 +403,7 @@ class FILE_OT_YA_BatchQueue(Operator):
 
         reset_shape_keys = []
 
-        for shape, (name, slot, shape_category, description, body, key) in utils.all_shapes.items():
+        for shape, (name, slot, shape_category, description, body, key) in Utils.all_shapes.items():
             if key != "" and slot == body_slot:
                 if shape == "Hip Dips":
                     reset_shape_keys.append("Hip Dips (for YAB)")
@@ -555,7 +556,7 @@ class FILE_OT_YA_Modpacker(Operator):
         new_name = context.scene.ya_props.modpack_rename_group
         selected_option = ya_props.modpack_groups
         modpack_path = ya_props.loadmodpack_directory
-        modpack_groups = utils.get_modpack_groups(context)
+        modpack_groups = Utils.get_modpack_groups(context)
         mod_data = (selected_option, modpack_path, modpack_groups, new_name)
         
         if self.preset != "pack":
@@ -737,7 +738,7 @@ class FILE_OT_YA_Modpacker(Operator):
             group_data["Name"] = short_name
 
             with open(new_group, "w") as file:
-                file.write(PenumbraGroups(**group_data).to_json())
+                file.write(Penumbra.ModGroups(**group_data).to_json())
 
 
         # Deletes orphaned files
@@ -758,7 +759,7 @@ class FILE_OT_YA_Modpacker(Operator):
             with open(current_json, 'r') as file:
                 file_contents = json.load(file)
 
-                current_data = PenumbraGroups(**file_contents)
+                current_data = Penumbra.ModGroups(**file_contents)
                 
                 return current_data
             
@@ -788,7 +789,7 @@ class FILE_OT_YA_Modpacker(Operator):
             if json_file != cur_file_name:
                 with open(os.path.join(temp_folder, json_file), "r") as file:
                     file_contents = json.load(file)
-                    file_contents = PenumbraGroups(**file_contents)
+                    file_contents = Penumbra.ModGroups(**file_contents)
                     
                     try:
                         for option in file_contents.Options:
@@ -871,7 +872,7 @@ class FILE_OT_YA_Modpacker(Operator):
             final_sort.append(tuples[0])
 
         return final_sort
-        
+    
 def modpack_groups_list(self, context):
     scene = context.scene
     scene.modpack_group_options.clear()
@@ -901,127 +902,17 @@ def modpack_groups_name(file_name, pmp):
         
         try:
             
-            group_json = PenumbraGroups(**file_contents)
+            group_json = Penumbra.ModGroups(**file_contents)
             return group_json.Name
 
         except Exception as e:
             print(f"{file_name} has an unknown json entry.")
             return f"{file_name[10:-4]}*"        
-
-
-@dataclass
-class MetaManip:
-    Entry: Union[int, float, dict] = None
-    #EQDP, EQP, Est
-    Gender: str = None
-    Race: str = None
-    SetID: str = None
-    Slot: str = None
-    #Rsp
-    SubRace: str = None
-    Attribute: str = None
-    #GlobalEqp
-    Type: str = None
-    Condition: str = None
-    #Imc
-    ObjectType: str = None
-    PrimaryId: int = None
-    SecondaryId: int = None
-    Variant: int = None
-    EquipSlot: str = None
-    BodySlot: str = None
-
-@dataclass
-class PenumbraManipulations:
-    Type: str = ""
-    Manipulation: List[MetaManip] = None
     
-    def __post_init__(self):
-        self.Manipulation = MetaManip(self.Manipulation)
-
-@dataclass
-class ImcDefaultEntry:
-    MaterialId: int = 0
-    DecalId: int = 0
-    VfxId: int = 0
-    MaterialAnimationId: int = 0
-    AttributeAndSound: int = 0
-    AttributeMask: int = 0
-    SoundId: int = 0
-
-@dataclass
-class ImcIdentifier:
-    ObjectType: str = ""
-    PrimaryId: int = 0
-    SecondaryId: int = 0
-    Variant: int = 0
-    EquipSlot: str = ""
-    BodySlot: str = ""
-
-@dataclass
-class GroupOptions:
-    Files: Dict[str, str] = None
-    FileSwaps: Dict[str, str] = None
-    Manipulations: List[PenumbraManipulations] = None
-    Priority: int = 0
-    AttributeMask: int = None
-    Name: str = ""
-    Description: str = ""
-    Image: str = ""
-
-    def __post_init__(self):
-        if self.Manipulations != None:
-            self.Manipulations = [PenumbraManipulations(**manip) for manip in self.Manipulations]
-        
-@dataclass
-class PenumbraGroups:
-    Version: int = 0
-    DefaultEntry: ImcDefaultEntry = None
-    Identifier: ImcIdentifier = None
-    AllVariants: bool = None
-    OnlyAttributes: bool = None
-    Name: str = ""
-    Description: str = ""
-    Priority: int = 0
-    Image: str = ""
-    Page: int = 0
-    Type: str = None
-    DefaultSettings: int = 0
-    Options: List[GroupOptions] = None
-    Manipulations: List[PenumbraManipulations] = None
-
-    def __post_init__(self):
-        if self.Options != None:
-            self.Options = [GroupOptions(**option) for option in self.Options]
-        elif self.Manipulations != None:
-            self.Manipulations = [PenumbraManipulations(**manip) for manip in self.Manipulations]
-        
-
-    def to_json(self):
-        return json.dumps(self.remove_none(asdict(self)), indent=4)
-    
-    def remove_none(self, obj):
-        if isinstance(obj, dict):
-            return {k: self.remove_none(v) for k, v in obj.items() if v is not None}
-        
-        elif isinstance(obj, list):
-            return [self.remove_none(i) for i in obj if i is not None]
-        
-        return obj         
-
-@dataclass
-class PenumbraMeta:
-    FileVersion: int = 3
-    Name: str = ""
-    Author: str = ""
-    Description: str = ""
-    Image: str = ""
-    Version: str = ""
-    Website: str = ""
-    ModTags: list = field(default_factory=list)
-    Description: str = ""
-
-    def to_json(self):
-        return json.dumps(asdict(self), indent=4)
-    
-    
+classes = [
+    FILE_OT_SimpleExport,
+    FILE_OT_YA_BatchQueue,
+    FILE_OT_YA_FileExport,
+    FILE_OT_YA_ConsoleTools,
+    FILE_OT_YA_Modpacker
+]
