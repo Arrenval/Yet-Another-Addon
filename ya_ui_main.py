@@ -1,28 +1,12 @@
 import bpy
 import ya_utils as utils
+# import ya_ui_ops as ui_ops
+# import ya_tool_ops as tool_ops
+# import ya_shape_ops as shape_ops
+import ya_file_manager as file
+# import ya_ui_main as ui
 
 from bpy.types import Panel
-
-def dynamic_column_buttons(columns, box, section_prop, labels, category, button_type):
-    row = box.row(align=True)
-
-    columns_list = [row.column(align=True) for _ in range(columns)]
-
-    for index, (size, name) in enumerate(labels.items()):
-        size_lower = size.lower().replace(' ', "_")
-        category_lower = category.lower()
-
-        prop_name = f"{button_type}_{size_lower}_{category_lower}_bool"
-
-        if hasattr(section_prop, prop_name):
-            icon = 'CHECKMARK' if getattr(section_prop, prop_name) else 'PANEL_CLOSE'
-            
-            col_index = index % columns 
-            
-            columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon)
-        else:
-            print(f"{name} has no assigned property!")
-    return box  
 
 def dynamic_column_operators(columns, layout, labels):
     box = layout.box()
@@ -38,7 +22,23 @@ def dynamic_column_operators(columns, layout, labels):
 
     return box  
 
-class YAOverview(Panel):
+def dropdown_header(self, button, section_prop, prop_str=str, label=str, extra_icon=""):
+    layout = self.layout
+    row = layout.row(align=True)
+    split = row.split(factor=1)
+    box = split.box()
+    sub = box.row(align=True)
+    sub.alignment = 'LEFT'
+
+    icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+    sub.prop(section_prop, prop_str, text="", icon=icon, emboss=False)
+    sub.label(text=label)
+    if extra_icon != "":
+        sub.label(icon=extra_icon)
+    
+    return box
+
+class Overview(Panel):
     bl_idname = "VIEW3D_PT_YA_Overview"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -511,7 +511,7 @@ class YAOverview(Panel):
                 return utils.get_object_from_mesh("Mannequin")
 
 
-class YATools(Panel):
+class Tools(Panel):
     bl_idname = "VIEW3D_PT_YA_Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -527,7 +527,7 @@ class YATools(Panel):
         row.operator("ya.remove_empty_vgroups", text= "Remove Empty Groups")
 
 
-class YAFileManager(Panel):
+class FileManager(Panel):
     bl_idname = "VIEW3D_PT_YA_FileManager"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -540,51 +540,24 @@ class YAFileManager(Panel):
         layout = self.layout
         scene = context.scene
         section_prop = scene.ya_props
-        button = section_prop.button_export_expand
-        
-        row = layout.row(align=True)
-        split = row.split(factor=1)
-        box = split.box()
-        sub = box.row(align=True)
-        sub.alignment = 'LEFT'
 
         # EXPORT
-        
-        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        sub.prop(section_prop, "button_export_expand", text="", icon=icon, emboss=False)
-        sub.label(text="Export")
-        sub.label(icon="EXPORT")
-
+        button = section_prop.button_export_expand
+        box = dropdown_header(self, button, section_prop, "button_export_expand", "Export", "EXPORT")
         if button:
-            box.separator(factor=0.5, type="LINE")
-            self.export_category(box, section_prop)
+            self.draw_export(layout, section_prop)
 
-        button = section_prop.button_import_expand
-
-        row = layout.row(align=True)
-        split = row.split(factor=1)
-        box = split.box()
-        sub = box.row(align=True)
-        sub.alignment = 'LEFT'
         
+
         # IMPORT
-        
-        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        sub.prop(section_prop, "button_import_expand", text="", icon=icon, emboss=False)
-        sub.label(text="Import")
-        sub.label(icon="IMPORT")
+        button = section_prop.button_import_expand
+        box = dropdown_header(self, button, section_prop, "button_import_expand", "Import", "IMPORT")
 
         
 
+        # MODPACKER
         button = section_prop.button_file_expand
-
-        box = layout.box()
-        row = box.row(align=True)
-        row.alignment = "LEFT"
-        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        row.prop(section_prop, "button_file_expand", text="", icon=icon, emboss=False)
-        row.label(text="Modpacker")
-        row.label(icon="NEWFOLDER")
+        box = dropdown_header(self, button, section_prop, "button_file_expand", "Modpacker", "NEWFOLDER")
 
         if button:
             box.separator(factor=0.5,type="LINE")
@@ -658,17 +631,18 @@ class YAFileManager(Panel):
             split.alignment = "RIGHT"
             split.label(text="Status:")
             split.prop(section_prop, "modpack_progress", text="", emboss=False)
-          
-    def export_category(self, box, section_prop):
-        row = box.row(align=True)
+    
+    def draw_export(self, layout, section_prop):
+        layout = self.layout
+        row = layout.row(align=True)
         row.prop(section_prop, "export_display_directory", text="")
         row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
-        row = box.row(align=True)
+
+        row = layout.row(align=True)
         col = row.column(align=True)
         col.operator("ya.simple_export", text="Simple Export")
         col2 = row.column(align=True)
         col2.operator("ya.batch_queue", text="Batch Export")
-        
         
         export_text = "GLTF" if section_prop.export_gltf else "FBX"
         icon = "BLENDER" if section_prop.export_gltf else "VIEW3D"
@@ -676,34 +650,26 @@ class YAFileManager(Panel):
         col3.alignment = "RIGHT"
         col3.prop(section_prop, "export_gltf", text=export_text, icon=icon, invert_checkbox=True)
 
-        box.separator(factor=0.5, type='LINE')
 
-        row = box.row(align=True)
+        layout.separator(factor=1, type='LINE')
+
+
+        row = layout.row(align=True)
         if section_prop.export_body_slot == "Chest/Legs":
             row.label(text=f"Body Part: Chest")
         else:
             row.label(text=f"Body Part: {section_prop.export_body_slot}")
 
+        options =[
+            ("Chest", "MOD_CLOTH"),
+            ("Legs", "BONE_DATA"),
+            ("Hands", "VIEW_PAN"),
+            ("Feet", "VIEW_PERSPECTIVE"),
+            ("Chest/Legs", "ARMATURE_DATA")
+            ]
         
-        depress = True if section_prop.export_body_slot == "Chest" else False
-        button = row.operator("ya.set_body_part", text="", icon="MOD_CLOTH", depress=depress)
-        button.body_part = "Chest" 
-
-        depress = True if section_prop.export_body_slot == "Legs" else False
-        button = row.operator("ya.set_body_part", text="", icon="BONE_DATA", depress=depress)
-        button.body_part = "Legs"
-
-        depress = True if section_prop.export_body_slot == "Hands" else False
-        button = row.operator("ya.set_body_part", text="", icon="VIEW_PAN", depress=depress)
-        button.body_part = "Hands"
-
-        depress = True if section_prop.export_body_slot == "Feet" else False
-        button = row.operator("ya.set_body_part", text="", icon="VIEW_PERSPECTIVE", depress=depress)
-        button.body_part = "Feet"
-
-        depress = True if section_prop.export_body_slot == "Chest/Legs" else False
-        button = row.operator("ya.set_body_part", text="", icon="ARMATURE_DATA", depress=depress)
-        button.body_part = "Chest/Legs"
+        self.body_category_buttons(row, section_prop, options)
+    
             
         # CHEST EXPORT  
         
@@ -723,16 +689,17 @@ class YAFileManager(Panel):
                 "Tsukareta+": "Tsukareta+"
             }
     
-            dynamic_column_buttons(3, box, section_prop, labels, category, button_type)
+            self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)
 
-            box.separator(factor=0.5, type="LINE")
+            layout.separator(factor=1)
 
             labels = {"Buff": "Buff", "Rue": "Rue", "Piercings": "Piercings"}
     
-            dynamic_column_buttons(3, box, section_prop, labels, category, button_type)
+            self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)
 
             if section_prop.export_body_slot == "Chest/Legs":
-                row = box.row(align=True)
+                layout.separator(factor=1, type="LINE")
+                row = layout.row(align=True)
                 row.label(text=f"Body Part: Legs")
             
         # LEG EXPORT  
@@ -750,9 +717,9 @@ class YAFileManager(Panel):
                     
                 }
     
-            dynamic_column_buttons(3, box, section_prop, labels, category, button_type)
+            self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)
 
-            row = box.row(align=True)
+            row = layout.row(align=True)
             row.alignment = "CENTER"
             row.label(text="One leg and gen shape is required.")
 
@@ -765,7 +732,7 @@ class YAFileManager(Panel):
                 "Pubes":  "Pubes"
             }
     
-            dynamic_column_buttons(3, box, section_prop, labels, category, button_type)  
+            self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)  
 
         # HAND EXPORT  
         
@@ -777,9 +744,9 @@ class YAFileManager(Panel):
                 "Rue": "Rue"
                 }
     
-            dynamic_column_buttons(2, box, section_prop, labels, category, button_type)
+            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
             
-            box.separator(factor=0.5, type="LINE")
+            layout.separator(factor=0.5, type="LINE")
 
             labels = {
                 "Long": "Long", 
@@ -788,9 +755,9 @@ class YAFileManager(Panel):
                 "Stabbies": "Stabbies" 
                 }
 
-            dynamic_column_buttons(2, box, section_prop, labels, category, button_type)
+            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
 
-            row = box.row(align=True)
+            row = layout.row(align=True)
             row.label(text="Clawsies:")
 
             labels = { 
@@ -798,9 +765,9 @@ class YAFileManager(Panel):
                 "Curved": "Curved"
                 }
 
-            dynamic_column_buttons(2, box, section_prop, labels, category, button_type)
+            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
 
-            row = box.row(align=True)
+            row = layout.row(align=True)
 
         # FEET EXPORT  
         
@@ -812,12 +779,50 @@ class YAFileManager(Panel):
                 "Rue": "Rue", 
                 }
     
-            dynamic_column_buttons(2, box, section_prop, labels, category, button_type)
+            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
 
             labels = { 
                 "Clawsies": "Clawsies"
                 }
 
-            dynamic_column_buttons(2, box, section_prop, labels, category, button_type)
+            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
 
-  
+        box = layout.box()
+        box.separator(factor=0.5)
+
+    def dynamic_column_buttons(self, columns, box, section_prop, labels, category, button_type):
+        row = box.row(align=True)
+
+        columns_list = [row.column(align=True) for _ in range(columns)]
+
+        for index, (size, name) in enumerate(labels.items()):
+            size_lower = size.lower().replace(' ', "_")
+            category_lower = category.lower()
+
+            prop_name = f"{button_type}_{size_lower}_{category_lower}_bool"
+
+            if hasattr(section_prop, prop_name):
+                icon = 'CHECKMARK' if getattr(section_prop, prop_name) else 'PANEL_CLOSE'
+                
+                col_index = index % columns 
+                
+                columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon)
+            else:
+                print(f"{name} has no assigned property!")
+        return box  
+
+    def body_category_buttons(self, layout, section_prop, options):
+        row = layout
+
+        for slot, icon in options:
+            depress = True if section_prop.export_body_slot == slot else False
+            row.operator("ya.set_body_part", text="", icon=icon, depress=depress).body_part = slot
+        
+          
+    
+
+classes = [
+    Overview,
+    Tools,
+    FileManager
+]
