@@ -225,17 +225,29 @@ class Overview(Panel):
         rue_depress = True if not rue_mute else False
         
         row = box.row(align=True)
-        row.operator("ya.apply_chest_category", text= "Large", depress=large_depress).key = "Large"
-        row.operator("ya.apply_chest_category", text= "Medium", depress=medium_depress).key = "Medium"
-        row.operator("ya.apply_chest_category", text= "Small", depress=small_depress).key = "Small"
+        operator = row.operator("ya.apply_shapes", text= "Large", depress=large_depress)
+        operator.key = "Large"
+        operator.target = "Torso"
+        operator.preset = "chest_category"
+        operator = row.operator("ya.apply_shapes", text= "Medium", depress=medium_depress)
+        operator.key = "Medium"
+        operator.target = "Torso"
+        operator.preset = "chest_category"
+        operator = row.operator("ya.apply_shapes", text= "Small", depress=small_depress)
+        operator.key = "Small"
+        operator.target = "Torso"
+        operator.preset = "chest_category"
 
         row = box.row(align=True)
-        operator = row.operator("ya.apply_other_option", text= "Buff", depress=buff_depress)
+        operator = row.operator("ya.apply_shapes", text= "Buff", depress=buff_depress)
         operator.key = "Buff"
         operator.target = "Torso"
-        operator = row.operator("ya.apply_other_option", text= "Rue", depress=rue_depress)
+        operator.preset = "other"
+
+        operator = row.operator("ya.apply_shapes", text= "Rue", depress=rue_depress)
         operator.key = "Rue"
         operator.target = "Torso"
+        operator.preset = "other"
 
         box.separator(factor=0.5,type="LINE")
 
@@ -297,7 +309,7 @@ class Overview(Panel):
         col2.prop(section_prop, "chest_shape_enum")
 
         col3 = split.column(align=True)
-        col3.operator("ya.apply_shapes", text= "Apply")
+        col3.operator("ya.apply_shapes", text= "Apply").preset = "shapes"
 
     def leg_shapes(self, box, section_prop, mq, legs):
         if section_prop.shape_mq_legs_bool:
@@ -333,49 +345,77 @@ class Overview(Panel):
         soft_depress = True if not soft_mute else False
         hip_depress = True if not hip_yab_mute or not hip_rue_mute else False
         
-        row = box.row(align=True)
-        
+        row = box.row(align=True) 
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Genitalia:")
         button_row = split.row(align=True)
-        button_row.operator("ya.apply_gen", text= "A", depress=gena_depress).key = "Gen A"
-        button_row.operator("ya.apply_gen", text= "B", depress=genb_depress).key = "Gen B"
-        button_row.operator("ya.apply_gen", text= "C", depress=genc_depress).key = "Gen C"
-        button_row.operator("ya.apply_gen", text= "SFW", depress=gensfw_depress).key = "Gen SFW"
+
+        operator = button_row.operator("ya.apply_shapes", text= "A", depress=gena_depress)
+        operator.key = "Gen A"
+        operator.target = "Legs"
+        operator.preset = "gen"
+
+        operator = button_row.operator("ya.apply_shapes", text= "B", depress=genb_depress)
+        operator.key = "Gen B"
+        operator.target = "Legs"
+        operator.preset = "gen"
+
+        operator = button_row.operator("ya.apply_shapes", text= "C", depress=genc_depress)
+        operator.key = "Gen C"
+        operator.target = "Legs"
+        operator.preset = "gen"
+
+        operator = button_row.operator("ya.apply_shapes", text= "SFW", depress=gensfw_depress)
+        operator.key = "Gen SFW"
+        operator.target = "Legs"
+        operator.preset = "gen"
         
-
-
         row = box.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Leg sizes:")
         button_row = split.row(align=True)
-        button_row.operator("ya.apply_legs", text= "Melon", depress=melon_depress).key = "Melon"
-        button_row.operator("ya.apply_legs", text= "Skull", depress=skull_depress).key = "Skull"
-        button_row.operator("ya.apply_legs", text= "Mini", depress=mini_depress).key = "Mini"
+        operator = button_row.operator("ya.apply_shapes", text= "Melon", depress=melon_depress)
+        operator.key = "Melon"
+        operator.target = "Legs"
+        operator.preset = "leg_size"
+
+        operator = button_row.operator("ya.apply_shapes", text= "Skull", depress=skull_depress)
+        operator.key = "Skull"
+        operator.target = "Legs"
+        operator.preset = "leg_size"
+
+        operator = button_row.operator("ya.apply_shapes", text= "Mini", depress=mini_depress)
+        operator.key = "Mini"
+        operator.target = "Legs"
+        operator.preset = "leg_size"
 
         row = box.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Butt options:")
         button_row = split.row(align=True)
-        operator = button_row.operator("ya.apply_other_option", text= "Small", depress=small_depress)
+        operator = button_row.operator("ya.apply_shapes", text= "Small", depress=small_depress)
         operator.key = "Small Butt"
         operator.target = "Legs"
-        operator = button_row.operator("ya.apply_other_option", text= "Soft", depress=soft_depress)
+        operator.preset = "other"
+        operator = button_row.operator("ya.apply_shapes", text= "Soft", depress=soft_depress)
         operator.key = "Soft Butt"
         operator.target = "Legs"
+        operator.preset = "other"
 
         row = box.row(align=True)
         split = row.split(factor=0.25, align=True)
-        operator = split.operator("ya.apply_other_option", text= "Alt Hips", depress=hip_depress)
-        operator.key = "Hip"
+        operator = split.operator("ya.apply_shapes", text= "Alt Hips", depress=hip_depress)
+        operator.key = "Alt Hips"
         operator.target = "Legs"
+        operator.preset = "other"
         button_row = split.row(align=True)
-        operator = button_row.operator("ya.apply_other_option", text= "Rue", depress=rue_depress)
+        operator = button_row.operator("ya.apply_shapes", text= "Rue", depress=rue_depress)
         operator.key = "Rue"
         operator.target = "Legs"
+        operator.preset = "other"
 
     def other_shapes(self, box, section_prop, mq, hands, feet):
         if section_prop.shape_mq_other_bool:
@@ -411,9 +451,10 @@ class Overview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Hands:")
         button_row = split.row(align=True)
-        operator = button_row.operator("ya.apply_other_option", text= "Rue", depress=rue_depress)
+        operator = button_row.operator("ya.apply_shapes", text= "Rue", depress=rue_depress)
         operator.key = "Rue"
         operator.target = "Hands"
+        operator.preset = "other"
 
         row = box.row(align=True)
         split = row.split(factor=0.25, align=True)
@@ -425,10 +466,26 @@ class Overview(Panel):
             operator = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not nails_col)
             operator.key = "Nails"
             operator.target = "Hands"
-        button_row.operator("ya.apply_nails", text= "Long", depress=long_depress).key = "Long"
-        button_row.operator("ya.apply_nails", text= "Short", depress=short_depress).key = "Short"
-        button_row.operator("ya.apply_nails", text= "Ballerina", depress=ballerina_depress).key = "Ballerina"
-        button_row.operator("ya.apply_nails", text= "Stabbies", depress=stabbies_depress).key = "Stabbies"
+
+        operator = button_row.operator("ya.apply_shapes", text= "Long", depress=long_depress)
+        operator.key = "Long"
+        operator.target = "Hands"
+        operator.preset = "nails"
+        
+        operator = button_row.operator("ya.apply_shapes", text= "Short", depress=short_depress)
+        operator.key = "Short"
+        operator.target = "Hands"
+        operator.preset = "nails"
+
+        operator = button_row.operator("ya.apply_shapes", text= "Ballerina", depress=ballerina_depress)
+        operator.key = "Ballerina"
+        operator.target = "Hands"
+        operator.preset = "nails"
+
+        operator = button_row.operator("ya.apply_shapes", text= "Stabbies", depress=stabbies_depress)
+        operator.key = "Stabbies"
+        operator.target = "Hands"
+        operator.preset = "nails"
 
         if not section_prop.shape_mq_other_bool:
             row = box.row(align=True)
@@ -440,12 +497,14 @@ class Overview(Panel):
             operator = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not clawsies_col)
             operator.key = "Clawsies"
             operator.target = "Hands"
-            operator = button_row.operator("ya.apply_other_option", text= "Straight", depress=clawsies_depress)
+            operator = button_row.operator("ya.apply_shapes", text= "Straight", depress=clawsies_depress)
             operator.key = "Curved"
             operator.target = "Hands"
-            operator = button_row.operator("ya.apply_other_option", text= "Curved", depress=not clawsies_depress)
+            operator.preset = "other"
+            operator = button_row.operator("ya.apply_shapes", text= "Curved", depress=not clawsies_depress)
             operator.key = "Curved"
             operator.target = "Hands"
+            operator.preset = "other"
 
         box.separator(type="LINE")
 
@@ -454,7 +513,7 @@ class Overview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Feet:")
         button_row = split.row(align=True)
-        operator = button_row.operator("ya.apply_other_option", text= "Rue", depress=rue_f_depress)
+        operator = button_row.operator("ya.apply_shapes", text= "Rue", depress=rue_f_depress)
         operator.key = "Rue"
         operator.target = "Feet"
 

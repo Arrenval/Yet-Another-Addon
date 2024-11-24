@@ -12,13 +12,12 @@ bl_info = {
 
 import bpy
 import ya_utils as utils
-import ya_ui_ops as ui_ops
-import ya_tool_ops as tool_ops
-import ya_shape_ops as shape_ops
+import ya_ops_ui as ui_ops
+import ya_ops_tools as tool_ops
+import ya_ops_shape as shape_ops
 import ya_file_manager as file
 import ya_ui_main as ui
 from importlib import reload
-
 
 modules = [
     utils,
@@ -34,7 +33,6 @@ def menu_emptyvgroup_append(self, context):
     self.layout.operator("ya.remove_empty_vgroups", text="Remove Empty Vertex Groups")
 
 def register():
-
     for module in modules:
         reload(module)
 
@@ -48,7 +46,6 @@ def register():
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
 
 def unregister():
-
     del utils.addon_version
     bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_emptyvgroup_append)
 
@@ -59,7 +56,6 @@ def unregister():
     del bpy.types.Scene.ya_props
     del bpy.types.Scene.collection_state
     del bpy.types.Scene.modpack_group_options
-    
     
 if __name__ == "__main__":
     register()

@@ -3,7 +3,7 @@ import os
 
 from ya_file_manager import modpack_groups_list
 from bpy.types import Operator, PropertyGroup
-from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatProperty
+from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatProperty, PointerProperty
 
 
 #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
@@ -418,7 +418,7 @@ class UsefulProperties(PropertyGroup):
     game_model_path: StringProperty(
         name="",
         description="Path to the model you want to replace",
-        default="Paste path here.",
+        default="Paste path here",
         maxlen=255
 
         )  # type: ignore
@@ -461,7 +461,8 @@ class UsefulProperties(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-class UTILS_OT_YA_CollectionManager(Operator):
+
+class CollectionManager(Operator):
     bl_idname = "ya.collection_manager"
     bl_label = "Export"
     bl_description = "Combines chest options and exports them"
@@ -522,3 +523,24 @@ class UTILS_OT_YA_CollectionManager(Operator):
             self.recursively_toggle_exclude(child, collection, exclude)
 
 
+classes = [
+    CollectionState,
+    ModpackGroups,
+    UsefulProperties,
+    CollectionManager
+]
+
+def set_devkit_properties():
+    bpy.types.Scene.ya_props = PointerProperty(
+        type=UsefulProperties)
+
+    bpy.types.Scene.collection_state = bpy.props.CollectionProperty(
+        type=CollectionState)
+
+    bpy.types.Scene.modpack_group_options = bpy.props.CollectionProperty(
+        type=ModpackGroups)
+    
+    UsefulProperties.export_bools()
+    UsefulProperties.ui_buttons()
+    UsefulProperties.chest_key_floats()
+    UsefulProperties.feet_key_floats()

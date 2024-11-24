@@ -9,19 +9,17 @@ import ya_penumbra as Penumbra
 
 
 from pathlib import Path
-from typing import List, Dict, Union
 from functools import partial
 from itertools import combinations
-from dataclasses import dataclass, asdict, field
 from bpy.types import Operator
 from bpy.props import StringProperty
-from ya_shape_ops import MESH_OT_YA_ApplyShapes as ApplyShapes
+from ya_ops_shape import ApplyShapes
 
 # Global variable for making sure all functions can properly track the current export.
 # Ease of use alongside blender's timers.
 is_exporting: bool = False
 
-class FILE_OT_SimpleExport(Operator):
+class SimpleExport(Operator):
     bl_idname = "ya.simple_export"
     bl_label = "Open Export Window"
     bl_description = "Exports single model"
@@ -35,7 +33,7 @@ class FILE_OT_SimpleExport(Operator):
         gltf = context.scene.ya_props.export_gltf 
         directory = context.scene.ya_props.export_directory
         export_path = os.path.join(directory, "untitled")
-        export_settings = FILE_OT_YA_FileExport.get_export_settings(gltf)
+        export_settings = FileExport.get_export_settings(gltf)
 
         if gltf:
             bpy.ops.export_scene.gltf('INVOKE_DEFAULT', filepath=export_path + ".gltf", **export_settings)
@@ -45,7 +43,7 @@ class FILE_OT_SimpleExport(Operator):
         return {'FINISHED'}
 
 
-class FILE_OT_YA_BatchQueue(Operator):
+class BatchQueue(Operator):
     bl_idname = "ya.batch_queue"
     bl_label = "Export"
     bl_description = "Exports your files based on your selections"
@@ -107,7 +105,7 @@ class FILE_OT_YA_BatchQueue(Operator):
             
         self.collection_state(context)
         bpy.ops.ya.collection_manager()
-        FILE_OT_YA_BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
+        BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
 
         return {'FINISHED'}
     
@@ -234,7 +232,7 @@ class FILE_OT_YA_BatchQueue(Operator):
         global is_exporting
         is_exporting = False
 
-        callback = partial(FILE_OT_YA_BatchQueue.export_queue, context, queue, leg_queue, body_slot, gen_options)
+        callback = partial(BatchQueue.export_queue, context, queue, leg_queue, body_slot, gen_options)
         
         bpy.app.timers.register(callback, first_interval=0.5) 
 
@@ -249,10 +247,10 @@ class FILE_OT_YA_BatchQueue(Operator):
         is_exporting = True
         options, size, gen, target = queue.pop()
         
-        FILE_OT_YA_BatchQueue.reset_model_state(body_slot, target)
+        BatchQueue.reset_model_state(body_slot, target)
 
-        main_name = FILE_OT_YA_BatchQueue.name_generator(options, size, gen, gen_options, body_slot)
-        FILE_OT_YA_BatchQueue.apply_model_state(options, size, gen, body_slot, target)
+        main_name = BatchQueue.name_generator(options, size, gen, gen_options, body_slot)
+        BatchQueue.apply_model_state(options, size, gen, body_slot, target)
 
         if body_slot == "Hands":
 
@@ -281,20 +279,20 @@ class FILE_OT_YA_BatchQueue(Operator):
         if body_slot == "Chest/Legs":
             for leg_task in second_queue:
                 options, size, gen, target = leg_task
-                if FILE_OT_YA_BatchQueue.check_rue_match(options, main_name):
+                if BatchQueue.check_rue_match(options, main_name):
                     body_slot = "Legs"
                     
-                    FILE_OT_YA_BatchQueue.reset_model_state(body_slot, target)
-                    FILE_OT_YA_BatchQueue.apply_model_state(options, size, gen, body_slot, target)
+                    BatchQueue.reset_model_state(body_slot, target)
+                    BatchQueue.apply_model_state(options, size, gen, body_slot, target)
 
-                    leg_name = FILE_OT_YA_BatchQueue.name_generator(options, size, gen, gen_options, body_slot)
+                    leg_name = BatchQueue.name_generator(options, size, gen, gen_options, body_slot)
                     main_name = leg_name + " - " + main_name
-                    main_name = FILE_OT_YA_BatchQueue.clean_file_name(main_name)
+                    main_name = BatchQueue.clean_file_name(main_name)
 
-                    FILE_OT_YA_FileExport.export_template(context, file_name=main_name)
+                    FileExport.export_template(context, file_name=main_name)
         
         else:
-            FILE_OT_YA_FileExport.export_template(context, file_name=main_name)
+            FileExport.export_template(context, file_name=main_name)
 
         is_exporting = False
 
@@ -415,7 +413,7 @@ class FILE_OT_YA_BatchQueue(Operator):
             ob[key].mute = True
 
     
-class FILE_OT_YA_FileExport(Operator):
+class FileExport(Operator):
     bl_idname = "ya.file_export"
     bl_label = "Export"
     bl_description = ""
@@ -424,14 +422,14 @@ class FILE_OT_YA_FileExport(Operator):
     file_name: StringProperty() # type: ignore
 
     def execute(self, context):
-            FILE_OT_YA_FileExport.export_template(context, self.file_name)
+            FileExport.export_template(context, self.file_name)
 
     def export_template(context, file_name):
         gltf = context.scene.ya_props.export_gltf
         selected_directory = context.scene.ya_props.export_directory
 
         export_path = os.path.join(selected_directory, file_name)
-        export_settings = FILE_OT_YA_FileExport.get_export_settings(gltf)
+        export_settings = FileExport.get_export_settings(gltf)
 
         if gltf:
             bpy.ops.export_scene.gltf(filepath=export_path + ".gltf", **export_settings)
@@ -472,7 +470,7 @@ class FILE_OT_YA_FileExport(Operator):
             }
 
 
-class FILE_OT_YA_ConsoleTools(Operator):
+class ConsoleTools(Operator):
     bl_idname = "ya.file_console_tools"
     bl_label = "Modpacker"
     bl_description = "Checks for a valid TexTools install with ConsoleTools"
@@ -527,10 +525,10 @@ class FILE_OT_YA_ConsoleTools(Operator):
         return consoletools_path, textools_folder
 
 
-class FILE_OT_YA_Modpacker(Operator):
+class Modpacker(Operator):
     bl_idname = "ya.file_modpacker"
     bl_label = "Modpacker"
-    bl_description = "Packages FFXIV model files into a Penumbra Modpack"
+    bl_description = "Converts FBX and/or packages FFXIV model files into a Penumbra Modpack"
     bl_options = {'UNDO'}
 
     preset: StringProperty()  # type: ignore
@@ -545,7 +543,7 @@ class FILE_OT_YA_Modpacker(Operator):
             return {'CANCELLED'}
         
         elif not gamepath.startswith("chara") or not gamepath.endswith("mdl"):
-            self.report({'ERROR'}, "Verify that the path is an actual FFXIV model path")
+            self.report({'ERROR'}, "Verify that the model is an actual FFXIV path")
             return {'CANCELLED'} 
         
         fbx_folder = ya_props.savemodpack_directory
@@ -556,21 +554,33 @@ class FILE_OT_YA_Modpacker(Operator):
         new_name = context.scene.ya_props.modpack_rename_group
         selected_option = ya_props.modpack_groups
         modpack_path = ya_props.loadmodpack_directory
+
+        if not modpack_path:
+            self.report({'ERROR'}, "Please select a modpack")
+            return {'CANCELLED'} 
+        
         modpack_groups = Utils.get_modpack_groups(context)
         mod_data = (selected_option, modpack_path, modpack_groups, new_name)
         
         if self.preset != "pack":
+            if ya_props.consoletools_status != "ConsoleTools Ready!":
+                self.report({'ERROR'}, "Verify that ConsoleTools is ready.")
+                return {'CANCELLED'} 
+
             context.scene.ya_props.modpack_progress = "Converting fbx to mdl..."
             self.fbx_to_mdl(textools, folders, gamepath)
             context.scene.ya_props.modpack_progress = "Converting Complete!"
-            
 
-        if not os.path.isdir(mdl_folder):
-            self.report({'ERROR'}, "Missing MDL folder, convert your files first!")
-            return {'CANCELLED'} 
 
         if self.preset != "convert":
+
+            if not os.path.isdir(mdl_folder):
+                self.report({'ERROR'}, "Missing MDL folder, convert your files first!")
+                return {'CANCELLED'} 
+            
             self.mdl_conversion_wait(context, folders, gamepath, mod_data)
+            modpack_groups_list(self, context)
+
 
         return {"FINISHED"}
     
@@ -615,7 +625,7 @@ class FILE_OT_YA_Modpacker(Operator):
     def mdl_conversion_wait(self, context, folders, gamepath, mod_data):
         # Calls a timer to wait for mdl conversion to finish
 
-        callback = partial(FILE_OT_YA_Modpacker.create_modpack, context, folders, gamepath, mod_data)
+        callback = partial(Modpacker.create_modpack, context, folders, gamepath, mod_data)
         
         bpy.app.timers.register(callback, first_interval=0.5)
 
@@ -642,7 +652,7 @@ class FILE_OT_YA_Modpacker(Operator):
             if selected_option == group[0]:
                 group_name, cur_file_name = group[1], group[2]       
         
-        FILE_OT_YA_Modpacker.file_management(context, mdl_folder, temp_folder, gamepath, group_name, cur_file_name, new_name)
+        Modpacker.file_management(context, mdl_folder, temp_folder, gamepath, group_name, cur_file_name, new_name)
 
         # Need to make more robust backup.
         backup = os.path.join(fbx_folder, "Backup.pmp")
@@ -665,16 +675,16 @@ class FILE_OT_YA_Modpacker(Operator):
     def file_management(context, mdl_folder, temp_folder, gamepath, group_name, cur_file_name, new_name):
         # Sorts options based on personal pref  
         to_pack = [file.name for file in Path(mdl_folder).glob(f'*.mdl') if file.is_file()]
-        to_pack = FILE_OT_YA_Modpacker.custom_sort(to_pack)
+        to_pack = Modpacker.custom_sort(to_pack)
 
         # Saves json of the file we are replacing so we can delete the file.
-        current_data = FILE_OT_YA_Modpacker.current_json(context, temp_folder, cur_file_name)
+        current_data = Modpacker.current_json(context, temp_folder, cur_file_name)
         os.remove(os.path.join(temp_folder, cur_file_name))
 
         # Renames group based on user input
         if new_name != "":
             try:
-                final_name = FILE_OT_YA_Modpacker.update_file_name(new_name, cur_file_name)
+                final_name = Modpacker.update_file_name(new_name, cur_file_name)
                 group_name = new_name
             except Exception as e:
                 context.scene.ya_props.modpack_progress = "Couldn't find selected option."
@@ -682,12 +692,13 @@ class FILE_OT_YA_Modpacker(Operator):
         else:
             final_name = cur_file_name
 
-        #Prepares grops to process, grabs template, and sees if any groups are a duplicate of the one we're replacing.
+        # Prepares grops to process, grabs template, and sees if any groups are a duplicate of the one we're replacing.
         # Duplicate groups might use the same files, but on different items, typically Smallclothes/Emperor's.
-        # Does not catch groups that are just similar.   
+        # This is to prevent breaking groups that use the same files.
+        # Does not catch groups that are just similar. Will not catch similar groups.   
         groups_to_process = {final_name: (gamepath, group_name)} 
-        group_data = FILE_OT_YA_Modpacker.get_group_data_template(context, current_data) 
-        duplicate_groups = FILE_OT_YA_Modpacker.check_duplicate_groups(temp_folder, current_data, cur_file_name)
+        group_data = Modpacker.get_group_data_template(context, current_data) 
+        duplicate_groups = Modpacker.check_duplicate_groups(temp_folder, current_data, cur_file_name)
         
         for dupe_group_file, (other_gamepath, short_name) in duplicate_groups.items():
             groups_to_process[dupe_group_file] = (other_gamepath, short_name)
@@ -742,7 +753,7 @@ class FILE_OT_YA_Modpacker(Operator):
 
 
         # Deletes orphaned files
-        FILE_OT_YA_Modpacker.delete_orphans(context, temp_folder, current_data)
+        Modpacker.delete_orphans(context, temp_folder, current_data)
 
         # Copies MDLs into the the temp_pmp folder
         for file in to_pack:
@@ -805,9 +816,7 @@ class FILE_OT_YA_Modpacker(Operator):
 
         return duplicate_groups
 
-    def delete_orphans(context, temp_folder, current_data):
-        
-            
+    def delete_orphans(context, temp_folder, current_data): 
         for options in current_data.Options:
             for gamepath, relpath in options.Files.items():
                 try:
@@ -910,9 +919,9 @@ def modpack_groups_name(file_name, pmp):
             return f"{file_name[10:-4]}*"        
     
 classes = [
-    FILE_OT_SimpleExport,
-    FILE_OT_YA_BatchQueue,
-    FILE_OT_YA_FileExport,
-    FILE_OT_YA_ConsoleTools,
-    FILE_OT_YA_Modpacker
+    SimpleExport,
+    BatchQueue,
+    FileExport,
+    ConsoleTools,
+    Modpacker
 ]

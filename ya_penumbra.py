@@ -1,3 +1,6 @@
+import json
+from typing import List, Dict, Union
+from dataclasses import dataclass, asdict, field
 
 @dataclass
 class TypeManip:
@@ -20,33 +23,22 @@ class TypeManip:
     Variant: int = None
     EquipSlot: str = None
     BodySlot: str = None
+    #ImcDefault
+    MaterialId: int = None
+    DecalId: int = None
+    VfxId: int = None
+    MaterialAnimationId: int = None
+    AttributeAndSound: int = None
+    AttributeMask: int = None
+    SoundId: int = None
 
 @dataclass
 class ModManipulations:
     Type: str = ""
-    Manipulation: List[TypeManip] = None
+    Manipulation: TypeManip = None
     
     def __post_init__(self):
         self.Manipulation = TypeManip(self.Manipulation)
-
-@dataclass
-class ImcDefaultEntry:
-    MaterialId: int = 0
-    DecalId: int = 0
-    VfxId: int = 0
-    MaterialAnimationId: int = 0
-    AttributeAndSound: int = 0
-    AttributeMask: int = 0
-    SoundId: int = 0
-
-@dataclass
-class ImcIdentifier:
-    ObjectType: str = ""
-    PrimaryId: int = 0
-    SecondaryId: int = 0
-    Variant: int = 0
-    EquipSlot: str = ""
-    BodySlot: str = ""
 
 @dataclass
 class GroupOptions:
@@ -66,8 +58,8 @@ class GroupOptions:
 @dataclass
 class ModGroups:
     Version: int = 0
-    DefaultEntry: ImcDefaultEntry = None
-    Identifier: ImcIdentifier = None
+    DefaultEntry: TypeManip = None
+    Identifier: TypeManip = None
     AllVariants: bool = None
     OnlyAttributes: bool = None
     Name: str = ""
@@ -85,7 +77,8 @@ class ModGroups:
             self.Options = [GroupOptions(**option) for option in self.Options]
         elif self.Manipulations != None:
             self.Manipulations = [ModManipulations(**manip) for manip in self.Manipulations]
-        
+            self.Identifier = TypeManip(self.Identifier)
+            self.DefaultEntry = TypeManip(self.DefaultEntry)
 
     def to_json(self):
         return json.dumps(self.remove_none(asdict(self)), indent=4)

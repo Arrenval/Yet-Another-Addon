@@ -5,7 +5,7 @@ import ya_utils as utils
 from bpy.types import Operator
 from bpy.props import StringProperty
 
-class UI_OT_YA_SetBodyPart(Operator):
+class BodyPartSlot(Operator):
     bl_idname = "ya.set_body_part"
     bl_label = "Select body slot to export."
     bl_description = "The icons almost make sense"
@@ -18,7 +18,7 @@ class UI_OT_YA_SetBodyPart(Operator):
         return {'FINISHED'}
 
 
-class UI_OT_YA_DirSelector(Operator):
+class DirSelector(Operator):
     bl_idname = "ya.dir_selector"
     bl_label = "Select Folder"
     bl_description = "Select file or directory. Hold Alt to open the folder"
@@ -58,7 +58,7 @@ class UI_OT_YA_DirSelector(Operator):
         return {'FINISHED'}
     
 
-class UI_OT_YA_ConsoleToolsDirectory(Operator):
+class ConsoleToolsDirectory(Operator):
     bl_idname = "ya.consoletools_dir"
     bl_label = "Select File"
     bl_description = "Use this to manually find the TexTools directory and select ConsoleTools.exe. Hold Alt to open the TexTools folder if already found"
@@ -95,7 +95,7 @@ class UI_OT_YA_ConsoleToolsDirectory(Operator):
         return {'FINISHED'}
     
 
-class UI_OT_YA_PMPSelector(Operator):
+class PMPSelector(Operator):
     bl_idname = "ya.pmp_selector"
     bl_label = "Select Modpack"
     bl_description = "Select a modpack. If selected, hold Alt to open the folder, hold Shift to open modpack"
@@ -141,7 +141,7 @@ class UI_OT_YA_PMPSelector(Operator):
         return {'FINISHED'}
     
 
-class UI_OT_YA_CopyToFBX(Operator):
+class CopyToFBX(Operator):
     bl_idname = "ya.directory_copy"
     bl_label = "Copy Path"
     bl_description = "Copies the export directory to your modpack directry. This should be where your FBX files are located"
@@ -151,9 +151,9 @@ class UI_OT_YA_CopyToFBX(Operator):
         return {'FINISHED'}
 
 classes = [
-    UI_OT_YA_SetBodyPart,
-    UI_OT_YA_DirSelector,
-    UI_OT_YA_ConsoleToolsDirectory,
-    UI_OT_YA_PMPSelector,
-    UI_OT_YA_CopyToFBX
+    BodyPartSlot,
+    DirSelector,
+    ConsoleToolsDirectory,
+    PMPSelector,
+    CopyToFBX
 ]
