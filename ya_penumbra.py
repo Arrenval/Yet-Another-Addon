@@ -1,5 +1,6 @@
 import json
-from typing import List, Dict, Union
+
+from typing      import List, Dict, Union
 from dataclasses import dataclass, asdict, field
 
 @dataclass
@@ -35,7 +36,7 @@ class TypeManip:
 @dataclass
 class ModManipulations:
     Type: str = ""
-    Manipulation: TypeManip = None
+    Manipulation: List[TypeManip] = None
     
     def __post_init__(self):
         self.Manipulation = TypeManip(self.Manipulation)
@@ -57,7 +58,7 @@ class GroupOptions:
         
 @dataclass
 class ModGroups:
-    Version: int = 0
+    Version: int = None
     DefaultEntry: TypeManip = None
     Identifier: TypeManip = None
     AllVariants: bool = None
@@ -102,7 +103,6 @@ class ModMeta:
     Version: str = ""
     Website: str = ""
     ModTags: list = field(default_factory=list)
-    Description: str = ""
 
     def to_json(self):
         return json.dumps(asdict(self), indent=4)

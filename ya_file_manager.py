@@ -4,16 +4,16 @@ import json
 import winreg
 import shutil
 import zipfile
-import ya_utils as Utils
+import ya_utils    as Utils
 import ya_penumbra as Penumbra
 
 
-from pathlib import Path
-from functools import partial
-from itertools import combinations
-from bpy.types import Operator
-from bpy.props import StringProperty
-from ya_ops_shape import ApplyShapes
+from pathlib       import Path
+from functools     import partial
+from bpy.types     import Operator
+from itertools     import combinations
+from bpy.props     import StringProperty
+from ya_ops_tools  import ApplyShapes
 
 # Global variable for making sure all functions can properly track the current export.
 # Ease of use alongside blender's timers.
@@ -106,7 +106,6 @@ class BatchQueue(Operator):
         self.collection_state(context)
         bpy.ops.ya.collection_manager()
         BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
-
         return {'FINISHED'}
     
     # The following functions is executed to establish the queue and valid options 
@@ -531,76 +530,117 @@ class Modpacker(Operator):
     bl_description = "Converts FBX and/or packages FFXIV model files into a Penumbra Modpack"
     bl_options = {'UNDO'}
 
-    preset: StringProperty()  # type: ignore
+    preset: StringProperty()  # type: ignore # convert_pack, pack, convert are valid presets
 
     def execute(self, context):
-        ya_props = context.scene.ya_props
-        textools = ya_props.textools_directory
-        gamepath = ya_props.game_model_path
+        paths, user_input = self.get_user_input(context)
+        replace = context.scene.ya_props.button_modpack_replace
 
-        if not gamepath:
+        if not paths["gamepath"]:
             self.report({'ERROR'}, "Please input a path to an FFXIV model")
             return {'CANCELLED'}
         
-        elif not gamepath.startswith("chara") or not gamepath.endswith("mdl"):
+        elif not paths["gamepath"].startswith("chara") or not paths["gamepath"].endswith("mdl"):
             self.report({'ERROR'}, "Verify that the model is an actual FFXIV path")
-            return {'CANCELLED'} 
-        
-        fbx_folder = ya_props.savemodpack_directory
-        mdl_folder = os.path.join(fbx_folder, "MDL")
-        temp_folder = os.path.join(fbx_folder, "temp_pmp")
-        folders = (fbx_folder, mdl_folder, temp_folder)
-        
-        new_name = context.scene.ya_props.modpack_rename_group
-        selected_option = ya_props.modpack_groups
-        modpack_path = ya_props.loadmodpack_directory
+            return {'CANCELLED'}
 
-        if not modpack_path:
-            self.report({'ERROR'}, "Please select a modpack")
-            return {'CANCELLED'} 
+        if replace:
+            if not paths["pmp"]:
+                self.report({'ERROR'}, "Please select a modpack.")
+                return {'CANCELLED'} 
         
-        modpack_groups = Utils.get_modpack_groups(context)
-        mod_data = (selected_option, modpack_path, modpack_groups, new_name)
+        if replace:
+            if user_input["selected"] == "0" and not user_input["new_group_name"]:
+                self.report({'ERROR'}, "Please enter a group name.")
+                return {'CANCELLED'}
         
         if self.preset != "pack":
-            if ya_props.consoletools_status != "ConsoleTools Ready!":
+            if context.scene.ya_props.consoletools_status != "ConsoleTools Ready!":
                 self.report({'ERROR'}, "Verify that ConsoleTools is ready.")
                 return {'CANCELLED'} 
 
             context.scene.ya_props.modpack_progress = "Converting fbx to mdl..."
-            self.fbx_to_mdl(textools, folders, gamepath)
-            context.scene.ya_props.modpack_progress = "Converting Complete!"
+            self.fbx_to_mdl(context, paths)
+            context.scene.ya_props.modpack_progress = "Converting Complete!" 
+        
+        mod_data = self.current_mod_data(replace, paths["pmp"])
 
-
-        if self.preset != "convert":
-
-            if not os.path.isdir(mdl_folder):
-                self.report({'ERROR'}, "Missing MDL folder, convert your files first!")
-                return {'CANCELLED'} 
-            
-            self.mdl_conversion_wait(context, folders, gamepath, mod_data)
-            modpack_groups_list(self, context)
-
+        self.mdl_timer(context, paths, user_input, self.preset, mod_data)
 
         return {"FINISHED"}
-    
-    def fbx_to_mdl(self, textools, folders, gamepath):
-        fbx_folder, mdl_folder, temp_folder = folders
-        to_convert = [file.name for file in Path(fbx_folder).glob(f'*.fbx') if file.is_file()]
+
+    def get_user_input(self, context):
+        ya_props = context.scene.ya_props
+        fbx_folder = ya_props.savemodpack_directory
+        selected = ya_props.modpack_groups
+        gamepath = ya_props.game_model_path
+
+        for group in Utils.get_modpack_groups(context):
+                if selected == group[0]:
+                    group_name, update_group = group[1], group[2]
+
+        paths = {
+            "fbx": fbx_folder,
+            "mdl": os.path.join(fbx_folder, "MDL"),
+            "temp": os.path.join(fbx_folder, "temp_pmp"),
+            "gamepath": gamepath.lower(),
+            "pmp": ya_props.loadmodpack_directory,
+        }
+
+        if ya_props.button_modpack_replace:
+            modpack_name = ya_props.loadmodpack_display_directory
+        else:
+            modpack_name = ya_props.new_mod_name
+            paths["pmp"] = None
+            
+        mod_meta = {
+                "Author": ya_props.author_name,
+                "Version": ya_props.mod_version
+            }
+        
+        user_input = {
+            "selected": selected,
+            "new_group_name": ya_props.modpack_rename_group,
+            "old_group_name": group_name,
+            "meta": mod_meta,
+            "pmp_name": modpack_name,
+            "update_group": update_group,
+            "group_type": ya_props.mod_group_type
+        }
+
+        return paths, user_input
+   
+    def current_mod_data(self, replace, pmp):
+        if not replace or self.preset == "convert":
+            return None
+        current_mod_data = {}
+
+        with zipfile.ZipFile(pmp, "r") as pmp:
+            for file_name in sorted(pmp.namelist()):
+                if file_name.count('/') == 0 and file_name.startswith("group") and file_name.endswith(".json"):
+                    group_data = modpack_group_data(file_name, pmp, data="all")
+                    
+                    current_mod_data[file_name] = group_data       
+        
+        return current_mod_data 
+ 
+    def fbx_to_mdl(self, context, paths):
+        textools = context.scene.ya_props.textools_directory
+        to_convert = [file.name for file in Path(paths["fbx"]).glob(f'*.fbx') if file.is_file()]
 
         cmd_name = "FBXtoMDL.cmd"
         sys_drive = textools.split(os.sep)[0]
         commands = ["@echo off", f"cd /d {sys_drive}", f"cd {textools}"]
 
-        cmd_path = os.path.join(fbx_folder, cmd_name)
-        if not os.path.isdir(mdl_folder):
-            os.mkdir(os.path.join(fbx_folder, "MDL"))
+        cmd_path = os.path.join(paths["fbx"], cmd_name)
+        if not os.path.isdir(paths["mdl"]):
+            os.mkdir(os.path.join(paths["fbx"], "MDL"))
 
         cmds_added = 0
         total_files = len(to_convert)
         for file in to_convert:
             files_left = total_files - cmds_added    
-            fbx_to_mdl = f'"{os.path.join(fbx_folder, file)}" "{os.path.join(mdl_folder, file[:-3])}mdl" "{gamepath}"'
+            fbx_to_mdl = f'"{os.path.join(paths["fbx"], file)}" "{os.path.join(paths["mdl"], file[:-3])}mdl" "{paths["gamepath"]}"'
             
             if cmds_added % 5 == 0 and cmds_added == 0:
                 commands.append(f"echo {files_left} files to convert...")
@@ -622,92 +662,105 @@ class Modpacker(Operator):
 
         os.startfile(cmd_path)
 
-    def mdl_conversion_wait(self, context, folders, gamepath, mod_data):
+    def mdl_timer(self, context, paths, user_input, preset, mod_data):
         # Calls a timer to wait for mdl conversion to finish
 
-        callback = partial(Modpacker.create_modpack, context, folders, gamepath, mod_data)
+        callback = partial(Modpacker.create_modpack, context, paths, user_input, preset, mod_data)
         
         bpy.app.timers.register(callback, first_interval=0.5)
 
-    def create_modpack(context, folders, gamepath, mod_data):
-        fbx_folder, mdl_folder, temp_folder = folders
-        selected_option, mod_path, mod_groups, new_name = mod_data
-
-        is_cmd = [file.name for file in Path(fbx_folder).glob(f'FBXtoMDL.cmd') if file.is_file()]
+    def create_modpack(context, paths, user_input, preset, mod_data):
+        is_cmd = [file.name for file in Path(paths["fbx"]).glob(f'FBXtoMDL.cmd') if file.is_file()]
        
-       # the .cmd file deletes itself when done, this makes the packing process
-       # wait until it has finished converting the fbx
+       # the .cmd file deletes itself when done, this makes the packing process wait until it has finished converting the fbx
         if is_cmd:
-            return 0.5    
-
+            return 0.5 
+        if not is_cmd and preset == "convert":
+            context.scene.ya_props.modpack_progress = "Complete!"
         context.scene.ya_props.modpack_progress = "Creating modpack..."  
-             
-        if not os.path.isdir(temp_folder):
-            os.mkdir(os.path.join(fbx_folder, "temp_pmp"))
-
-        with zipfile.ZipFile(mod_path, "r") as pmp:
-             pmp.extractall(temp_folder)
-
-        for group in mod_groups:
-            if selected_option == group[0]:
-                group_name, cur_file_name = group[1], group[2]       
+        to_pack = [file.name for file in Path(paths["mdl"]).glob(f'*.mdl') if file.is_file()]
+        to_pack = Modpacker.custom_sort(to_pack)
         
-        Modpacker.file_management(context, mdl_folder, temp_folder, gamepath, group_name, cur_file_name, new_name)
-
         # Need to make more robust backup.
-        backup = os.path.join(fbx_folder, "Backup.pmp")
-        shutil.copy(mod_path, backup)
+        backup = os.path.join(paths["fbx"], "Backup.pmp")
+        shutil.copy(paths["pmp"], backup)
 
+        if not os.path.isdir(paths["temp"]):
+            os.mkdir(os.path.join(paths["fbx"], "temp_pmp"))
 
-        # Zips up the file before deleting the temp folder.
-        with zipfile.ZipFile(mod_path, 'w', zipfile.ZIP_DEFLATED) as pmp:
-            for root, dir, files in os.walk(temp_folder):
+        if mod_data:
+            with zipfile.ZipFile(paths["pmp"], "r") as pmp:
+                pmp.extractall(paths["temp"])
+            Modpacker.update_mod(paths, user_input, mod_data, to_pack)    
+        else:
+            Modpacker.new_mod(paths, user_input, to_pack)
+        
+        with zipfile.ZipFile(os.path.join(paths["fbx"], user_input["pmp_name"]) + ".pmp", 'w', zipfile.ZIP_DEFLATED) as pmp:
+            for root, dir, files in os.walk(paths["temp"]):
                 for file in files:
                     file_path = os.path.join(root, file)
-                    pmp.write(file_path, os.path.relpath(file_path, temp_folder))
+                    pmp.write(file_path, os.path.relpath(file_path, paths["temp"]))
 
-    
-        if os.path.isdir(temp_folder):
-            shutil.rmtree(temp_folder)
+        if os.path.isdir(paths["temp"]):
+            shutil.rmtree(paths["temp"])
 
         context.scene.ya_props.modpack_progress = "Complete!"
-  
-    def file_management(context, mdl_folder, temp_folder, gamepath, group_name, cur_file_name, new_name):
-        # Sorts options based on personal pref  
-        to_pack = [file.name for file in Path(mdl_folder).glob(f'*.mdl') if file.is_file()]
-        to_pack = Modpacker.custom_sort(to_pack)
 
-        # Saves json of the file we are replacing so we can delete the file.
-        current_data = Modpacker.current_json(context, temp_folder, cur_file_name)
-        os.remove(os.path.join(temp_folder, cur_file_name))
+    def new_mod(paths, user_input, to_pack):
+        meta_content = Penumbra.ModMeta(**user_input["meta"])
+        meta_content.Name = user_input["pmp_name"]
+        group_data = Modpacker.get_group_data_template(user_input)
 
-        # Renames group based on user input
-        if new_name != "":
-            try:
-                final_name = Modpacker.update_file_name(new_name, cur_file_name)
-                group_name = new_name
-            except Exception as e:
-                context.scene.ya_props.modpack_progress = "Couldn't find selected option."
-                return {"CANCELLED"}
-        else:
-            final_name = cur_file_name
+        with open(os.path.join(paths["temp"], "meta.json"), "w") as file:
+                file.write(meta_content.to_json())
 
-        # Prepares grops to process, grabs template, and sees if any groups are a duplicate of the one we're replacing.
-        # Duplicate groups might use the same files, but on different items, typically Smallclothes/Emperor's.
-        # This is to prevent breaking groups that use the same files.
-        # Does not catch groups that are just similar. Will not catch similar groups.   
-        groups_to_process = {final_name: (gamepath, group_name)} 
-        group_data = Modpacker.get_group_data_template(context, current_data) 
-        duplicate_groups = Modpacker.check_duplicate_groups(temp_folder, current_data, cur_file_name)
+        default_mod = Penumbra.ModGroups()
+
+        with open(os.path.join(paths["temp"], "default_mod.json"), "w") as file:
+                file.write(default_mod.to_json())
+
+        file_name = f"group_001_{user_input['new_group_name'].lower()}.json"
+        create_group = {file_name: (paths["gamepath"], user_input["new_group_name"], group_data)}
+        Modpacker.write_group_json(paths, user_input, to_pack, create_group)
+
+        for file in to_pack:
+            option_name = file[:-4] 
+            target_path = os.path.join(paths["temp"], sanitise_path(user_input["new_group_name"]), sanitise_path(option_name.lower()))
+            os.makedirs(target_path, exist_ok=True)
         
-        for dupe_group_file, (other_gamepath, short_name) in duplicate_groups.items():
-            groups_to_process[dupe_group_file] = (other_gamepath, short_name)
+            shutil.copy(os.path.join(paths["mdl"], file), os.path.join(target_path, sanitise_path(file)))
 
+    def update_mod (paths, user_input, mod_data, to_pack):
+        group_data = Modpacker.get_group_data_template(user_input, mod_data)
+        duplicate_groups = {} 
+        previous_group = None
+        
+        if user_input["selected"] != "0":
+            duplicate_groups = Modpacker.check_duplicate_groups(paths["temp"],mod_data, user_input)
+            
+            Modpacker.delete_orphans(paths["temp"], mod_data[user_input["update_group"]])
+        else:
+            if len(mod_data) != 0:
+                previous_group, contents = mod_data.popitem()
 
-        # This is the main loop that puts together the json data and writes them.
-        for groups, (gamepath, short_name) in groups_to_process.items():
+                group_data["Page"] = contents.Page
+
+        file_name, group_name = Modpacker.update_file_name(paths["temp"], user_input, previous_group)
+        create_group = {file_name: (paths["gamepath"], group_name, group_data)}
+        
+        if duplicate_groups:
+            for dupe_group, (other_gamepath, dupe_group_name) in duplicate_groups.items():
+                    create_group[dupe_group] = (other_gamepath, dupe_group_name, group_data)
+        
+        os.remove(os.path.join(paths["temp"], user_input["update_group"]))
+        Modpacker.write_group_json(paths, user_input, to_pack, create_group, mod_data)
+    
+    def write_group_json(paths, user_input, to_pack, create_group, mod_data=None):
+        directory_group = user_input["new_group_name"] if True else user_input["old_group_name"]
+        for file_name, (gamepath, group_name, group_data) in create_group.items():
+            
             options = [
-            {
+                {
                 "Files": {},
                 "FileSwaps": {},
                 "Manipulations": [],
@@ -717,107 +770,90 @@ class Modpacker(Operator):
                 "Image": ""
                 }
                 ]
-            
+            if mod_data[user_input["update_group"]]:
+                to_replace = mod_data[user_input["update_group"]]
+    
             for file in to_pack:
                 option_name = file[:-4]
                 new_option = {
-                    "Files": {},
-                    "FileSwaps": {},
-                    "Manipulations": [],
-                    "Priority": 0,
-                    "Name": "",
-                    "Description": "",
-                    "Image": ""
-                    }
+                        "Files": {},
+                        "FileSwaps": {},
+                        "Manipulations": [],
+                        "Priority": 0,
+                        "Name": "",
+                        "Description": "",
+                        "Image": ""
+                        }
 
-                for current_option in current_data.Options:
-                    if current_option.Name == option_name:
-                        new_option["Description"] = current_option.Description
+                if to_replace:
+                    for option in to_replace.Options:
+                        if option.Name == option_name:
+                            new_option["Description"] = option.Description
+                            new_option["Priority"] = to_replace.Priority
 
-                        if group_data["Type"] == "Multi":
-                            new_option["Priority"] = current_option.Priority
-
-                file_path = f"{group_name}\\{option_name}\\{file}"
-                new_option["Files"] = {gamepath: file_path}
+                file_path = f"{directory_group}\\{option_name}\\{file}"
+                new_option["Files"] = {gamepath: sanitise_path(file_path)}
                 new_option["Name"] = option_name
-                
+                    
                 options.append(new_option)
 
-            new_group = os.path.join(temp_folder, groups)
-
             group_data["Options"] = options
-            group_data["Name"] = short_name
+            group_data["Name"] = group_name
+
+            new_group = os.path.join(paths["temp"], file_name)
 
             with open(new_group, "w") as file:
                 file.write(Penumbra.ModGroups(**group_data).to_json())
 
-
-        # Deletes orphaned files
-        Modpacker.delete_orphans(context, temp_folder, current_data)
-
-        # Copies MDLs into the the temp_pmp folder
-        for file in to_pack:
-            option_name = file[:-4]
-            target_path = os.path.join(temp_folder, group_name, option_name)
-            os.makedirs(target_path, exist_ok=True)
+    def update_file_name(temp_folder, user_input, previous_group=None):
+        old_group_name = user_input["old_group_name"]
+        new_group_name = user_input["new_group_name"]
+        old_file_name = user_input["update_group"]
+        split_name = old_file_name.split("_")
+        final_digits = int(split_name[1])  
         
-            shutil.copy(os.path.join(mdl_folder, file), target_path)
+        if previous_group:
+            split_name = previous_group.split("_")
+            final_digits = int(split_name[1]) + 1   
 
-    def current_json(context, temp_folder, cur_file_name):
-        current_json = os.path.join(temp_folder, cur_file_name)
-        
-        try:    
-            with open(current_json, 'r') as file:
-                file_contents = json.load(file)
+        if new_group_name:
+                file_name = f"group_{final_digits:03}_{new_group_name.lower()}.json"
 
-                current_data = Penumbra.ModGroups(**file_contents)
-                
-                return current_data
-            
-        except Exception as e:
-            context.scene.ya_props.modpack_progress = "Couldn't find selected option."
-            return {"CANCELLED"}
-
-    def update_file_name(new_name, cur_file_name):
-        number = lambda name: ''.join(char for char in name if char.isdigit())
-        digits = int(number(cur_file_name))
-        
-        new_group_name = f"group_{digits:03}_{new_name.lower()}.json"
-
-        return new_group_name
-
-    def check_duplicate_groups(temp_folder, current_data, cur_file_name):
-        all_jsons = [file.name for file in Path(temp_folder).glob(f'*.json') if file.is_file() and file.name != "meta.json"]
+                return file_name, new_group_name
+        else:
+            return old_file_name, old_group_name
+   
+    def check_duplicate_groups(temp_folder, mod_data, user_input):
+        # Prepares grops to process, grabs template, and sees if any groups are a duplicate of the one we're replacing.
+        # Duplicate groups might use the same files, but on different items, typically Smallclothes/Emperor's.
+        # This is to prevent breaking groups that use the same files. Will not catch similar groups. 
         relative_paths = []
         dupe_rel_paths = []
         duplicate_groups = {}
 
-        for option in current_data.Options:
-            for gamepath, relpath in option.Files.items():
+        for options in mod_data[user_input["update_group"]].Options:
+            for gamepath, relpath in options.Files.items():
                 relative_paths.append(relpath)
 
-        for json_file in all_jsons:
-            if json_file != cur_file_name:
-                with open(os.path.join(temp_folder, json_file), "r") as file:
-                    file_contents = json.load(file)
-                    file_contents = Penumbra.ModGroups(**file_contents)
-                    
-                    try:
-                        for option in file_contents.Options:
-                            for gamepath, relpath in option.Files.items():
-                                if any(relpath in relative_paths for path in relative_paths):
-                                    dupe_rel_paths.append(relpath)
-                                    
-                        if len(dupe_rel_paths) == len(relative_paths):
-                            duplicate_groups[json_file] = (gamepath, file_contents.Name)
-                            dupe_rel_paths = []     
-                    except:
-                        continue
-
+        for group in mod_data:
+            file_contents = mod_data[group]
+            if group != user_input["update_group"]:
+                try:
+                    for option in file_contents.Options:
+                        for gamepath, relpath in option.Files.items():
+                            if any(relpath in relative_paths for path in relative_paths):
+                                dupe_rel_paths.append(relpath)
+                                
+                    if len(dupe_rel_paths) == len(relative_paths):
+                        duplicate_groups[group] = (gamepath, file_contents.Name)
+                        dupe_rel_paths = []     
+                except:
+                    continue
+        
         return duplicate_groups
 
-    def delete_orphans(context, temp_folder, current_data): 
-        for options in current_data.Options:
+    def delete_orphans(temp_folder, update_group): 
+        for options in update_group.Options:
             for gamepath, relpath in options.Files.items():
                 try:
                     absolute_path = os.path.join(temp_folder, relpath)
@@ -829,32 +865,35 @@ class Modpacker(Operator):
         for root, dirs, files in os.walk(temp_folder, topdown=False):
             for dir_name in dirs:
                 dir_path = os.path.join(root, dir_name)
-                if not os.listdir(dir_path): 
-                    os.rmdir(dir_path)  # Remove the empty directory
-                    print(f"Deleted empty directory: {dir_path}")
+                if not os.listdir(dir_path):
+                    try: 
+                        os.rmdir(dir_path) 
+                        print(f"Deleted empty directory: {dir_path}")
+                    except:
+                        continue
 
-    def get_group_data_template(context, current_data):
-        if context.scene.ya_props.modpack_groups != 0:
+    def get_group_data_template(user_input, mod_data=None):
+        if mod_data and user_input["selected"] != "0":
             return {
             "Name": "",
-            "Description": current_data.Description,
-            "Priority": current_data.Priority,
-            "Image": current_data.Image,
-            "Page": current_data.Page,
-            "Type": current_data.Type,
-            "DefaultSettings": current_data.DefaultSettings,
+            "Description": mod_data[user_input["update_group"]].Description,
+            "Priority": mod_data[user_input["update_group"]].Priority,
+            "Image": mod_data[user_input["update_group"]].Image,
+            "Page": mod_data[user_input["update_group"]].Page,
+            "Type": mod_data[user_input["update_group"]].Type,
+            "DefaultSettings": mod_data[user_input["update_group"]].DefaultSettings,
             "Options": [],
             }
         
         else:
             return {
-            "Name": "",
+            "Name": user_input["new_group_name"],
             "Description": "",
             "Priority": 0,
             "Image": "",
             "Page": 0,
-            "Type": "",
-            "DefaultSettings": "",
+            "Type": user_input["group_type"],
+            "DefaultSettings": 0,
             "Options": [],
             }
 
@@ -882,42 +921,49 @@ class Modpacker(Operator):
 
         return final_sort
     
+
 def modpack_groups_list(self, context):
     scene = context.scene
     scene.modpack_group_options.clear()
     modpack = scene.ya_props.loadmodpack_directory
-    
+
     new_option = scene.modpack_group_options.add()
     new_option.group_value = int(0)
-    new_option.group_name = "Create new option"  
+    new_option.group_name = "Create New Group"  
     new_option.group_description = ""
 
     if os.path.exists(modpack):
         with zipfile.ZipFile(modpack, "r") as pmp:
             for file_name in pmp.namelist():
-                if file_name.count('/') == 0 and file_name.startswith("group"):
+                if file_name.count('/') == 0 and file_name.startswith("group") and not file_name.endswith("bak"):
                     number = lambda name: ''.join(char for char in name if char.isdigit())
-                    group_name = modpack_groups_name(file_name, pmp)
+                    group_name = modpack_group_data(file_name, pmp, data="name")
 
                     new_option = context.scene.modpack_group_options.add()
                     new_option.group_value = int(number(file_name))
                     new_option.group_name = group_name  
                     new_option.group_description = file_name
     
-def modpack_groups_name(file_name, pmp):
+def modpack_group_data(file_name, pmp, data):
     
     with pmp.open(file_name) as file:
         file_contents = json.load(file)
-        
         try:
             
-            group_json = Penumbra.ModGroups(**file_contents)
-            return group_json.Name
+            group_data = Penumbra.ModGroups(**file_contents)
+
+            if data == "name":
+                return group_data.Name
+            if data == "all":
+                return group_data
 
         except Exception as e:
-            print(f"{file_name} has an unknown json entry.")
-            return f"{file_name[10:-4]}*"        
+            print(f"ERROR: {file_name[10:-4]}")
+            return f"ERROR: {file_name[10:-4]}"    
     
+def sanitise_path(path):
+        return path.lower().replace(" - ", "_").replace(" ", "")
+
 classes = [
     SimpleExport,
     BatchQueue,

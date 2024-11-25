@@ -2,8 +2,8 @@ import bpy
 import os
 import ya_utils as utils
 
-from bpy.types import Operator
-from bpy.props import StringProperty
+from bpy.types  import Operator
+from bpy.props  import StringProperty
 
 class BodyPartSlot(Operator):
     bl_idname = "ya.set_body_part"
@@ -147,7 +147,10 @@ class CopyToFBX(Operator):
     bl_description = "Copies the export directory to your modpack directry. This should be where your FBX files are located"
 
     def execute(self, context):
-        context.scene.ya_props.savemodpack_directory = context.scene.ya_props.export_directory 
+        export_dir = context.scene.ya_props.export_directory
+        context.scene.ya_props.savemodpack_directory = export_dir
+        context.scene.ya_props.savemodpack_display_directory = utils.directory_short(export_dir, 3)
+    
         return {'FINISHED'}
 
 classes = [

@@ -2,8 +2,8 @@ import bpy
 import os
 
 from ya_file_manager import modpack_groups_list
-from bpy.types import Operator, PropertyGroup
-from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatProperty, PointerProperty
+from bpy.types       import Operator, PropertyGroup
+from bpy.props       import StringProperty, BoolProperty, EnumProperty, FloatProperty, PointerProperty
 
 
 #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
@@ -124,13 +124,23 @@ def get_filtered_shape_keys(obj, key_filter: list):
 
 def directory_short(directory, amount):
     if os.path.exists(directory):
-        full_path = os.path.normpath(directory)
+        try:
+            full_path = os.path.normpath(directory)
 
-        path_parts = full_path.split(os.sep)
+            path_parts = full_path.split(os.sep)
 
-        last_folders = os.sep.join(path_parts[-amount:])
+            last_folders = os.sep.join(path_parts[-amount:])
 
-        return last_folders
+            return last_folders
+        except:
+            full_path = os.path.normpath(directory)
+
+            path_parts = full_path.split(os.sep)
+
+            last_folders = os.sep.join(path_parts[-1:])
+
+            return last_folders
+
     else:
         return None
 
@@ -329,6 +339,16 @@ class UsefulProperties(PropertyGroup):
         description= "Select an option to replace",
         items= lambda self, context: get_modpack_groups(context)
         )   # type: ignore
+    
+    mod_group_type: EnumProperty(
+        name= "",
+        description= "Single or Multi",
+        items= [
+            ("Single", "Single", "Exclusive options in a group"),
+            ("Multi", "Multi", "Multiple selectable options in a group")
+
+        ]
+        )   # type: ignore
 
     shape_mq_chest_bool: BoolProperty(
         name="",
@@ -438,8 +458,9 @@ class UsefulProperties(PropertyGroup):
         )  # type: ignore
 
     savemodpack_display_directory: StringProperty(
+        name="",
         default="FBX folder",
-        description="FBX location", 
+        description="FBX location and/or mod export location", 
         maxlen=255,
         update=lambda self, context: UsefulProperties.update_directory('loadmodpack')
         )  # type: ignore
@@ -461,6 +482,26 @@ class UsefulProperties(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
+    new_mod_name: StringProperty(
+        name="",
+        default="",
+        description="The name of your mod", 
+        maxlen=255,
+        )  # type: ignore
+    
+    mod_version: StringProperty(
+        name="",
+        default="0.0.0",
+        description="Use semantic versioning", 
+        maxlen=255,
+        )  # type: ignore
+   
+    author_name: StringProperty(
+        name="",
+        default="",
+        description="Some cool person", 
+        maxlen=255,
+        )  # type: ignore
 
 class CollectionManager(Operator):
     bl_idname = "ya.collection_manager"

@@ -1,10 +1,5 @@
 import bpy
 import ya_utils as utils
-# import ya_ui_ops as ui_ops
-# import ya_tool_ops as tool_ops
-# import ya_shape_ops as shape_ops
-import ya_file_manager as file
-# import ya_ui_main as ui
 
 from bpy.types import Panel
 
@@ -96,7 +91,7 @@ class Overview(Panel):
             
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
             row.prop(section_prop, "button_chest_shapes", text="", icon=icon, emboss=False)
-            row.label(text="Chest")
+            row.label(text="CHEST")
             
             button_row = row.row(align=True)
             button_row.prop(section_prop, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
@@ -105,6 +100,8 @@ class Overview(Panel):
             if button:
                 box.separator(factor=0.5,type="LINE")
                 self.chest_shapes(box, section_prop, mq, torso)
+
+            layout.separator(factor=0.1)
 
             # LEGS
 
@@ -115,7 +112,7 @@ class Overview(Panel):
             
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
             row.prop(section_prop, "button_leg_shapes", text="", icon=icon, emboss=False)
-            row.label(text="Legs")
+            row.label(text="LEGS")
             
             button_row = row.row(align=True)
             button_row.prop(section_prop, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
@@ -124,6 +121,8 @@ class Overview(Panel):
                 box.separator(factor=0.5,type="LINE")
                 self.leg_shapes(box, section_prop, mq, legs)
 
+            layout.separator(factor=0.1)
+            
             # OTHER
 
             button = section_prop.button_other_shapes
@@ -132,7 +131,7 @@ class Overview(Panel):
             row = box.row(align=True)
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
             row.prop(section_prop, "button_other_shapes", text="", icon=icon, emboss=False)
-            row.label(text="Hands/Feet")
+            row.label(text="HANDS/FEET")
             
             button_row = row.row(align=True)
             button_row.prop(section_prop, "shape_mq_other_bool", text="", icon="ARMATURE_DATA")
@@ -141,6 +140,7 @@ class Overview(Panel):
                 box.separator(factor=0.5,type="LINE")
                 self.other_shapes(box, section_prop, mq, hands, feet)
 
+        layout.separator(factor=0.1)
 
         # YAS MENU
 
@@ -152,7 +152,7 @@ class Overview(Panel):
         
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
         row.prop(section_prop, "button_yas_expand", text="", icon=icon, emboss=False)
-        row.label(text="Yet Another Skeleton")
+        row.label(text="YET ANOTHER SKELETON")
 
         if button:
             box.separator(factor=0.5,type="LINE")
@@ -180,6 +180,8 @@ class Overview(Panel):
             col.prop(mq, "toggle_yas", text="YAS", icon=icon)
             icon = 'CHECKMARK' if mq.toggle_yas_gen else 'PANEL_CLOSE'
             col.prop(mq, "toggle_yas_gen", text="Genitalia", icon=icon) 
+
+            box.separator(factor=0.1)
             
     def collection_context(self, context):
         # Links mesh name to the standard collections)
@@ -205,7 +207,7 @@ class Overview(Panel):
         else:
             return utils.get_object_from_mesh("Mannequin")
 
-    def chest_shapes(self, box, section_prop, mq, torso):  
+    def chest_shapes(self, layout, section_prop, mq, torso):  
         if section_prop.shape_mq_chest_bool:
             target = mq
             key_target = "mq"
@@ -224,7 +226,7 @@ class Overview(Panel):
         buff_depress = True if not buff_mute else False
         rue_depress = True if not rue_mute else False
         
-        row = box.row(align=True)
+        row = layout.row(align=True)
         operator = row.operator("ya.apply_shapes", text= "Large", depress=large_depress)
         operator.key = "Large"
         operator.target = "Torso"
@@ -238,7 +240,7 @@ class Overview(Panel):
         operator.target = "Torso"
         operator.preset = "chest_category"
 
-        row = box.row(align=True)
+        row = layout.row(align=True)
         operator = row.operator("ya.apply_shapes", text= "Buff", depress=buff_depress)
         operator.key = "Buff"
         operator.target = "Torso"
@@ -249,9 +251,9 @@ class Overview(Panel):
         operator.target = "Torso"
         operator.preset = "other"
 
-        box.separator(factor=0.5,type="LINE")
+        layout.separator(factor=0.5,type="LINE")
 
-        row = box.row()
+        row = layout.row()
         
         if not small_mute and not medium_mute:
             row.alignment = "CENTER"
@@ -297,9 +299,9 @@ class Overview(Panel):
                 col2.prop(section_prop, f"key_squeeze_small_{key_target}")
                 col2.prop(section_prop, f"key_nipnops_small_{key_target}")
 
-        box.separator(factor=0.5,type="LINE")
+        layout.separator(factor=0.5,type="LINE")
         
-        row = box.row()
+        row = layout.row()
         split = row.split(factor=0.25, align=True) 
         col = split.column(align=True)
         col.alignment = "RIGHT"
@@ -311,7 +313,9 @@ class Overview(Panel):
         col3 = split.column(align=True)
         col3.operator("ya.apply_shapes", text= "Apply").preset = "shapes"
 
-    def leg_shapes(self, box, section_prop, mq, legs):
+        layout.separator(factor=0.1)
+
+    def leg_shapes(self, layout, section_prop, mq, legs):
         if section_prop.shape_mq_legs_bool:
             target = mq
         else:
@@ -345,7 +349,7 @@ class Overview(Panel):
         soft_depress = True if not soft_mute else False
         hip_depress = True if not hip_yab_mute or not hip_rue_mute else False
         
-        row = box.row(align=True) 
+        row = layout.row(align=True) 
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Genitalia:")
@@ -371,7 +375,7 @@ class Overview(Panel):
         operator.target = "Legs"
         operator.preset = "gen"
         
-        row = box.row(align=True)
+        row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Leg sizes:")
@@ -391,7 +395,7 @@ class Overview(Panel):
         operator.target = "Legs"
         operator.preset = "leg_size"
 
-        row = box.row(align=True)
+        row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Butt options:")
@@ -405,7 +409,7 @@ class Overview(Panel):
         operator.target = "Legs"
         operator.preset = "other"
 
-        row = box.row(align=True)
+        row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         operator = split.operator("ya.apply_shapes", text= "Alt Hips", depress=hip_depress)
         operator.key = "Alt Hips"
@@ -416,8 +420,10 @@ class Overview(Panel):
         operator.key = "Rue"
         operator.target = "Legs"
         operator.preset = "other"
+        
+        layout.separator(factor=0.1)
 
-    def other_shapes(self, box, section_prop, mq, hands, feet):
+    def other_shapes(self, layout, section_prop, mq, hands, feet):
         if section_prop.shape_mq_other_bool:
                         target = mq
                         target_f = mq
@@ -446,7 +452,7 @@ class Overview(Panel):
         nails_col = bpy.context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude
         toenails_col = bpy.context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude
 
-        row = box.row(align=True)
+        row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Hands:")
@@ -456,7 +462,7 @@ class Overview(Panel):
         operator.target = "Hands"
         operator.preset = "other"
 
-        row = box.row(align=True)
+        row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Nails:")
@@ -488,7 +494,7 @@ class Overview(Panel):
         operator.preset = "nails"
 
         if not section_prop.shape_mq_other_bool:
-            row = box.row(align=True)
+            row = layout.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
             split.label(text="Clawsies:")
@@ -506,9 +512,9 @@ class Overview(Panel):
             operator.target = "Hands"
             operator.preset = "other"
 
-        box.separator(type="LINE")
+        layout.separator(type="LINE")
 
-        row = box.row(align=True)
+        row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Feet:")
@@ -518,7 +524,7 @@ class Overview(Panel):
         operator.target = "Feet"
 
         if not section_prop.shape_mq_other_bool:
-            row = box.row(align=True)
+            row = layout.row(align=True)
             col = row.column(align=True)
             row = col.row(align=True)
             split = row.split(factor=0.25, align=True)
@@ -530,7 +536,7 @@ class Overview(Panel):
             operator.target = "Feet"
             split.operator("ya.apply_visibility", text="", icon=icon, depress=not toeclawsies_col).target = "Feet"
         
-        row = box.row(align=True)
+        row = layout.row(align=True)
         split = row.split(factor=0.25)
         col = split.column(align=True)
         col.alignment = "RIGHT"
@@ -543,31 +549,7 @@ class Overview(Panel):
         col2.prop(section_prop, f"key_cinderella_{key_target}")
         col2.prop(section_prop, f"key_miniheels_{key_target}")
 
-            
-                
-        def collection_context(self, context):
-            # Links mesh name to the standard collections)
-            body_part_collections = {
-                "Torso": ['Chest', 'Nipple Piercings'],
-                "Waist": ['Legs', 'Pubes'],
-                "Hands": ['Hands', 'Nails', 'Practical Uses', 'Clawsies'],
-                "Feet": ['Feet', 'Toenails', 'Toe Clawsies'] 
-                }
-
-            # Get the active object
-            active_ob = bpy.context.active_object
-
-            if active_ob and utils.has_shape_keys(active_ob):
-                if not context.scene.ya_props.button_dynamic_view:
-                    return active_ob
-                else:
-                    active_collection = active_ob.users_collection
-                    for body_part, collections in body_part_collections.items():
-                        if any(bpy.data.collections[coll_name] in active_collection for coll_name in collections):
-                            return utils.get_object_from_mesh(body_part) 
-                    return active_ob
-            else:
-                return utils.get_object_from_mesh("Mannequin")
+        layout.separator(factor=0.1)
 
 
 class Tools(Panel):
@@ -602,21 +584,22 @@ class FileManager(Panel):
 
         # EXPORT
         button = section_prop.button_export_expand
-        box = dropdown_header(self, button, section_prop, "button_export_expand", "Export", "EXPORT")
+        box = dropdown_header(self, button, section_prop, "button_export_expand", "EXPORT", "EXPORT")
         if button:
-            self.draw_export(layout, section_prop)
+            box.separator(factor=0.5,type="LINE")
+            self.draw_export(box, section_prop)
 
-        
+        layout.separator(factor=0.1)
 
         # IMPORT
         button = section_prop.button_import_expand
-        box = dropdown_header(self, button, section_prop, "button_import_expand", "Import", "IMPORT")
+        box = dropdown_header(self, button, section_prop, "button_import_expand", "IMPORT", "IMPORT")
 
-        
+        layout.separator(factor=0.1)
 
         # MODPACKER
         button = section_prop.button_file_expand
-        box = dropdown_header(self, button, section_prop, "button_file_expand", "Modpacker", "NEWFOLDER")
+        box = dropdown_header(self, button, section_prop, "button_file_expand", "MODPACKER", "NEWFOLDER")
 
         if button:
             box.separator(factor=0.5,type="LINE")
@@ -661,7 +644,7 @@ class FileManager(Panel):
                 split = row.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
                 split.label(text="Modpack:")
-                split.prop(section_prop, "loadmodpack_display_directory", text="")
+                split.prop(section_prop, "loadmodpack_display_directory", text="", emboss=False)
                 row = box.row(align=True)
                 split = row.split(factor=0.25, align=True)
                 split.label(text="")
@@ -677,22 +660,61 @@ class FileManager(Panel):
                 row = box.row(align=True)
                 split = row.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
-                split.label(text="Rename:")
+                text = "Name:" if section_prop.modpack_groups == "0" else "Rename:"
+                split.label(text=text)
                 split.prop(section_prop, "modpack_rename_group", text="")
+            
+            else:
+                
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Mod Name:")
+                split.prop(section_prop, "new_mod_name", text="")
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Group Name:")
+                split.prop(section_prop, "modpack_rename_group", text="")
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Author:")
+                split.prop(section_prop, "author_name", text="")
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Version:")
+                split.prop(section_prop, "mod_version", text="")
+
+                row = box.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Type:")
+                split.prop(section_prop, "mod_group_type", text="")
+                
+                
+
 
             row = box.row(align=True)
             row.operator("ya.file_modpacker", text="Convert & Pack").preset = "convert_pack"
             row.operator("ya.file_modpacker", text="Convert").preset = "convert"
             row.operator("ya.file_modpacker", text="Pack").preset = "pack"
 
+            box.separator(factor=0.5, type="LINE")
+
             row = box.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
             split.label(text="Status:")
             split.prop(section_prop, "modpack_progress", text="", emboss=False)
+
+            box.separator(factor=0.1)
     
     def draw_export(self, layout, section_prop):
-        layout = self.layout
         row = layout.row(align=True)
         row.prop(section_prop, "export_display_directory", text="")
         row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
@@ -846,8 +868,7 @@ class FileManager(Panel):
 
             self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
 
-        box = layout.box()
-        box.separator(factor=0.5)
+        layout.separator(factor=0.5)
 
     def dynamic_column_buttons(self, columns, box, section_prop, labels, category, button_type):
         row = box.row(align=True)
@@ -878,8 +899,6 @@ class FileManager(Panel):
             row.operator("ya.set_body_part", text="", icon=icon, depress=depress).body_part = slot
         
           
-    
-
 classes = [
     Overview,
     Tools,

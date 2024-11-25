@@ -11,18 +11,16 @@ bl_info = {
     }
 
 import bpy
-import ya_utils as utils
-import ya_ops_ui as ui_ops
-import ya_ops_tools as tool_ops
-import ya_ops_shape as shape_ops
+import ya_ui_main      as ui
+import ya_utils        as utils
+import ya_ops_ui       as ui_ops
 import ya_file_manager as file
-import ya_ui_main as ui
-from importlib import reload
+import ya_ops_tools    as tool_ops
+from importlib         import reload
 
 modules = [
     utils,
     tool_ops,
-    shape_ops,
     file,
     ui_ops,
     ui,
