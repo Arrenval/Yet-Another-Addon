@@ -640,11 +640,21 @@ class FileManager(Panel):
 
             if section_prop.button_modpack_replace:
 
-                row = box.row(align=True)
-                split = row.split(factor=0.25, align=True)
-                split.alignment = "RIGHT"
-                split.label(text="Modpack:")
-                split.prop(section_prop, "loadmodpack_display_directory", text="", emboss=False)
+                row = box.row()
+                split = row.split(factor=0.33)
+                col2 = split.column(align=True)
+                col2.label(text="Ver.")
+                col2.prop(section_prop, "loadmodpack_version", text="")
+                col = split.column(align=True)
+                col.label(text="Modpack:")
+                col.prop(section_prop, "loadmodpack_display_directory", text="", emboss=False)
+                split2 = row.split(factor=0.8)
+                col3 = split2.column(align=True)
+                col3.alignment = "CENTER"
+                col3.label(text="")
+                col3.prop(section_prop, "loadmodpack_author", text="by", emboss=False)
+
+         
                 row = box.row(align=True)
                 split = row.split(factor=0.25, align=True)
                 split.label(text="")
@@ -657,26 +667,38 @@ class FileManager(Panel):
                 split.label(text="Replace:")
                 split.prop(section_prop, "modpack_groups", text="")
 
-                row = box.row(align=True)
-                split = row.split(factor=0.25, align=True)
-                split.alignment = "RIGHT"
-                text = "Name:" if section_prop.modpack_groups == "0" else "Rename:"
-                split.label(text=text)
-                split.prop(section_prop, "modpack_rename_group", text="")
+                row = box.row()
+                split = row.split(factor=0.25)
+                col2 = split.column(align=True)
+                if section_prop.modpack_groups == "0":
+                    col2.prop(section_prop, "mod_group_type", text="")
+                else:
+                    text = "" if section_prop.modpack_groups == "0" else "Rename:"
+                    col2.alignment = "RIGHT"
+                    col2.label(text=text)
+                col = split.column(align=True)
+                col.prop(section_prop, "modpack_rename_group", text="")
             
             else:
                 
-                row = box.row(align=True)
-                split = row.split(factor=0.25, align=True)
-                split.alignment = "RIGHT"
-                split.label(text="Mod Name:")
-                split.prop(section_prop, "new_mod_name", text="")
 
-                row = box.row(align=True)
-                split = row.split(factor=0.25, align=True)
-                split.alignment = "RIGHT"
-                split.label(text="Group Name:")
-                split.prop(section_prop, "modpack_rename_group", text="")
+                row = box.row()
+                split = row.split(factor=0.25)
+                col2 = split.column(align=True)
+                col2.label(text="Ver.")
+                col2.prop(section_prop, "new_mod_version", text="")
+                col = split.column(align=True)
+                col.label(text="Mod Name:")
+                col.prop(section_prop, "new_mod_name", text="")
+
+                row = box.row()
+                split = row.split(factor=0.25)
+                col2 = split.column(align=True)
+                col2.label(text="Type:")
+                col2.prop(section_prop, "mod_group_type", text="")
+                col = split.column(align=True)
+                col.label(text="Group Name:")
+                col.prop(section_prop, "modpack_rename_group", text="")
 
                 row = box.row(align=True)
                 split = row.split(factor=0.25, align=True)
@@ -684,19 +706,6 @@ class FileManager(Panel):
                 split.label(text="Author:")
                 split.prop(section_prop, "author_name", text="")
 
-                row = box.row(align=True)
-                split = row.split(factor=0.25, align=True)
-                split.alignment = "RIGHT"
-                split.label(text="Version:")
-                split.prop(section_prop, "mod_version", text="")
-
-                row = box.row(align=True)
-                split = row.split(factor=0.25, align=True)
-                split.alignment = "RIGHT"
-                split.label(text="Type:")
-                split.prop(section_prop, "mod_group_type", text="")
-                
-                
 
 
             row = box.row(align=True)
