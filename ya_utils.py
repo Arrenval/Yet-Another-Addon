@@ -1,7 +1,9 @@
-import bpy
 import os
+import bpy
+import json
+import zipfile
+import ya_penumbra   as Penumbra
 
-from ya_file_manager import modpack_groups_list
 from bpy.types       import Operator, PropertyGroup
 from bpy.props       import StringProperty, BoolProperty, EnumProperty, FloatProperty, PointerProperty
 
@@ -147,6 +149,53 @@ def directory_short(directory, amount):
 def get_modpack_groups(context):
         return [(str(option.group_value), option.group_name, option.group_description) for option in context.scene.modpack_group_options]
 
+def modpack_data(self, context):
+    scene = context.scene
+    scene.modpack_group_options.clear()
+    modpack = scene.ya_props.loadmodpack_directory
+
+    new_option = scene.modpack_group_options.add()
+    new_option.group_value = int(0)
+    new_option.group_name = "Create New Group"  
+    new_option.group_description = ""
+
+    if os.path.exists(modpack):
+        with zipfile.ZipFile(modpack, "r") as pmp:
+            for file_name in pmp.namelist():
+                if file_name.count('/') == 0 and file_name.startswith("group") and not file_name.endswith("bak"):
+                    number = lambda name: ''.join(char for char in name if char.isdigit())
+                    group_name = modpack_group_data(file_name, pmp, data="name")
+
+                    new_option = context.scene.modpack_group_options.add()
+                    new_option.group_value = int(number(file_name))
+                    new_option.group_name = group_name
+                    new_option.group_description = file_name
+ 
+            with pmp.open("meta.json") as meta:
+                meta_contents = json.load(meta)
+
+                mod_meta = Penumbra.ModMeta(**meta_contents)
+                scene.ya_props.loadmodpack_version = mod_meta.Version
+                scene.ya_props.loadmodpack_author = mod_meta.Author
+    
+def modpack_group_data(file_name, pmp, data):
+    try:
+        with pmp.open(file_name) as file:
+            file_contents = json.load(file)
+                      
+            group_data = Penumbra.ModGroups(**file_contents)
+
+            if data == "name":
+                return group_data.Name
+            if data == "all":
+                return group_data
+
+    except Exception as e:
+        print(f"ERROR: {file_name[10:-4]}")
+        return f"ERROR: {file_name[10:-4]}"    
+    
+def sanitise_path(path):
+        return path.lower().replace(" - ", "_").replace(" ", "")
 
 class CollectionState(PropertyGroup):
     collection_name: bpy.props.StringProperty() # type: ignore
@@ -454,7 +503,19 @@ class UsefulProperties(PropertyGroup):
         default="Select Modpack",
         subtype="FILE_PATH", 
         maxlen=255,
-        update=modpack_groups_list
+        update=modpack_data
+        )  # type: ignore
+    
+    loadmodpack_version: StringProperty(
+        name="",
+        description="Use semantic versioning",
+        default="", 
+        maxlen=255,
+        )  # type: ignore
+    
+    loadmodpack_author: StringProperty(
+        default="", 
+        maxlen=255,
         )  # type: ignore
 
     savemodpack_display_directory: StringProperty(
@@ -471,8 +532,9 @@ class UsefulProperties(PropertyGroup):
         )  # type: ignore
     
     modpack_rename_group: StringProperty(
+        name="",
         default="",
-        description="Choose a different name for the mod group", 
+        description="Choose a name for the target group", 
         maxlen=255,
         )  # type: ignore
     
@@ -489,7 +551,7 @@ class UsefulProperties(PropertyGroup):
         maxlen=255,
         )  # type: ignore
     
-    mod_version: StringProperty(
+    new_mod_version: StringProperty(
         name="",
         default="0.0.0",
         description="Use semantic versioning", 
