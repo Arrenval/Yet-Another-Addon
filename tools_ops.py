@@ -1,6 +1,6 @@
 import bpy
-import utils as Utils
 
+import ya_utils
 from bpy.types import Operator
 from bpy.props import StringProperty
 
@@ -40,7 +40,7 @@ class ApplyShapes(Operator):
         preset_target = "torso"
 
         if apply_mq:
-            obj = Utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
+            obj = ya_utils.get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
             preset_target = "mq"
         else:
             obj = self.get_obj() 
@@ -51,15 +51,15 @@ class ApplyShapes(Operator):
     def get_obj(self):
         match self.target:  
             case "Legs":
-                return Utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
+                return ya_utils.get_object_from_mesh("Waist").data.shape_keys.key_blocks
 
             case "Hands":
-                return Utils.get_object_from_mesh("Hands").data.shape_keys.key_blocks
+                return ya_utils.get_object_from_mesh("Hands").data.shape_keys.key_blocks
 
             case "Feet":
-                return Utils.get_object_from_mesh("Feet").data.shape_keys.key_blocks
+                return ya_utils.get_object_from_mesh("Feet").data.shape_keys.key_blocks
             case _:
-                return Utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
+                return ya_utils.get_object_from_mesh("Torso").data.shape_keys.key_blocks
 
     def get_mannequin_category(self, context):
         match self.target:   
@@ -94,16 +94,16 @@ class ApplyShapes(Operator):
             
             case _:
                 size = context.scene.main_props.chest_shape_enum
-                category = Utils.get_chest_category(size)
-                shape_presets = Utils.get_shape_presets(size)
+                category = ya_utils.get_chest_category(size)
+                shape_presets = ya_utils.get_shape_presets(size)
                 ApplyShapes.reset_shape_values(preset_target, category)
                 ApplyShapes.apply_shape_values(preset_target, category, shape_presets)
                 ApplyShapes.mute_chest_shapes(obj, category)
             
                 if preset_target == "torso":
-                    bpy.context.view_layer.objects.active = Utils.get_object_from_mesh("Torso")
+                    bpy.context.view_layer.objects.active = ya_utils.get_object_from_mesh("Torso")
                 else:
-                    bpy.context.view_layer.objects.active = Utils.get_object_from_mesh("Mannequin")
+                    bpy.context.view_layer.objects.active = ya_utils.get_object_from_mesh("Mannequin")
                 bpy.context.view_layer.update()
 
     def apply_shape_values(apply_target, category, shape_presets):
@@ -120,7 +120,7 @@ class ApplyShapes(Operator):
                 setattr(main_props, prop, 100 * shape_presets[shape_key])
             
     def reset_shape_values(apply_target, category):
-        reset = Utils.get_shape_presets(category)
+        reset = ya_utils.get_shape_presets(category)
         main_props = bpy.context.scene.main_props
 
         for reset_key in reset:
@@ -145,8 +145,8 @@ class ApplyShapes(Operator):
         mute_medium, mute_small = category_mute_mapping.get(category, (True, True))
 
         # Apply the mute states to the target
-        apply_target[Utils.get_chest_size_keys("Medium")].mute = mute_medium
-        apply_target[Utils.get_chest_size_keys("Small")].mute = mute_small
+        apply_target[ya_utils.get_chest_size_keys("Medium")].mute = mute_medium
+        apply_target[ya_utils.get_chest_size_keys("Small")].mute = mute_small
 
     def mute_gen_shapes(apply_target, gen: str):
         gen_mute_mapping = {

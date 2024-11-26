@@ -4,9 +4,10 @@ import json
 import winreg
 import shutil
 import zipfile
-import utils    as Utils
-import penumbra    as Penumbra
 
+
+import penumbra   
+import ya_utils    
 from datetime      import datetime
 from pathlib       import Path
 from functools     import partial
@@ -77,7 +78,7 @@ def modpack_data(context):
             with pmp.open("meta.json") as meta:
                 meta_contents = json.load(meta)
 
-                mod_meta = Penumbra.ModMeta(**meta_contents)
+                mod_meta = penumbra.ModMeta(**meta_contents)
                 scene.file_props.loadmodpack_version = mod_meta.Version
                 scene.file_props.loadmodpack_author = mod_meta.Author
     
@@ -86,7 +87,7 @@ def modpack_group_data(file_name, pmp, data):
         with pmp.open(file_name) as file:
             file_contents = json.load(file)
                       
-            group_data = Penumbra.ModGroups(**file_contents)
+            group_data = penumbra.ModGroups(**file_contents)
 
             if data == "name":
                 return group_data.Name
@@ -122,7 +123,7 @@ class FileProps(PropertyGroup):
     
     @staticmethod
     def export_bools():
-        for shape, (name, slot, shape_category, description, body, key) in Utils.all_shapes.items():
+        for shape, (name, slot, shape_category, description, body, key) in ya_utils.all_shapes.items():
             slot_lower = slot.lower().replace("/", " ")
             name_lower = name.lower().replace(" ", "_")
             
@@ -400,7 +401,7 @@ class BatchQueue(Operator):
 
         force_yas(context)
         if "Chest" in self.body_slot:
-            obj = Utils.get_object_from_mesh("Torso")
+            obj = ya_utils.get_object_from_mesh("Torso")
             yas = obj.modifiers["YAS Toggle"].show_viewport
             BatchQueue.ivcs_mune(context, yas)
 
@@ -446,7 +447,7 @@ class BatchQueue(Operator):
         options = {}
         prop = context.scene.file_props
 
-        for shape, (name, slot, shape_category, description, body, key) in Utils.all_shapes.items():
+        for shape, (name, slot, shape_category, description, body, key) in ya_utils.all_shapes.items():
             slot_lower = slot.lower().replace("/", " ")
             name_lower = name.lower().replace(" ", "_")
 
@@ -459,7 +460,7 @@ class BatchQueue(Operator):
 
     def calculate_queue(self, body_slot):
         mesh = self.ob_mesh_dict[body_slot]
-        target = Utils.get_object_from_mesh(mesh).data.shape_keys.key_blocks
+        target = ya_utils.get_object_from_mesh(mesh).data.shape_keys.key_blocks
 
         leg_sizes = {
             "Melon": self.size_options["Melon"],
@@ -501,7 +502,7 @@ class BatchQueue(Operator):
 
         
         #Excludes possible parts based on which body slot they belong to
-        for shape, (name, slot, category, description, body, key) in Utils.all_shapes.items():
+        for shape, (name, slot, category, description, body, key) in ya_utils.all_shapes.items():
             if any(shape in possible_parts for parts in possible_parts) and body_slot == slot and self.size_options[shape]:
                 actual_parts.append(shape)  
 
@@ -512,7 +513,7 @@ class BatchQueue(Operator):
 
         all_combinations = tuple(all_combinations)  
 
-        for shape, (name, slot, category, description, body, key) in Utils.all_shapes.items():
+        for shape, (name, slot, category, description, body, key) in ya_utils.all_shapes.items():
             if body_slot == "Legs":
                 if self.size_options[shape] and category == "Vagina":
                     actual_combinations[shape] = all_combinations
@@ -606,7 +607,7 @@ class BatchQueue(Operator):
             return 0.1
         else:
             if "Chest" in body_slot:
-                obj = Utils.get_object_from_mesh("Torso")
+                obj = ya_utils.get_object_from_mesh("Torso")
                 BatchQueue.ivcs_mune(context, obj)
             return None
 
@@ -637,7 +638,7 @@ class BatchQueue(Operator):
         if body_slot == "Chest/Legs":
             body_slot = "Chest"
 
-        for shape, (name, slot, category, description, body, key) in Utils.all_shapes.items():
+        for shape, (name, slot, category, description, body, key) in ya_utils.all_shapes.items():
 
             if shape == size and key != "":
                 ob[key].mute = False
@@ -649,7 +650,7 @@ class BatchQueue(Operator):
         # Adds the shape value presets alongside size toggles
         if body_slot == "Chest":
             keys_to_filter = ["Squeeze", "Squish", "Push-Up", "Nip Nops"]
-            preset = Utils.get_shape_presets(size)
+            preset = ya_utils.get_shape_presets(size)
             filtered_preset = {}
            
 
@@ -657,10 +658,10 @@ class BatchQueue(Operator):
                 if not any(key.endswith(sub) for sub in keys_to_filter):
                     filtered_preset[key] = preset[key]
 
-            category = Utils.all_shapes[size][2]
+            category = ya_utils.all_shapes[size][2]
             ApplyShapes.mute_chest_shapes(ob, category)
             ApplyShapes.apply_shape_values("torso", category, filtered_preset)
-            bpy.context.view_layer.objects.active = Utils.get_object_from_mesh("Torso")
+            bpy.context.view_layer.objects.active = ya_utils.get_object_from_mesh("Torso")
             bpy.context.view_layer.update()
                 
         
@@ -680,7 +681,7 @@ class BatchQueue(Operator):
         gen_name = None
 
         #Loops over the options and applies the shapes name to file_names
-        for shape, (name, slot, category, description, body, key) in Utils.all_shapes.items():
+        for shape, (name, slot, category, description, body, key) in ya_utils.all_shapes.items():
             if any(shape in options for option in options) and not shape.startswith("Gen") and name != "YAB":
                 if name == "Hip Dips":
                     name = "Alt Hip" 
@@ -716,7 +717,7 @@ class BatchQueue(Operator):
 
         reset_shape_keys = []
 
-        for shape, (name, slot, shape_category, description, body, key) in Utils.all_shapes.items():
+        for shape, (name, slot, shape_category, description, body, key) in ya_utils.all_shapes.items():
             if key != "" and slot == body_slot:
                 if shape == "Hip Dips":
                     reset_shape_keys.append("Hip Dips (for YAB)")
@@ -861,7 +862,7 @@ class ConsoleTools(Operator):
 class Modpacker(Operator):
     bl_idname = "ya.file_modpacker"
     bl_label = "Modpacker"
-    bl_description = "Converts FBX and/or packages FFXIV model files into a Penumbra Modpack"
+    bl_description = "Converts FBX and/or packages FFXIV model files into a penumbra Modpack"
     bl_options = {'UNDO'}
 
     preset: StringProperty()  # type: ignore # convert_pack, pack, convert are valid presets
@@ -887,6 +888,11 @@ class Modpacker(Operator):
             if user_input["selected"] == "0" and not user_input["new_group_name"]:
                 self.report({'ERROR'}, "Please enter a group name.")
                 return {'CANCELLED'}
+            
+        if not replace:
+            if  not user_input["new_group_name"]:
+                self.report({'ERROR'}, "Please enter a group name.")
+                return {'CANCELLED'}
         
         if self.preset != "pack":
             if context.scene.file_props.consoletools_status != "ConsoleTools Ready!":
@@ -900,8 +906,7 @@ class Modpacker(Operator):
         if replace:
             mod_data, mod_meta = self.current_mod_data(replace, paths["pmp"])
         else:
-            mod_data = {}
-            mod_meta = {}
+            mod_data, mod_meta = {}, {}
 
         self.mdl_timer(context, paths, user_input, self.preset, mod_data, mod_meta)
 
@@ -912,6 +917,9 @@ class Modpacker(Operator):
         fbx_folder = file_props.savemodpack_directory
         selected = file_props.modpack_groups
         gamepath = file_props.game_model_path
+        group_name = ""
+        update_group = ""
+        selected = ""
 
         for group in get_modpack_groups(context):
                 if selected == group[0]:
@@ -963,7 +971,7 @@ class Modpacker(Operator):
             with pmp.open("meta.json") as meta:
                 meta_contents = json.load(meta)
 
-                current_mod_meta = Penumbra.ModMeta(**meta_contents)
+                current_mod_meta = penumbra.ModMeta(**meta_contents)
             
         
         return current_mod_data, current_mod_meta  
@@ -1090,14 +1098,14 @@ class Modpacker(Operator):
         shutil.copy(paths["pmp"], pmp_bak)
 
     def new_mod(paths, user_input, to_pack):
-        meta_content = Penumbra.ModMeta(**user_input["meta"])
+        meta_content = penumbra.ModMeta(**user_input["meta"])
         meta_content.Name = user_input["pmp_name"]
         group_data = Modpacker.get_group_data_template(user_input)
 
         with open(os.path.join(paths["temp"], "meta.json"), "w") as file:
                 file.write(meta_content.to_json())
 
-        default_mod = Penumbra.ModGroups()
+        default_mod = penumbra.ModGroups()
 
         with open(os.path.join(paths["temp"], "default_mod.json"), "w") as file:
                 file.write(default_mod.to_json())
@@ -1230,7 +1238,7 @@ class Modpacker(Operator):
 
 
             with open(new_group, "w") as file:
-                file.write(Penumbra.ModGroups(**group_data).to_json())
+                file.write(penumbra.ModGroups(**group_data).to_json())
 
     def update_file_name(temp_folder, user_input, previous_group=None):
         old_group_name = user_input["old_group_name"]

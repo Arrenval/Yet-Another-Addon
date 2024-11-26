@@ -1,6 +1,6 @@
 import bpy
-import utils as Utils
 
+import ya_utils
 from bpy.types import Panel
 
 def dynamic_column_operators(columns, layout, labels):
@@ -41,11 +41,11 @@ class Overview(Panel):
     bl_label = "Yet Another Overview"
 
     def draw(self, context):
-        mq = Utils.get_object_from_mesh("Mannequin")
-        torso = Utils.get_object_from_mesh("Torso")
-        legs = Utils.get_object_from_mesh("Waist")
-        hands = Utils.get_object_from_mesh("Hands")
-        feet = Utils.get_object_from_mesh("Feet")
+        mq = ya_utils.get_object_from_mesh("Mannequin")
+        torso = ya_utils.get_object_from_mesh("Torso")
+        legs = ya_utils.get_object_from_mesh("Waist")
+        hands = ya_utils.get_object_from_mesh("Hands")
+        feet = ya_utils.get_object_from_mesh("Feet")
 
         ob = self.collection_context(context)
         key = ob.data.shape_keys
@@ -195,17 +195,17 @@ class Overview(Panel):
         # Get the active object
         active_ob = bpy.context.active_object
 
-        if active_ob and Utils.has_shape_keys(active_ob):
+        if active_ob and ya_utils.has_shape_keys(active_ob):
             if not context.scene.main_props.button_dynamic_view:
                 return active_ob
             else:
                 active_collection = active_ob.users_collection
                 for body_part, collections in body_part_collections.items():
                     if any(bpy.data.collections[coll_name] in active_collection for coll_name in collections):
-                        return Utils.get_object_from_mesh(body_part) 
+                        return ya_utils.get_object_from_mesh(body_part) 
                 return active_ob
         else:
-            return Utils.get_object_from_mesh("Mannequin")
+            return ya_utils.get_object_from_mesh("Mannequin")
 
     def chest_shapes(self, layout, section_prop, mq, torso):  
         if section_prop.shape_mq_chest_bool:
