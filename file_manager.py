@@ -5,14 +5,14 @@ import winreg
 import shutil
 import zipfile
 import ya_utils    as Utils
-import ya_penumbra as Penumbra
+import penumbra    as Penumbra
 
 from datetime      import datetime
 from pathlib       import Path
 from functools     import partial
 from bpy.types     import Operator, PropertyGroup
 from itertools     import combinations
-from ya_ops_tools  import ApplyShapes
+from ops_tools     import ApplyShapes
 from bpy.props     import StringProperty, EnumProperty, BoolProperty, PointerProperty
 
 # Global variable for making sure all functions can properly track the current export.

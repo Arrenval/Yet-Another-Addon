@@ -11,17 +11,17 @@ bl_info = {
     }
 
 import bpy
-import ya_ui_main      as ui
-import ya_utils        as utils
-import ya_ops_ui       as ui_ops
-import ya_file_manager as file
-import ya_ops_tools    as tool_ops
-from importlib         import reload
+import ui_ops
+import ops_tools 
+import ui_main      as ui
+import ya_utils     as utils
+import file_manager as file
+from importlib      import reload
 
 modules = [
     utils,
-    tool_ops,
     file,
+    ops_tools,
     ui_ops,
     ui,
 ]
@@ -38,7 +38,7 @@ def register():
         for cls in module.classes:
             bpy.utils.register_class(cls)
         if module == utils:
-                utils.set_devkit_properties()
+            utils.set_devkit_properties()
         if module == file:
             file.set_file_properties()
 
