@@ -12,7 +12,7 @@ bl_info = {
 
 import bpy
 import ui_ops
-import ops_tools 
+import tools_ops
 import ui_main      as ui
 import ya_utils     as utils
 import file_manager as file
@@ -21,7 +21,7 @@ from importlib      import reload
 modules = [
     utils,
     file,
-    ops_tools,
+    tools_ops,
     ui_ops,
     ui,
 ]
