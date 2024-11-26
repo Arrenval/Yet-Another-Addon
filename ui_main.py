@@ -1,5 +1,5 @@
 import bpy
-import ya_utils as Utils
+import utils as Utils
 
 from bpy.types import Panel
 
@@ -877,6 +877,29 @@ class FileManager(Panel):
                 }
 
             self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
+       
+        layout.separator(factor=0.5, type="LINE")
+
+        button = ui_prop.button_export_options
+        
+        row = layout.row(align=True)
+        split = row.split(factor=1)
+        sub = split.row(align=True)
+        sub.alignment = 'LEFT'
+
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        sub.prop(ui_prop, "button_export_options", text="", icon=icon, emboss=False)
+        sub.label(text="Advanced Options")
+        if button:
+            row = layout.row(align=True)
+            col = row.column(align=True)
+            icon = 'CHECKMARK' if section_prop.force_yas else 'PANEL_CLOSE'
+            col.prop(section_prop, "force_yas", text="Force YAS", icon=icon)
+            col2 = row.column(align=True)
+            icon = 'CHECKMARK' if section_prop.check_tris else 'PANEL_CLOSE'
+            col2.prop(section_prop, "check_tris", text="Check Triangulation", icon=icon)
+
+            
 
         layout.separator(factor=0.5)
 

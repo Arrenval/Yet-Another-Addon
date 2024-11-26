@@ -1,5 +1,5 @@
 import bpy
-import ya_utils as Utils
+import utils as Utils
 
 from bpy.types import Operator
 from bpy.props import StringProperty
@@ -64,13 +64,13 @@ class ApplyShapes(Operator):
     def get_mannequin_category(self, context):
         match self.target:   
             case "Legs":
-                return context.scene.ya_props.shape_mq_legs_bool
+                return context.scene.main_props.shape_mq_legs_bool
 
             case "Hands" | "Feet":
-                return context.scene.ya_props.shape_mq_other_bool
+                return context.scene.main_props.shape_mq_other_bool
             
             case _:
-                return context.scene.ya_props.shape_mq_chest_bool
+                return context.scene.main_props.shape_mq_chest_bool
 
     def get_function(self, context, obj, preset_target):
         match self.preset:
@@ -93,7 +93,7 @@ class ApplyShapes(Operator):
                 ApplyShapes.toggle_other(obj, self.key)
             
             case _:
-                size = context.scene.ya_props.chest_shape_enum
+                size = context.scene.main_props.chest_shape_enum
                 category = Utils.get_chest_category(size)
                 shape_presets = Utils.get_shape_presets(size)
                 ApplyShapes.reset_shape_values(preset_target, category)
@@ -107,7 +107,7 @@ class ApplyShapes(Operator):
                 bpy.context.view_layer.update()
 
     def apply_shape_values(apply_target, category, shape_presets):
-        ya_props = bpy.context.scene.ya_props
+        main_props = bpy.context.scene.main_props
         for shape_key in shape_presets:
             norm_key = shape_key.lower().replace(" ","").replace("-","")
             category_lower = category.lower()
@@ -116,12 +116,12 @@ class ApplyShapes(Operator):
                 category_lower = "omoi"
             
             prop = f"key_{norm_key}_{category_lower}_{apply_target}"
-            if hasattr(ya_props, prop):
-                setattr(ya_props, prop, 100 * shape_presets[shape_key])
+            if hasattr(main_props, prop):
+                setattr(main_props, prop, 100 * shape_presets[shape_key])
             
     def reset_shape_values(apply_target, category):
         reset = Utils.get_shape_presets(category)
-        ya_props = bpy.context.scene.ya_props
+        main_props = bpy.context.scene.main_props
 
         for reset_key in reset:
             norm_key = reset_key.lower().replace(" ","").replace("-","")
@@ -131,8 +131,8 @@ class ApplyShapes(Operator):
                 category_lower = "omoi"
             
             prop = f"key_{norm_key}_{category_lower}_{apply_target}"
-            if hasattr(ya_props, prop):
-                setattr(ya_props, prop, 100 * reset[reset_key])
+            if hasattr(main_props, prop):
+                setattr(main_props, prop, 100 * reset[reset_key])
                              
     def mute_chest_shapes(apply_target, category):
         category_mute_mapping = {
@@ -236,6 +236,7 @@ class ApplyVisibility(Operator):
 
             if collection["Hands"].children["Nails"].exclude:
                 collection["Hands"].children["Nails"].exclude = False
+                collection["Hands"].children["Nails"].children["Practical Uses"].exclude = False
             else:
                 collection["Hands"].children["Nails"].exclude = True
 

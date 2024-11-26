@@ -1,9 +1,30 @@
-import bpy
 import os
-import ya_utils as utils
 
 from bpy.types  import Operator
 from bpy.props  import StringProperty
+
+def directory_short(directory, amount):
+    if os.path.exists(directory):
+        try:
+            full_path = os.path.normpath(directory)
+
+            path_parts = full_path.split(os.sep)
+
+            last_folders = os.sep.join(path_parts[-amount:])
+
+            return last_folders
+        except:
+            full_path = os.path.normpath(directory)
+
+            path_parts = full_path.split(os.sep)
+
+            last_folders = os.sep.join(path_parts[-1:])
+
+            return last_folders
+
+    else:
+        return None
+
 
 class BodyPartSlot(Operator):
     bl_idname = "ya.set_body_part"
@@ -47,7 +68,7 @@ class DirSelector(Operator):
 
         if os.path.isdir(selected_file):
             setattr(context.scene.file_props, actual_dir_prop, selected_file)
-            display_dir = utils.directory_short(selected_file, 3) 
+            display_dir = directory_short(selected_file, 3) 
 
             setattr(context.scene.file_props, display_dir_prop, display_dir)
             self.report({"INFO"}, f"Directory selected: {selected_file}")
@@ -130,7 +151,7 @@ class PMPSelector(Operator):
         if os.path.exists(selected_file) and selected_file.endswith(".pmp"):
             
             context.scene.file_props.loadmodpack_directory = selected_file
-            display_dir = utils.directory_short(selected_file, 1) 
+            display_dir = directory_short(selected_file, 1) 
             context.scene.file_props.loadmodpack_display_directory = display_dir[:-4]
 
             self.report({'INFO'}, f"{display_dir} selected!")
@@ -149,7 +170,7 @@ class CopyToFBX(Operator):
     def execute(self, context):
         export_dir = context.scene.file_props.export_directory
         context.scene.file_props.savemodpack_directory = export_dir
-        context.scene.file_props.savemodpack_display_directory = utils.directory_short(export_dir, 3)
+        context.scene.file_props.savemodpack_display_directory = directory_short(export_dir, 3)
     
         return {'FINISHED'}
 

@@ -1,4 +1,3 @@
-import os
 import bpy
 
 from bpy.types       import Operator, PropertyGroup
@@ -119,36 +118,14 @@ def get_filtered_shape_keys(obj, key_filter: list):
 
                 if any(key_name in to_exclude for keys in to_exclude):
                     break
-                
-                print(key_name)
+
                 key_list.append((norm_key, category_lower, key_name))
         
         return key_list
 
-def directory_short(directory, amount):
-    if os.path.exists(directory):
-        try:
-            full_path = os.path.normpath(directory)
-
-            path_parts = full_path.split(os.sep)
-
-            last_folders = os.sep.join(path_parts[-amount:])
-
-            return last_folders
-        except:
-            full_path = os.path.normpath(directory)
-
-            path_parts = full_path.split(os.sep)
-
-            last_folders = os.sep.join(path_parts[-1:])
-
-            return last_folders
-
-    else:
-        return None
-
 class CollectionState(PropertyGroup):
     collection_name: bpy.props.StringProperty() # type: ignore
+
 
 class UsefulProperties(PropertyGroup):
 
@@ -158,9 +135,12 @@ class UsefulProperties(PropertyGroup):
         ("chest",    "shapes",   "Opens the category"),
         ("leg",      "shapes",   "Opens the category"),
         ("other",    "shapes",   "Opens the category"),
-        ("chest",    "category", ""),
+        ("chest",    "category", "Opens the category"),
         ("yas",      "expand",   "Opens the category"),
         ("file",     "expand",   "Opens the category"),
+        ("export",   "options",  "Opens the category"),
+        ("check",    "tris",     "Verify that the meshes have an active triangulation modifier"),
+        ("force",    "yas",      "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
         ("advanced", "expand",   "Switches between a simplified and full view of the shape keys"),
         ("dynamic",  "view",     "Toggles between a dynamic collection viewer and one constrained to the active object"),
         ("modpack",  "replace",     "Toggles between a dynamic collection viewer and one constrained to the active object")
@@ -285,7 +265,7 @@ class UsefulProperties(PropertyGroup):
             
             var.targets[0].id_type = "SCENE"
             var.targets[0].id = bpy.data.scenes["Scene"]
-            var.targets[0].data_path = f"ya_props.{prop_name}"  
+            var.targets[0].data_path = f"main_props.{prop_name}"  
 
     def get_listable_shapes(body_slot):
         items = []
@@ -356,7 +336,7 @@ class CollectionManager(Operator):
         ]
    
     def execute(self, context): 
-        collections = bpy.context.scene.ya_props.collection_state
+        collections = bpy.context.scene.main_props.collection_state
         
         for state in collections:
             name = state.collection_name

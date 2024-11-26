@@ -4,19 +4,50 @@ import json
 import winreg
 import shutil
 import zipfile
-import ya_utils    as Utils
+import utils    as Utils
 import penumbra    as Penumbra
 
 from datetime      import datetime
 from pathlib       import Path
 from functools     import partial
-from bpy.types     import Operator, PropertyGroup
+from tools_ops     import ApplyShapes
 from itertools     import combinations
-from ops_tools     import ApplyShapes
+from bpy.types     import Operator, PropertyGroup
 from bpy.props     import StringProperty, EnumProperty, BoolProperty, PointerProperty
 
 # Global variable for making sure all functions can properly track the current export.
 is_exporting: bool = False
+
+def force_yas(context):
+    force_yas = context.scene.main_props.button_force_yas
+
+    if force_yas:
+        for obj in bpy.context.scene.objects:
+            if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
+                try:
+                    obj.toggle_yas = True
+                except:
+                    continue
+
+def check_triangulation(context):
+    check_tris = context.scene.main_props.button_check_tris
+    not_triangulated = []
+
+    if check_tris:
+        for obj in bpy.context.scene.objects:
+            if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
+                triangulated = False
+                for modifier in reversed(obj.modifiers):
+                    if modifier.type == "TRIANGULATE" and modifier.show_viewport:
+                        triangulated = True
+                        break
+                if not triangulated:
+                    not_triangulated.append(obj.name)
+    
+    if not_triangulated:
+        return False, not_triangulated
+    else:
+        return True, ""
 
 def get_modpack_groups(context):
         return [(str(option.group_value), option.group_name, option.group_description) for option in context.scene.modpack_group_options]
@@ -80,6 +111,7 @@ def update_directory(category):
 def sanitise_path(path):
         return path.lower().replace(" - ", "_").replace(" ", "")
 
+
 class ModpackGroups(PropertyGroup):
     group_value: bpy.props.IntProperty() # type: ignore
     group_name: bpy.props.StringProperty() # type: ignore
@@ -87,6 +119,7 @@ class ModpackGroups(PropertyGroup):
 
 
 class FileProps(PropertyGroup):
+    
     @staticmethod
     def export_bools():
         for shape, (name, slot, shape_category, description, body, key) in Utils.all_shapes.items():
@@ -98,6 +131,25 @@ class FileProps(PropertyGroup):
                 name="", 
                 description=description,
                 default=False, 
+                )
+            setattr(FileProps, prop_name, prop)
+
+    extra_buttons_list = [
+        ("check",    "tris",     True, "Verify that the meshes have an active triangulation modifier"),
+        ("force",    "yas",      False, "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
+        ]
+   
+    @staticmethod
+    def extra_options():
+        for (name, category, default, description) in FileProps.extra_buttons_list:
+            category_lower = category.lower()
+            name_lower = name.lower()
+            
+            prop_name = f"{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
                 )
             setattr(FileProps, prop_name, prop)
 
@@ -229,7 +281,7 @@ class FileProps(PropertyGroup):
         name="Export Folder",
         default="Select Export Directory",  
         maxlen=255,
-        update=lambda self, context: FileProps.update_directory('export'),
+        update=lambda self, context: update_directory('export'),
         ) # type: ignore
     
     export_directory: StringProperty(
@@ -262,10 +314,17 @@ class SimpleExport(Operator):
         return context.mode == "OBJECT"
     
     def execute(self, context):
+        triangulated, obj = check_triangulation(context)
+        if not triangulated:
+            self.report({'ERROR'}, f"Not Triangulated: {', '.join(obj)}")
+            return {'CANCELLED'} 
+        
         gltf = context.scene.file_props.export_gltf 
         directory = context.scene.file_props.export_directory
         export_path = os.path.join(directory, "untitled")
         export_settings = FileExport.get_export_settings(gltf)
+
+        force_yas(context)
 
         if gltf:
             bpy.ops.export_scene.gltf('INVOKE_DEFAULT', filepath=export_path + ".gltf", **export_settings)
@@ -293,14 +352,15 @@ class BatchQueue(Operator):
         return context.mode == "OBJECT"
 
     def __init__(self):
-        self.size_options = None
-        self.selected_directory = None
-        self.filetype = None
-        self.body_slot = None
         self.queue = []
         self.leg_queue = []
         
     def execute(self, context):
+        triangulated, obj = check_triangulation(context)
+        if not triangulated:
+            self.report({'ERROR'}, f"Not Triangulated: {', '.join(obj)}")
+            return {'CANCELLED'} 
+        
         prop = context.scene.file_props
         selected_directory = prop.export_directory
         self.gltf = prop.export_gltf
@@ -321,7 +381,7 @@ class BatchQueue(Operator):
             self.actual_combinations = self.shape_combinations(self.body_slot)
             self.calculate_queue(self.body_slot)
 
-        if self.body_slot == "Legs" or self.body_slot == "Chest/Legs":
+        if "Legs" in self.body_slot:
             gen_options = len(self.actual_combinations.keys())
         else:
             gen_options = 0
@@ -337,11 +397,19 @@ class BatchQueue(Operator):
             
         self.collection_state(context)
         bpy.ops.ya.collection_manager()
+
+        force_yas(context)
+        if "Chest" in self.body_slot:
+            obj = Utils.get_object_from_mesh("Torso")
+            yas = obj.modifiers["YAS Toggle"].show_viewport
+            BatchQueue.ivcs_mune(context, yas)
+
         BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
         return {'FINISHED'}
     
     # The following functions is executed to establish the queue and valid options 
     # before handing all variables over to queue processing
+
     def collection_state(self, context):
         context.scene.main_props.collection_state.clear()
         collections = []
@@ -363,6 +431,12 @@ class BatchQueue(Operator):
                     collections.append("Nipple Piercings")
                 if self.size_options["Pubes"]:
                     collections.append("Pubes")
+
+            case "Hands":
+                collections = ["Hands"]
+
+            case "Feet":
+                collections = ["Feet"]
 
         for name in collections:
             collection_state = context.scene.main_props.collection_state.add()
@@ -469,6 +543,7 @@ class BatchQueue(Operator):
         bpy.app.timers.register(callback, first_interval=0.5) 
 
     def export_queue(context, queue, leg_queue, body_slot, gen_options):
+        collection = bpy.context.view_layer.layer_collection.children
         global is_exporting
 
         if is_exporting:
@@ -487,35 +562,34 @@ class BatchQueue(Operator):
         if body_slot == "Hands":
 
             if size == "Straight" or size == "Curved":
-                collections = ["Hands", "Clawsies"]
-                extra = json.dumps(collections)
-                Utils.collection_manager(extra_json = extra)
+                collection["Hands"].children["Clawsies"].exclude = False
+                collection["Hands"].children["Nails"].exclude = True
+                collection["Hands"].children["Nails"].exclude = True
     
             else:
-                collections = ["Hands", "Nails"]
-                extra = json.dumps(collections)
-                Utils.collection_manager(extra_json = extra)
-    
+                collection["Hands"].children["Clawsies"].exclude = True
+                collection["Hands"].children["Nails"].exclude = False
+                collection["Hands"].children["Nails"].children["Practical Uses"].exclude = False
+        
         if body_slot == "Feet":
 
             if "Clawsies" in options:
-                collections = ["Feet", "Toe Clawsies"]
-                extra = json.dumps(collections)
-                Utils.collection_manager(extra_json = extra)
+                collection["Feet"].children["Toe Clawsies"].exclude = False
+                collection["Feet"].children["Toenails"].exclude = True
+                
     
             else:
-                collections = ["Feet", "Toenails"]
-                extra = json.dumps(collections)
-                Utils.collection_manager(extra_json = extra)
+                collection["Feet"].children["Toe Clawsies"].exclude = True
+                collection["Feet"].children["Toenails"].exclude = False
         
         if body_slot == "Chest/Legs":
             for leg_task in second_queue:
-                options, size, gen, target = leg_task
+                options, size, gen, leg_target = leg_task
                 if BatchQueue.check_rue_match(options, main_name):
                     body_slot = "Legs"
                     
-                    BatchQueue.reset_model_state(body_slot, target)
-                    BatchQueue.apply_model_state(options, size, gen, body_slot, target)
+                    BatchQueue.reset_model_state(body_slot, leg_target)
+                    BatchQueue.apply_model_state(options, size, gen, body_slot, leg_target)
 
                     leg_name = BatchQueue.name_generator(options, size, gen, gen_options, body_slot)
                     main_name = leg_name + " - " + main_name
@@ -531,6 +605,9 @@ class BatchQueue(Operator):
         if queue:
             return 0.1
         else:
+            if "Chest" in body_slot:
+                obj = Utils.get_object_from_mesh("Torso")
+                BatchQueue.ivcs_mune(context, obj)
             return None
 
     # These functions are responsible for applying the correct model state and appropriate file name.
@@ -591,9 +668,15 @@ class BatchQueue(Operator):
             ob[gen].mute = False
                         
     def name_generator(options, size, gen, gen_options, body_slot):
+        yiggle = bpy.context.scene.main_props.button_force_yas
+
         if body_slot == "Chest/Legs":
             body_slot = "Chest"
-        file_names = []
+        if yiggle:
+            file_names = ["Yiggle"]
+        else:
+            file_names = []
+        
         gen_name = None
 
         #Loops over the options and applies the shapes name to file_names
@@ -644,6 +727,24 @@ class BatchQueue(Operator):
         for key in reset_shape_keys:   
             ob[key].mute = True
 
+    def ivcs_mune(context, yas=False):
+        for obj in bpy.context.scene.objects:
+            if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
+                for group in obj.vertex_groups:
+                    try:
+                        if yas:
+                            if group.name == "j_mune_r":
+                                group.name = "iv_c_mune_r"
+                            if group.name == "j_mune_l":
+                                group.name = "iv_c_mune_l"
+                        else:
+                            if group.name == "iv_c_mune_r":
+                                    group.name = "j_mune_r"
+                            if group.name == "iv_c_mune_l":
+                                group.name = "j_mune_l"
+                    except:
+                        continue
+      
     
 class FileExport(Operator):
     bl_idname = "ya.file_export"
@@ -812,7 +913,7 @@ class Modpacker(Operator):
         selected = file_props.modpack_groups
         gamepath = file_props.game_model_path
 
-        for group in Utils.get_modpack_groups(context):
+        for group in get_modpack_groups(context):
                 if selected == group[0]:
                     group_name, update_group = group[1], group[2]
 
@@ -856,7 +957,7 @@ class Modpacker(Operator):
         with zipfile.ZipFile(pmp, "r") as pmp:
             for file_name in sorted(pmp.namelist()):
                 if file_name.count('/') == 0 and file_name.startswith("group") and file_name.endswith(".json"):
-                    group_data = Utils.modpack_group_data(file_name, pmp, data="all")
+                    group_data = modpack_group_data(file_name, pmp, data="all")
                     
                     current_mod_data[file_name] = group_data 
             with pmp.open("meta.json") as meta:
@@ -941,11 +1042,35 @@ class Modpacker(Operator):
                     file_path = os.path.join(root, file)
                     pmp.write(file_path, os.path.relpath(file_path, paths["temp"]))
 
-        if os.path.isdir(paths["temp"]):
-            shutil.rmtree(paths["temp"])
-
+        bpy.app.timers.register(partial(Modpacker.schedule_cleanup, paths["temp"]), first_interval=0.1)
         modpack_data(context)
         context.scene.file_props.modpack_progress = "Complete!"
+
+    def custom_sort(list):
+        ranking = {}
+        final_sort = []
+        
+        for item in list:
+            ranking[item] = 0
+            if "Small" in item:
+                ranking[item] += 0
+            if "Medium" in item:
+                ranking[item] += 1
+            if "Large" in item:
+                ranking[item] += 2
+            if "Buff" in item:
+                ranking[item] += 3
+            if "Rue" in item:
+                ranking[item] += 4
+            if "Yiggle" in item:
+                ranking[item] += 5
+
+        sorted_rank = sorted(ranking.items(), key=lambda x: x[1])
+        
+        for tuples in sorted_rank:
+            final_sort.append(tuples[0])
+
+        return final_sort
 
     def rolling_backup(paths):
         folder_bak = os.path.join(paths["fbx"], "BACKUP")
@@ -979,7 +1104,7 @@ class Modpacker(Operator):
 
         file_name = f"group_001_{user_input['new_group_name'].lower()}.json"
         create_group = {file_name: (paths["gamepath"], user_input["new_group_name"], group_data)}
-        Modpacker.write_group_json(paths, user_input, to_pack, create_group)
+        Modpacker.write_group_json(paths, user_input, to_pack, create_group, user_input["new_group_name"])
 
         for file in to_pack:
             option_name = file[:-4] 
@@ -990,6 +1115,7 @@ class Modpacker(Operator):
             shutil.copy(os.path.join(paths["mdl"], file), os.path.join(target_path, sanitise_path(file)))
 
     def update_mod (paths, user_input, mod_data, to_pack, mod_meta):
+        group_dir = user_input["new_group_name"] if user_input["new_group_name"] else user_input["old_group_name"]
         group_data = Modpacker.get_group_data_template(user_input, mod_data)
         duplicate_groups = {} 
         previous_group = None
@@ -1012,7 +1138,7 @@ class Modpacker(Operator):
                     create_group[dupe_group] = (other_gamepath, dupe_group_name, group_data)
         
         os.remove(os.path.join(paths["temp"], user_input["update_group"]))
-        Modpacker.write_group_json(paths, user_input, to_pack, create_group, mod_data)
+        Modpacker.write_group_json(paths, user_input, to_pack, create_group, group_dir, mod_data)
 
         mod_meta.Version = user_input["load_mod_ver"]
 
@@ -1021,14 +1147,39 @@ class Modpacker(Operator):
         
         for file in to_pack:
             option_name = file[:-4] 
-            rel_path = sanitise_path(os.path.join(user_input["new_group_name"], option_name))
+            rel_path = sanitise_path(os.path.join(group_dir, option_name))
             target_path = os.path.join(paths["temp"], rel_path)   
             os.makedirs(target_path, exist_ok=True)
         
             shutil.copy(os.path.join(paths["mdl"], file), os.path.join(target_path, sanitise_path(file)))
 
-    def write_group_json(paths, user_input, to_pack, create_group, mod_data={}):
-        directory_group = user_input["new_group_name"] if user_input["new_group_name"] else user_input["old_group_name"]
+    def get_group_data_template(user_input, mod_data=None):
+        if mod_data and user_input["selected"] != "0":
+            return {
+            "Name": "",
+            "Description": mod_data[user_input["update_group"]].Description,
+            "Priority": mod_data[user_input["update_group"]].Priority,
+            "Image": mod_data[user_input["update_group"]].Image,
+            "Page": mod_data[user_input["update_group"]].Page,
+            "Type": mod_data[user_input["update_group"]].Type,
+            "DefaultSettings": mod_data[user_input["update_group"]].DefaultSettings,
+            "Options": [],
+            }
+        
+        else:
+            return {
+            "Name": user_input["new_group_name"],
+            "Description": "",
+            "Priority": 0,
+            "Image": "",
+            "Page": 0,
+            "Type": user_input["group_type"],
+            "DefaultSettings": 0,
+            "Options": [],
+            }
+
+    def write_group_json(paths, user_input, to_pack, create_group, group_dir, mod_data={}):
+        
         for file_name, (gamepath, group_name, group_data) in create_group.items():
             
             options = [
@@ -1066,7 +1217,7 @@ class Modpacker(Operator):
                             new_option["Description"] = option.Description
                             new_option["Priority"] = to_replace.Priority
 
-                rel_path = f"{directory_group}\\{option_name}\\{file}"
+                rel_path = f"{group_dir}\\{option_name}\\{file}"
                 new_option["Files"] = {gamepath: sanitise_path(rel_path)}
                 new_option["Name"] = option_name
                     
@@ -1147,54 +1298,16 @@ class Modpacker(Operator):
                     except:
                         continue
 
-    def get_group_data_template(user_input, mod_data=None):
-        if mod_data and user_input["selected"] != "0":
-            return {
-            "Name": "",
-            "Description": mod_data[user_input["update_group"]].Description,
-            "Priority": mod_data[user_input["update_group"]].Priority,
-            "Image": mod_data[user_input["update_group"]].Image,
-            "Page": mod_data[user_input["update_group"]].Page,
-            "Type": mod_data[user_input["update_group"]].Type,
-            "DefaultSettings": mod_data[user_input["update_group"]].DefaultSettings,
-            "Options": [],
-            }
-        
-        else:
-            return {
-            "Name": user_input["new_group_name"],
-            "Description": "",
-            "Priority": 0,
-            "Image": "",
-            "Page": 0,
-            "Type": user_input["group_type"],
-            "DefaultSettings": 0,
-            "Options": [],
-            }
-
-    def custom_sort(list):
-        ranking = {}
-        final_sort = []
-        
-        for item in list:
-            ranking[item] = 0
-            if "Small" in item:
-                ranking[item] += 0
-            if "Medium" in item:
-                ranking[item] += 1
-            if "Large" in item:
-                ranking[item] += 2
-            if "Buff" in item:
-                ranking[item] += 3
-            if "Rue" in item:
-                ranking[item] += 4
-
-        sorted_rank = sorted(ranking.items(), key=lambda x: x[1])
-        
-        for tuples in sorted_rank:
-            final_sort.append(tuples[0])
-
-        return final_sort
+    def schedule_cleanup(temp_folder, retries=5):
+        for attempts in range(retries):
+            try:
+                if os.path.isdir(temp_folder):
+                    
+                    shutil.rmtree(temp_folder)
+                    break
+            except FileNotFoundError as e:
+                break
+            return 1
 
 
 classes = [
@@ -1215,3 +1328,4 @@ def set_file_properties():
         type=ModpackGroups)
     
     FileProps.export_bools()
+    FileProps.extra_options()

@@ -10,20 +10,23 @@ bl_info = {
     "category": "",
     }
 
+
 import bpy
-import ui_ops
-import tools_ops
-import ui_main      as ui
-import ya_utils     as utils
-import file_manager as file
-from importlib      import reload
+from .          import ui_ops
+from .          import tools_ops
+from .          import ui_main      
+from .          import utils     
+from .          import file_manager
+from .          import penumbra 
+from importlib  import reload
 
 modules = [
     utils,
-    file,
+    file_manager,
     tools_ops,
     ui_ops,
-    ui,
+    ui_main,
+    penumbra
 ]
 
 def menu_emptyvgroup_append(self, context):
@@ -39,8 +42,8 @@ def register():
             bpy.utils.register_class(cls)
         if module == utils:
             utils.set_devkit_properties()
-        if module == file:
-            file.set_file_properties()
+        if module == file_manager:
+            file_manager.set_file_properties()
 
     utils.addon_version = bl_info["version"]
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
@@ -53,7 +56,8 @@ def unregister():
         for cls in reversed(module.classes):
             bpy.utils.unregister_class(cls)
 
-    del bpy.types.Scene.ya_props
+    del bpy.types.Scene.main_props
+    del bpy.types.Scene.file_props
     del bpy.types.Scene.collection_state
     del bpy.types.Scene.modpack_group_options
     
