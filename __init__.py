@@ -39,6 +39,8 @@ def register():
             bpy.utils.register_class(cls)
         if module == utils:
                 utils.set_devkit_properties()
+        if module == file:
+            file.set_file_properties()
 
     utils.addon_version = bl_info["version"]
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)

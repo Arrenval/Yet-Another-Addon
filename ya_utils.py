@@ -1,11 +1,8 @@
 import os
 import bpy
-import json
-import zipfile
-import ya_penumbra   as Penumbra
 
 from bpy.types       import Operator, PropertyGroup
-from bpy.props       import StringProperty, BoolProperty, EnumProperty, FloatProperty, PointerProperty
+from bpy.props       import BoolProperty, EnumProperty, FloatProperty, PointerProperty
 
 
 #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
@@ -111,6 +108,7 @@ def has_shape_keys(ob):
 def get_filtered_shape_keys(obj, key_filter: list):
         shape_keys = obj.shape_keys.key_blocks
         key_list = []
+        to_exclude = ["Mini", "Mini Heels", "Heels", "Cinderella"]
         
         for key in shape_keys:
             norm_key = key.name.lower().replace("-","").replace(" ","")
@@ -118,8 +116,11 @@ def get_filtered_shape_keys(obj, key_filter: list):
                 key_name = key.name
                 category = key.relative_key.name
                 category_lower = category.lower().replace("-","").replace(" ","")
+
+                if any(key_name in to_exclude for keys in to_exclude):
+                    break
                 
-                
+                print(key_name)
                 key_list.append((norm_key, category_lower, key_name))
         
         return key_list
@@ -146,66 +147,8 @@ def directory_short(directory, amount):
     else:
         return None
 
-def get_modpack_groups(context):
-        return [(str(option.group_value), option.group_name, option.group_description) for option in context.scene.modpack_group_options]
-
-def modpack_data(self, context):
-    scene = context.scene
-    scene.modpack_group_options.clear()
-    modpack = scene.ya_props.loadmodpack_directory
-
-    new_option = scene.modpack_group_options.add()
-    new_option.group_value = int(0)
-    new_option.group_name = "Create New Group"  
-    new_option.group_description = ""
-
-    if os.path.exists(modpack):
-        with zipfile.ZipFile(modpack, "r") as pmp:
-            for file_name in pmp.namelist():
-                if file_name.count('/') == 0 and file_name.startswith("group") and not file_name.endswith("bak"):
-                    number = lambda name: ''.join(char for char in name if char.isdigit())
-                    group_name = modpack_group_data(file_name, pmp, data="name")
-
-                    new_option = context.scene.modpack_group_options.add()
-                    new_option.group_value = int(number(file_name))
-                    new_option.group_name = group_name
-                    new_option.group_description = file_name
- 
-            with pmp.open("meta.json") as meta:
-                meta_contents = json.load(meta)
-
-                mod_meta = Penumbra.ModMeta(**meta_contents)
-                scene.ya_props.loadmodpack_version = mod_meta.Version
-                scene.ya_props.loadmodpack_author = mod_meta.Author
-    
-def modpack_group_data(file_name, pmp, data):
-    try:
-        with pmp.open(file_name) as file:
-            file_contents = json.load(file)
-                      
-            group_data = Penumbra.ModGroups(**file_contents)
-
-            if data == "name":
-                return group_data.Name
-            if data == "all":
-                return group_data
-
-    except Exception as e:
-        print(f"ERROR: {file_name[10:-4]}")
-        return f"ERROR: {file_name[10:-4]}"    
-    
-def sanitise_path(path):
-        return path.lower().replace(" - ", "_").replace(" ", "")
-
 class CollectionState(PropertyGroup):
     collection_name: bpy.props.StringProperty() # type: ignore
-
-
-class ModpackGroups(PropertyGroup):
-    group_value: bpy.props.IntProperty() # type: ignore
-    group_name: bpy.props.StringProperty() # type: ignore
-    group_description: bpy.props.StringProperty() # type: ignore
-
 
 class UsefulProperties(PropertyGroup):
 
@@ -249,20 +192,6 @@ class UsefulProperties(PropertyGroup):
                 )
             setattr(UsefulProperties, prop_name, prop)
 
-    @staticmethod
-    def export_bools():
-        for shape, (name, slot, shape_category, description, body, key) in all_shapes.items():
-            slot_lower = slot.lower().replace("/", " ")
-            name_lower = name.lower().replace(" ", "_")
-            
-            prop_name = f"export_{name_lower}_{slot_lower}_bool"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=False, 
-                )
-            setattr(UsefulProperties, prop_name, prop)
-    
     @staticmethod
     def chest_key_floats():
         # Creates float properties for chest shape keys controlled by values.
@@ -366,39 +295,12 @@ class UsefulProperties(PropertyGroup):
                 items.append((name, name, description))
         return items
 
-    def update_directory(category):
-        prop = bpy.context.scene.ya_props
-        actual_prop = f"{category}_directory"
-        display_prop = f"{category}_display_directory"
-
-        display_directory = getattr(prop, display_prop, "")
-
-        if os.path.exists(display_directory):  
-            setattr(prop, actual_prop, display_directory)
-            print (getattr(prop, actual_prop, ""))
-
     chest_shape_enum: EnumProperty(
         name= "",
         description= "Select a size",
         items=lambda self, context: UsefulProperties.get_listable_shapes("Chest")
         )   # type: ignore
     
-    modpack_groups: EnumProperty(
-        name= "",
-        description= "Select an option to replace",
-        items= lambda self, context: get_modpack_groups(context)
-        )   # type: ignore
-    
-    mod_group_type: EnumProperty(
-        name= "",
-        description= "Single or Multi",
-        items= [
-            ("Single", "Single", "Exclusive options in a group"),
-            ("Multi", "Multi", "Multiple selectable options in a group")
-
-        ]
-        )   # type: ignore
-
     shape_mq_chest_bool: BoolProperty(
         name="",
         description="Switches to the mannequin", 
@@ -417,42 +319,6 @@ class UsefulProperties(PropertyGroup):
         default=False, 
         )   # type: ignore
 
-    export_display_directory: StringProperty(
-        name="Export Folder",
-        default="Select Export Directory",  
-        maxlen=255,
-        update=lambda self, context: UsefulProperties.update_directory('export'),
-        ) # type: ignore
-    
-    export_directory: StringProperty(
-        default="Select Export Directory",
-        subtype="DIR_PATH", 
-        maxlen=255,
-        )  # type: ignore
-
-    export_gltf: BoolProperty(
-        name="",
-        description="Switch export format", 
-        default=False,
-        ) # type: ignore
-    
-    ui_size_category: StringProperty(
-        name="",
-        subtype="DIR_PATH", 
-        maxlen=255,
-        )  # type: ignore
-    
-    export_body_slot: EnumProperty(
-        name= "",
-        description= "Select a body slot",
-        items= [
-            ("Chest", "Chest", "Chest export options."),
-            ("Legs", "Legs", "Leg export options."),
-            ("Hands", "Hands", "Hand export options."),
-            ("Feet", "Feet", "Feet export options."),
-            ("Chest/Legs", "Chest/Legs", "When you want to export Chest with Leg models.")]
-        )  # type: ignore
-
     bpy.types.Object.toggle_yas = bpy.props.BoolProperty(
     name="",
     description="Enable yiggle weights",
@@ -469,101 +335,6 @@ class UsefulProperties(PropertyGroup):
 
     collection_state: bpy.props.CollectionProperty(type=CollectionState) # type: ignore
 
-    modpack_group_options: bpy.props.CollectionProperty(type=ModpackGroups) # type: ignore
-
-    textools_directory: StringProperty(
-        name="ConsoleTools Directory",
-        subtype="FILE_PATH", 
-        maxlen=255,
-        options={'HIDDEN'},
-        )  # type: ignore
-    
-    consoletools_status: StringProperty(
-        default="Check for ConsoleTools:",
-        maxlen=255
-
-        )  # type: ignore
-    
-    game_model_path: StringProperty(
-        name="",
-        description="Path to the model you want to replace",
-        default="Paste path here",
-        maxlen=255
-
-        )  # type: ignore
-    
-    loadmodpack_display_directory: StringProperty(
-        name="Select PMP",
-        default="Select Modpack",  
-        maxlen=255,
-        update=lambda self, context: UsefulProperties.update_directory('loadmodpack'),
-        ) # type: ignore
-    
-    loadmodpack_directory: StringProperty(
-        default="Select Modpack",
-        subtype="FILE_PATH", 
-        maxlen=255,
-        update=modpack_data
-        )  # type: ignore
-    
-    loadmodpack_version: StringProperty(
-        name="",
-        description="Use semantic versioning",
-        default="", 
-        maxlen=255,
-        )  # type: ignore
-    
-    loadmodpack_author: StringProperty(
-        default="", 
-        maxlen=255,
-        )  # type: ignore
-
-    savemodpack_display_directory: StringProperty(
-        name="",
-        default="FBX folder",
-        description="FBX location and/or mod export location", 
-        maxlen=255,
-        update=lambda self, context: UsefulProperties.update_directory('loadmodpack')
-        )  # type: ignore
-    
-    savemodpack_directory: StringProperty(
-        default="FBX folder", 
-        maxlen=255,
-        )  # type: ignore
-    
-    modpack_rename_group: StringProperty(
-        name="",
-        default="",
-        description="Choose a name for the target group", 
-        maxlen=255,
-        )  # type: ignore
-    
-    modpack_progress: StringProperty(
-        default="",
-        description="Keeps track of the modpack progress", 
-        maxlen=255,
-        )  # type: ignore
-
-    new_mod_name: StringProperty(
-        name="",
-        default="",
-        description="The name of your mod", 
-        maxlen=255,
-        )  # type: ignore
-    
-    new_mod_version: StringProperty(
-        name="",
-        default="0.0.0",
-        description="Use semantic versioning", 
-        maxlen=255,
-        )  # type: ignore
-   
-    author_name: StringProperty(
-        name="",
-        default="",
-        description="Some cool person", 
-        maxlen=255,
-        )  # type: ignore
 
 class CollectionManager(Operator):
     bl_idname = "ya.collection_manager"
@@ -628,22 +399,17 @@ class CollectionManager(Operator):
 
 classes = [
     CollectionState,
-    ModpackGroups,
     UsefulProperties,
     CollectionManager
 ]
 
 def set_devkit_properties():
-    bpy.types.Scene.ya_props = PointerProperty(
+    bpy.types.Scene.main_props = PointerProperty(
         type=UsefulProperties)
 
     bpy.types.Scene.collection_state = bpy.props.CollectionProperty(
         type=CollectionState)
 
-    bpy.types.Scene.modpack_group_options = bpy.props.CollectionProperty(
-        type=ModpackGroups)
-    
-    UsefulProperties.export_bools()
     UsefulProperties.ui_buttons()
     UsefulProperties.chest_key_floats()
     UsefulProperties.feet_key_floats()
