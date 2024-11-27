@@ -25,60 +25,6 @@ def directory_short(directory, amount):
     else:
         return None
 
-
-class BodyPartSlot(Operator):
-    bl_idname = "ya.set_body_part"
-    bl_label = "Select body slot to export."
-    bl_description = "The icons almost make sense"
-
-    body_part: StringProperty() # type: ignore
-
-    def execute(self, context):
-        # Update the export_body_part with the selected body part
-        context.scene.file_props.export_body_slot = self.body_part
-        return {'FINISHED'}
-
-
-class DirSelector(Operator):
-    bl_idname = "ya.dir_selector"
-    bl_label = "Select Folder"
-    bl_description = "Select file or directory. Hold Alt to open the folder"
-    
-    directory: StringProperty() # type: ignore
-    category: StringProperty() # type: ignore
-
-    def invoke(self, context, event):
-        actual_dir = getattr(context.scene.file_props, f"{self.category}_directory", "")     
-
-        if event.alt and event.type == "LEFTMOUSE" and os.path.isdir(actual_dir):
-            os.startfile(actual_dir)
-        elif event.type == "LEFTMOUSE":
-            context.window_manager.fileselect_add(self)
-
-        else:
-             self.report({"ERROR"}, "Not a directory!")
-    
-        return {"RUNNING_MODAL"}
-    
-
-    def execute(self, context):
-        actual_dir_prop = f"{self.category}_directory"
-        display_dir_prop = f"{self.category}_display_directory"
-        selected_file = self.directory  
-
-        if os.path.isdir(selected_file):
-            setattr(context.scene.file_props, actual_dir_prop, selected_file)
-            display_dir = directory_short(selected_file, 3) 
-
-            setattr(context.scene.file_props, display_dir_prop, display_dir)
-            self.report({"INFO"}, f"Directory selected: {selected_file}")
-        
-        else:
-            self.report({"ERROR"}, "Not a valid path!")
-        
-        return {'FINISHED'}
-    
-
 class ConsoleToolsDirectory(Operator):
     bl_idname = "ya.consoletools_dir"
     bl_label = "Select File"
@@ -175,8 +121,6 @@ class CopyToFBX(Operator):
         return {'FINISHED'}
 
 classes = [
-    BodyPartSlot,
-    DirSelector,
     ConsoleToolsDirectory,
     PMPSelector,
     CopyToFBX

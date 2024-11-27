@@ -2,7 +2,7 @@
 # made with these tools are subject to a maximum paywall of 3 (three) months whereafter they must become publicly available for free.
 
 bl_info = {
-    "name": "Yet Another Toolbag",
+    "name": "Yet Another Addon",
     "author": "Aleks",
     "description": "A set of tools made for ease of use with Yet Another Devkit.",
     "version": (0, 3, 0),
@@ -17,18 +17,16 @@ sys.path.append(os.path.dirname(__file__))
 import bpy
 
 from importlib  import reload
-import ya_utils
-import ui_ops
-import ui_main
-import penumbra  
-import tools_ops
-import file_manager        
+from .          import ya_utils
+from .          import ui_ops
+from .          import ui_main
+from .          import penumbra  
+from .          import tools_ops        
 
-
+#Test
 modules = [
     penumbra,
     ya_utils,
-    file_manager,
     tools_ops,
     ui_ops,
     ui_main,
@@ -47,8 +45,7 @@ def register():
             bpy.utils.register_class(cls)
         if module == ya_utils:
             ya_utils.set_devkit_properties()
-        if module == file_manager:
-            file_manager.set_file_properties()
+    
 
     ya_utils.addon_version = bl_info["version"]
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
