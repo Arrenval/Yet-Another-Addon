@@ -1,6 +1,3 @@
-import bpy
-from .         import ya_utils as utils
-
 from bpy.types import Panel
 
 def dynamic_column_operators(columns, layout, labels):

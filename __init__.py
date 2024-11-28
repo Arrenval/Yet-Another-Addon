@@ -10,31 +10,57 @@ bl_info = {
     "category": "",
     }
 
+DEVKIT_SCR_VER = (0, 0, 0)
+
 import os
 import sys
-sys.path.append(os.path.dirname(__file__))
-
+import ast
 import bpy
 
+sys.path.append(os.path.dirname(__file__))
+
 from importlib  import reload
-from .          import ya_utils
-from .          import ui_ops
-from .          import ui_main
-from .          import penumbra  
-from .          import tools_ops        
+from .modpack   import props
+from .modpack   import panel         as pmp_panel
+from .modpack   import file_manager  
+from .modpack   import penumbra  
+from .          import operators 
+from .          import panel         as ops_panel 
+      
 
 #Test
 modules = [
     penumbra,
-    ya_utils,
-    tools_ops,
-    ui_ops,
-    ui_main,
+    file_manager,
+    operators,
+    props,
+    pmp_panel,
+    ops_panel,
 ]
 
 def menu_emptyvgroup_append(self, context):
     self.layout.separator(type="LINE")
     self.layout.operator("ya.remove_empty_vgroups", text="Remove Empty Vertex Groups")
+
+def devkit_check():
+    global DEVKIT_SCR_VER
+    devkit = bpy.data.texts.get("devkit.py")
+
+    if devkit:
+        first_line = devkit.lines[0].body.strip()
+        
+        if first_line.startswith("DEVKIT_SCR_VER"):
+            version = ast.literal_eval(first_line.split('=')[1].strip())
+                
+            if isinstance(version, tuple) and len(version) == 3:
+                DEVKIT_SCR_VER = version
+                try:
+                    bpy.utils.unregister_class(pmp_panel.ModpackManager)
+                except:
+                    pass
+                return None
+    else:
+        return None
 
 def register():
     for module in modules:
@@ -43,25 +69,26 @@ def register():
     for module in modules:
         for cls in module.classes:
             bpy.utils.register_class(cls)
-        if module == ya_utils:
-            ya_utils.set_devkit_properties()
-    
+        if module == props:
+            props.set_addon_properties()
+                 
+    bpy.app.timers.register(devkit_check, first_interval=0.5)
 
-    ya_utils.addon_version = bl_info["version"]
+    props.addon_version = bl_info["version"]
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
 
 def unregister():
-    del ya_utils.addon_version
+    del props.addon_version
     bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_emptyvgroup_append)
 
     for module in reversed(modules):
         for cls in reversed(module.classes):
+            if DEVKIT_SCR_VER > (0, 0, 0) and cls == pmp_panel.ModpackManager:
+                continue
             bpy.utils.unregister_class(cls)
 
-    del bpy.types.Scene.main_props
-    del bpy.types.Scene.file_props
-    del bpy.types.Scene.collection_state
-    del bpy.types.Scene.modpack_group_options
+    del bpy.types.Scene.pmp_props
+    del bpy.types.Scene.pmp_group_options
     
 if __name__ == "__main__":
     register()
