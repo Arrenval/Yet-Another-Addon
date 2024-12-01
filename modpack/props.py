@@ -50,7 +50,7 @@ class ModpackProps(PropertyGroup):
     modpack_groups: EnumProperty(
         name= "",
         description= "Select an option to replace",
-        items= lambda self, context: get_modpack_groups(context)
+        items= lambda self, context: get_modpack_groups()
         )   # type: ignore
     
     mod_group_type: EnumProperty(

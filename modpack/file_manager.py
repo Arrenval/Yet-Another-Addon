@@ -11,10 +11,12 @@ from datetime      import datetime
 from bpy.types     import Operator
 from bpy.props     import StringProperty
 from .penumbra     import ModGroups, ModMeta
+from dataclasses   import dataclass, field
+from typing        import Dict
 
 
-def get_modpack_groups(context):
-        return [(str(option.group_value), option.group_name, option.group_description) for option in context.scene.pmp_group_options]
+def get_modpack_groups():
+        return [(str(option.group_value), option.group_name, option.group_description) for option in bpy.context.scene.pmp_group_options]
 
 def modpack_data(context):
     scene = context.scene
@@ -128,7 +130,7 @@ class ConsoleToolsDirectory(Operator):
         selected_file = Path(self.filepath)
 
         if selected_file.exists() and selected_file.name == "ConsoleTools.exe":
-            textools_folder = selected_file.parent
+            textools_folder = str(selected_file.parent)
             context.scene.pmp_props.textools_directory = textools_folder
             context.scene.pmp_props.consoletools_status = "ConsoleTools Ready!"
             self.report({'INFO'}, f"Directory selected: {textools_folder}")
@@ -199,7 +201,6 @@ class ConsoleTools(Operator):
     bl_idname = "ya.file_console_tools"
     bl_label = "Modpacker"
     bl_description = "Checks for a valid TexTools install with ConsoleTools"
-    bl_options = {'UNDO'}
 
     def execute(self, context):
         consoletools, textools = self.console_tools_location(context)
@@ -247,31 +248,72 @@ class ConsoleTools(Operator):
         
         return str(consoletools), str(textools_folder)
     
+@dataclass  
+class UserInput:
+    selection      :str  = ""
+    mdl_game       :str  = ""
+    update         :bool = False
+    pmp            :Path = ""
+    fbx            :Path = ""
+    temp           :Path = ""
+    mdl_folder     :Path = ""
 
+    update_group   :str  = ""
+    pmp_name       :str  = ""
+    group_type     :str  = ""
+    load_mod_ver   :str  = ""
+
+    group_new_name :str  = ""
+    group_old_name :str  = ""
+
+    new_meta       :dict = field(default_factory=dict)
+
+
+    def __post_init__(self):
+        props = bpy.context.scene.pmp_props
+        time = datetime.now().strftime("%H%M%S")
+
+        self.selection      = props.modpack_groups
+        self.mdl_game       = props.game_model_path
+        self.update         = props.button_modpack_replace
+        self.fbx            = Path(props.savemodpack_directory)
+        self.mdl_folder     = self.fbx / "MDL"
+        self.temp           = self.fbx / f"temp_pmp_{time}"
+        self.group_new_name = props.modpack_rename_group
+        self.group_type     = props.mod_group_type
+        self.load_mod_ver   = props.loadmodpack_version
+
+        if self.update:
+            self.pmp_name = props.loadmodpack_display_directory
+            self.pmp      = Path(props.loadmodpack_directory)
+        else:
+            self.pmp_name = props.new_mod_name
+            self.new_meta = {
+                "Name"   : self.pmp_name,
+                "Author" : props.author_name,
+                "Version": props.new_mod_version
+            }
+            
+        for group in get_modpack_groups():
+            if self.selection == group[0]:
+                    self.group_old_name, self.update_group = group[1], group[2]
+        
+        
 class Modpacker(Operator):
     bl_idname = "ya.file_modpacker"
     bl_label = "Modpacker"
     bl_description = "Converts FBX and/or packages FFXIV model files into a penumbra Modpack"
-    bl_options = {'UNDO'}
 
     preset: StringProperty()  # type: ignore # convert_pack, pack, convert are valid presets
-
-    def __init__(self):
-        self.props         = bpy.context.scene.pmp_props
-        self.selected:str  = self.props.modpack_groups
-        self.replace :bool = self.props.button_modpack_replace
-        self.pmp_dir       = Path(self.props.loadmodpack_directory)
-        self.gamepath:str  = self.props.game_model_path
-        self.fbx_dir       = Path(self.props.savemodpack_directory)
-        
+     
     def execute(self, context):
-        paths, user_input = self.store_user_input(context)
+        user_input = UserInput()
 
-        if not self.gamepath:
+        if not user_input.mdl_game:
             self.report({'ERROR'}, "Please input a path to an FFXIV model")
             return {'CANCELLED'}
         
-        elif not self.gamepath.startswith("chara") or not self.gamepath.endswith("mdl"):
+        elif not user_input.mdl_game.startswith("chara") or not user_input.mdl_game.endswith("mdl"):
             self.report({'ERROR'}, "Verify that the model is an actual FFXIV path")
             return {'CANCELLED'}
             
@@ -281,74 +323,31 @@ class Modpacker(Operator):
                 return {'CANCELLED'} 
 
             context.scene.pmp_props.modpack_progress = "Converting fbx to mdl..."
-            self.fbx_to_mdl(context, paths)
-            context.scene.pmp_props.modpack_progress = "Converting Complete!" 
+            self.fbx_to_mdl(context, user_input) 
 
-        if self.replace:
-            if not paths["pmp"]:
+        if user_input.update and self.preset != "convert":
+            if not user_input.pmp:
                 self.report({'ERROR'}, "Please select a modpack.")
                 return {'CANCELLED'} 
             
-            if user_input["selected"] == "0" and not user_input["new_group_name"]:
+            if user_input.selection == "0" and not user_input.group_new_name:
                 self.report({'ERROR'}, "Please enter a group name.")
                 return {'CANCELLED'}
-            mod_data, mod_meta = self.current_mod_data(self.replace, paths["pmp"])
+            mod_data, mod_meta = self.current_mod_data(user_input.update, user_input.pmp)
         else:
-            if  not user_input["new_group_name"]:
+            if not user_input.group_new_name and self.preset != "convert":
                 self.report({'ERROR'}, "Please enter a group name.")
                 return {'CANCELLED'}
             
             mod_data, mod_meta = {}, {}
-
-        self.mdl_timer(context, paths, user_input, self.preset, mod_data, mod_meta)
+        
+        callback = partial(Modpacker.create_modpack, context, user_input, mod_data, mod_meta, self.preset)
+        bpy.app.timers.register(callback, first_interval=0.5)
 
         return {"FINISHED"}
-
-    def store_user_input(self, context):
-        group_name  :str = ""
-        update_group:str = ""
-        modpack_name:str = ""
-        time = datetime.now().strftime("%H%M%S")
-        
-        for group in get_modpack_groups(context):
-                if self.selected == group[0]:
-                    group_name, update_group = group[1], group[2]
-    
-        
-        paths = {
-            "fbx": self.fbx_dir,
-            "mdl": self.fbx_dir / "MDL",
-            "temp": self.fbx_dir / f"temp_pmp_{time}",
-            "gamepath": self.gamepath.lower(),
-            "pmp": self.pmp_dir,
-        }
-
-        if self.replace:
-            modpack_name = self.props.loadmodpack_display_directory
-        else:
-            modpack_name = self.props.new_mod_name
-            paths["pmp"] = ""
-            
-        mod_meta = {
-                "Author": self.props.author_name,
-                "Version": self.props.new_mod_version
-            }
-        
-        user_input = {
-            "selected": self.selected,
-            "new_group_name": self.props.modpack_rename_group,
-            "old_group_name": group_name,
-            "meta": mod_meta,
-            "pmp_name": modpack_name,
-            "update_group": update_group,
-            "group_type": self.props.mod_group_type,
-            "load_mod_ver": self.props.loadmodpack_version
-        }
-
-        return paths, user_input
    
-    def current_mod_data(self, replace:bool, pmp:Path):
-        if not replace or self.preset == "convert":
+    def current_mod_data(self, update:bool, pmp:Path):
+        if not update or self.preset == "convert":
             return None
         current_mod_data = {}
 
@@ -366,22 +365,22 @@ class Modpacker(Operator):
         
         return current_mod_data, current_mod_meta  
  
-    def fbx_to_mdl(self, context, paths:dict):
+    def fbx_to_mdl(self, context, user_input:UserInput):
         textools = Path(context.scene.pmp_props.textools_directory)
-        to_convert = [file for file in Path(paths["fbx"]).glob(f'*.fbx') if file.is_file()]
+        to_convert = [file for file in user_input.fbx.glob(f'*.fbx') if file.is_file()]
 
         cmd_name = "FBXtoMDL.cmd"
-        sys_drive = textools.root
+        sys_drive = textools.drive
         commands = ["@echo off", f"cd /d {sys_drive}", f"cd {textools}"]
 
-        cmd_path = paths["fbx"] / cmd_name
-        Path.mkdir(paths["fbx"] / "MDL")
+        cmd_path = user_input.fbx / cmd_name
+        Path.mkdir(user_input.fbx / "MDL", exist_ok=True)
 
         cmds_added = 0
         total_files = len(to_convert)
         for file in to_convert:
             files_left = total_files - cmds_added    
-            fbx_to_mdl = f'"{paths["fbx"] / file.name}" "{paths["mdl"] / file.stem}.mdl" "{paths["gamepath"]}"'
+            fbx_to_mdl = f'"{user_input.fbx / file.name}" "{user_input.mdl_folder / file.stem}.mdl" "{user_input.mdl_game}"'
             
             if cmds_added % 5 == 0 and cmds_added == 0:
                 commands.append(f"echo {files_left} files to convert...")
@@ -389,7 +388,7 @@ class Modpacker(Operator):
             elif cmds_added % 5 == 0:
                 commands.append(f"echo {files_left} files left...")
             
-            commands.append(f"echo Converting: {file[0:-4]}")
+            commands.append(f"echo Converting: {file.stem}")
             commands.append(f"ConsoleTools.exe /wrap {fbx_to_mdl} >nul")
             cmds_added += 1
         
@@ -401,48 +400,45 @@ class Modpacker(Operator):
             for cmd in commands:
                 file.write(f"{cmd}\n")
 
-        os.startfile(cmd_path)
+        os.startfile(cmd_path)    
 
-    def mdl_timer(self, context, paths:dict, user_input:dict, preset:str, mod_data:ModGroups, mod_meta:ModMeta):
-        # Calls a timer to wait for mdl conversion to finish
-
-        callback = partial(Modpacker.create_modpack, context, paths, user_input, preset, mod_data, mod_meta)
-        
-        bpy.app.timers.register(callback, first_interval=0.5)
-
-    def create_modpack(context, paths:dict, user_input:dict, preset:str, mod_data:ModGroups, mod_meta:ModMeta):
-        is_cmd = [file.name for file in Path(paths["fbx"]).glob(f'FBXtoMDL.cmd') if file.is_file()]
+    def create_modpack(context, user_input:UserInput, mod_data:Dict[str, ModGroups], mod_meta:ModMeta, preset:str):
+        is_cmd = [file.name for file in user_input.fbx.glob(f'FBXtoMDL.cmd') if file.is_file()]
        
-       # the .cmd file deletes itself when done, this makes the packing process wait until it has finished converting the fbx
+       #checks for the .cmd to see if the conversion process is over
         if is_cmd:
             return 0.5 
         if not is_cmd and preset == "convert":
             context.scene.pmp_props.modpack_progress = "Complete!"
-        context.scene.pmp_props.modpack_progress = "Creating modpack..."  
-        to_pack = [file for file in Path(paths["mdl"]).glob(f'*.mdl') if file.is_file()]
+            return None
+        context.scene.pmp_props.modpack_progress = "Creating modpack..." 
+
+        to_pack = [file for file in user_input.mdl_folder.glob(f'*.mdl') if file.is_file()]
         to_pack = Modpacker.custom_sort(to_pack)
 
-        Path.mkdir(paths["temp"], exist_ok=True)
+        Path.mkdir(user_input.temp, exist_ok=True)
 
         if mod_data:
-            Modpacker.rolling_backup(paths)
-            with zipfile.ZipFile(paths["pmp"], "r") as pmp:
-                pmp.extractall(paths["temp"])
-            Modpacker.update_mod(paths, user_input, mod_data, to_pack, mod_meta)    
+            Modpacker.rolling_backup(user_input)
+            with zipfile.ZipFile(user_input.pmp, "r") as pmp:
+                pmp.extractall(user_input.temp)
+            Modpacker.update_mod(user_input, mod_data, to_pack, mod_meta)    
         else:
-            Modpacker.new_mod(paths, user_input, to_pack)
+            Modpacker.new_mod(user_input, to_pack)
         
-        with zipfile.ZipFile(paths["fbx"] / f"{user_input['pmp_name']}.pmp", 'w', zipfile.ZIP_DEFLATED) as pmp:
-            for root, dir, files in os.walk(paths["temp"]):
+        with zipfile.ZipFile(user_input.fbx / f"{user_input.pmp_name}.pmp", 'w', zipfile.ZIP_DEFLATED) as pmp:
+            for root, dir, files in os.walk(user_input.temp):
                 for file in files:
                     file_path = os.path.join(root, file)
-                    pmp.write(file_path, os.path.relpath(file_path, paths["temp"]))
+                    pmp.write(file_path, os.path.relpath(file_path, user_input.temp))
 
-        bpy.app.timers.register(partial(Modpacker.schedule_cleanup, paths["temp"]), first_interval=0.1)
+        bpy.app.timers.register(partial(Modpacker.schedule_cleanup, user_input.temp), first_interval=0.1)
+        
         modpack_data(context)
         context.scene.pmp_props.modpack_progress = "Complete!"
+        return None
 
-    def custom_sort(items:list):
+    def custom_sort(items:list[Path]):
         ranking = {}
         final_sort = []
         
@@ -468,109 +464,113 @@ class Modpacker(Operator):
 
         return final_sort
 
-    def rolling_backup(paths:dict):
-        folder_bak = paths["fbx"] / "BACKUP"
+    def rolling_backup(user_input:UserInput):
+        bpy.context.scene.pmp_props.modpack_progress = "Creating backup..."
+        folder_bak = user_input.fbx / "BACKUP"
         time = datetime.now().strftime("%Y-%m-%d - %H%M%S")
         pmp_bak = folder_bak / f"{time}.pmp"
         
         Path.mkdir(folder_bak, exist_ok=True)
 
-        existing_bak = sorted([file.name for file in Path(folder_bak).glob("*.pmp") if file.is_file()], reverse=True)
+        existing_bak = sorted([file.name for file in folder_bak.glob("*.pmp") if file.is_file()], reverse=True)
 
         while len(existing_bak) >= 5:
             oldest_backup = existing_bak.pop()
             Path.unlink(folder_bak / oldest_backup)
 
-        shutil.copy(paths["pmp"], pmp_bak)
+        shutil.copy(user_input.pmp, pmp_bak)
 
-    def new_mod(paths:dict, user_input:dict, to_pack:list):
-        meta_content = ModMeta(**user_input["meta"])
-        meta_content.Name = user_input["pmp_name"]
+    def new_mod(user_input:UserInput, to_pack:list[Path]):
+        meta_content = ModMeta(**user_input.new_meta)
         group_data = Modpacker.get_group_data_template(user_input)
 
-        with open(os.path.join(paths["temp"], "meta.json"), "w") as file:
+        with open(os.path.join(user_input.temp, "meta.json"), "w") as file:
                 file.write(meta_content.to_json())
 
         default_mod = ModGroups()
 
-        with open(os.path.join(paths["temp"], "default_mod.json"), "w") as file:
+        with open(os.path.join(user_input.temp, "default_mod.json"), "w") as file:
                 file.write(default_mod.to_json())
 
-        file_name = f"group_001_{user_input['new_group_name'].lower()}.json"
-        create_group = {file_name: (paths["gamepath"], user_input["new_group_name"], group_data)}
-        Modpacker.write_group_json(paths, user_input, to_pack, create_group, user_input["new_group_name"])
+        file_name = f"group_001_{user_input.group_new_name.lower()}.json"
+        create_group = {file_name: (user_input.mdl_game, user_input.group_new_name, group_data)}
+        Modpacker.write_group_json(user_input, to_pack, create_group, user_input.group_new_name)
 
         for file in to_pack:
-            target_path = paths["temp"] / sanitise_path(user_input["new_group_name"]) / sanitise_path(file.stem)   
+            target_path = user_input.temp / user_input.group_new_name.lower() / file.stem.lower()   
             Path.mkdir(target_path, parents=True, exist_ok=True)
         
-            shutil.copy(paths["mdl"] / file.name, target_path / sanitise_path(file.name))
+            shutil.copy(user_input.mdl_folder / file.name, target_path / file.name.lower())
 
-    def update_mod (paths:dict, user_input:dict, mod_data:ModGroups, to_pack:ModMeta, mod_meta:dict):
-        group_dir = user_input["new_group_name"] if user_input["new_group_name"] else user_input["old_group_name"]
+    def update_mod (user_input:UserInput, mod_data:Dict[str, ModGroups], to_pack:list[Path], mod_meta:ModMeta):
+        group_dir = user_input.group_new_name if user_input.group_new_name else user_input.group_old_name
         group_data = Modpacker.get_group_data_template(user_input, mod_data)
         duplicate_groups = {} 
-        previous_group = None
+        previous_group = ""
         
-        if user_input["selected"] != "0":
-            duplicate_groups = Modpacker.check_duplicate_groups(paths["temp"],mod_data, user_input)
-            
-            Modpacker.delete_orphans(paths["temp"], mod_data[user_input["update_group"]])
+        if user_input.selection != "0":
+            duplicate_groups = Modpacker.check_duplicate_groups(user_input, mod_data)
+            Path.unlink(user_input.temp / user_input.update_group)
+            Modpacker.delete_orphans(user_input.temp, mod_data[user_input.update_group])
         else:
             if len(mod_data) != 0:
-                previous_group, contents = mod_data.popitem()
+                (previous_group, contents) = mod_data.popitem()
 
                 group_data["Page"] = contents.Page
 
-        file_name, group_name = Modpacker.update_file_name(paths["temp"], user_input, previous_group)
-        create_group = {file_name: (paths["gamepath"], group_name, group_data)}
+        file_name, group_name = Modpacker.update_file_name(user_input, previous_group)
+        create_group = {file_name: (user_input.mdl_game, group_name, group_data)}
         
         if duplicate_groups:
             for dupe_group, (other_gamepath, dupe_group_name) in duplicate_groups.items():
                     create_group[dupe_group] = (other_gamepath, dupe_group_name, group_data)
         
-        Path.unlink(paths["temp"] / user_input["update_group"])
-        Modpacker.write_group_json(paths, user_input, to_pack, create_group, group_dir, mod_data)
+        if user_input.update_group in mod_data:
+                to_replace:ModGroups = mod_data[user_input.update_group]
+        else:
+            to_replace = ""
+        
+        Modpacker.write_group_json(user_input, to_pack, create_group, group_dir, to_replace)
 
-        mod_meta.Version = user_input["load_mod_ver"]
+        mod_meta.Version = user_input.load_mod_ver
 
-        with open(paths["temp"] / "meta.json", "w") as file:
+        with open(user_input.temp / "meta.json", "w") as file:
                 file.write(mod_meta.to_json())
         
         for file in to_pack:
-            target_path = paths["temp"] / sanitise_path(group_dir) / sanitise_path(file.stem)   
+            target_path = user_input.temp / group_dir.lower() / file.stem.lower()   
             Path.mkdir(target_path, parents=True, exist_ok=True)
         
-            shutil.copy(paths["mdl"] / file.name, target_path / sanitise_path(file.name))
+            shutil.copy(user_input.mdl_folder / file.name, target_path / file.name.lower())
 
-    def get_group_data_template(user_input:dict, mod_data={}):
-        if mod_data and user_input["selected"] != "0":
+    def get_group_data_template(user_input:UserInput, mod_data={}):
+        if mod_data and user_input.selection != "0":
             return {
             "Name": "",
-            "Description": mod_data[user_input["update_group"]].Description,
-            "Priority": mod_data[user_input["update_group"]].Priority,
-            "Image": mod_data[user_input["update_group"]].Image,
-            "Page": mod_data[user_input["update_group"]].Page,
-            "Type": mod_data[user_input["update_group"]].Type,
-            "DefaultSettings": mod_data[user_input["update_group"]].DefaultSettings,
+            "Description": mod_data[user_input.update_group].Description,
+            "Priority": mod_data[user_input.update_group].Priority,
+            "Image": mod_data[user_input.update_group].Image,
+            "Page": mod_data[user_input.update_group].Page,
+            "Type": mod_data[user_input.update_group].Type,
+            "DefaultSettings": mod_data[user_input.update_group].DefaultSettings,
             "Options": [],
             }
         
         else:
             return {
-            "Name": user_input["new_group_name"],
+            "Name": user_input.group_new_name,
             "Description": "",
             "Priority": 0,
             "Image": "",
             "Page": 0,
-            "Type": user_input["group_type"],
+            "Type": user_input.group_type,
             "DefaultSettings": 0,
             "Options": [],
             }
 
-    def write_group_json(paths:dict, user_input:dict, to_pack:list, create_group:dict, group_dir:str, mod_data={}):
-        
-        for file_name, (gamepath, group_name, group_data) in create_group.items():
+    def write_group_json(user_input:UserInput, to_pack:list[Path], create_group:dict, group_dir:str, to_replace:ModGroups=""):
+        bpy.context.scene.pmp_props.modpack_progress = "Writing json..."
+        for file_name, (mdl_game, group_name, group_data) in create_group.items():
             
             options = [
                 {
@@ -583,11 +583,6 @@ class Modpacker(Operator):
                 "Image": ""
                 }
                 ]
-            
-            if user_input["update_group"] in mod_data:
-                to_replace = mod_data[user_input["update_group"]]
-            else:
-                to_replace = ""
  
             for file in to_pack:
                 option_name = file.stem
@@ -608,7 +603,7 @@ class Modpacker(Operator):
                             new_option["Priority"] = to_replace.Priority
 
                 rel_path = f"{group_dir}\\{option_name}\\{file.name}"
-                new_option["Files"] = {gamepath: sanitise_path(rel_path)}
+                new_option["Files"] = {mdl_game: rel_path.lower()}
                 new_option["Name"] = option_name
                     
                 options.append(new_option)
@@ -616,65 +611,66 @@ class Modpacker(Operator):
             group_data["Options"] = options
             group_data["Name"] = group_name
 
-            new_group = paths["temp"] / file_name
+            new_group = user_input.temp / file_name
 
 
             with open(new_group, "w") as file:
                 file.write(ModGroups(**group_data).to_json())
 
-    def update_file_name(temp_folder:Path, user_input:dict, previous_group=""):
-        old_group_name = user_input["old_group_name"]
-        new_group_name = user_input["new_group_name"]
-        old_file_name = user_input["update_group"]
-        split_name = old_file_name.split("_")
+    def update_file_name(user_input:UserInput, previous_group=""):
+        split_name = user_input.update_group.split("_")
         final_digits = int(split_name[1])  
         
         if previous_group:
             split_name = previous_group.split("_")
-            final_digits = int(split_name[1]) + 1   
+            final_digits += 1   
 
-        if new_group_name:
-                file_name = f"group_{final_digits:03}_{new_group_name.lower()}.json"
+        if user_input.group_new_name:
+                file_name = f"group_{final_digits:03}_{user_input.group_new_name.lower()}.json"
 
-                return file_name, new_group_name
+                return file_name, user_input.group_new_name
         else:
-            return old_file_name, old_group_name
+            return user_input.update_group, user_input.group_old_name
    
-    def check_duplicate_groups(temp_folder:Path, mod_data:ModGroups, user_input:ModMeta):
+    def check_duplicate_groups(user_input:UserInput, mod_data:Dict[str, ModGroups]):
+        bpy.context.scene.pmp_props.modpack_progress = "Checking for duplicate groups..."
         # Duplicate groups might use the same files, but on different items, typically Smallclothes/Emperor's.
         # This is to prevent breaking groups that use the same files. Will not catch similar groups. 
         relative_paths = []
         dupe_rel_paths = []
         duplicate_groups = {}
+        
 
-        for options in mod_data[user_input["update_group"]].Options:
+        for options in mod_data[user_input.update_group].Options:
             for gamepath, relpath in options.Files.items():
                 relative_paths.append(relpath)
-
         for group in mod_data:
             file_contents = mod_data[group]
-            if group != user_input["update_group"]:
+            if group != user_input.update_group:
                 try:
+                    mdl_game = set()
                     for option in file_contents.Options:
                         for gamepath, relpath in option.Files.items():
                             if any(relpath in relative_paths for path in relative_paths):
                                 dupe_rel_paths.append(relpath)
-                                
-                    if len(dupe_rel_paths) == len(relative_paths):
-                        duplicate_groups[group] = (gamepath, file_contents.Name)
+                                mdl_game.add(gamepath)
+                    
+                    if sorted(dupe_rel_paths) == sorted(relative_paths):
+                        duplicate_groups[group] = (mdl_game, file_contents.Name)
                         dupe_rel_paths = []     
                 except:
                     continue
         
         return duplicate_groups
 
-    def delete_orphans(temp_folder:Path, update_group:str): 
+    def delete_orphans(temp_folder:Path, update_group:ModGroups):
+        bpy.context.scene.pmp_props.modpack_progress = "Deleting orphans...." 
         for options in update_group.Options:
             for gamepath, relpath in options.Files.items():
                 try:
                     absolute_path = os.path.join(temp_folder, relpath)
                     Path.unlink(absolute_path)
-                    print(f"Deleted file: {absolute_path}")
+                    # print(f"Deleted file: {absolute_path}")
                 except:
                     continue
 
@@ -683,21 +679,31 @@ class Modpacker(Operator):
                 if not any(dir.iterdir()):
                     try: 
                         dir.rmdir() 
-                        print(f"Deleted empty directory: {dir}")
+                        # print(f"Deleted empty directory: {dir}")
                     except:
                         continue
 
-    def schedule_cleanup(temp_folder:Path, retries=5):
-        for attempts in range(retries):
-            try:
-                if temp_folder.is_dir():
-                    shutil.rmtree(temp_folder)
+    def schedule_cleanup(temp_folder:Path):
+        retries = 5
+        def cleanup_attempt():
+            nonlocal retries
+            for attempt in range(retries):
+                try:
+                    if temp_folder.is_dir():
+                        shutil.rmtree(temp_folder)
+                        return None
+                except FileNotFoundError as e:
                     return None
-            except FileNotFoundError as e:
+                except PermissionError as e:
+                    break
+            retries -= 1
+            if retries > 0:
+                return 5 - retries
+            else:
+                bpy.context.scene.pmp_props.modpack_progress = "Failed to delete temp folder..."
                 return None
-            except PermissionError as e:
-                break
-            return 5 - retries
+        cleanup_attempt()
+        return cleanup_attempt
 
 
 classes = [

@@ -5,17 +5,18 @@ bl_info = {
     "name": "Yet Another Addon",
     "author": "Aleks",
     "description": "A set of tools made for ease of use with Yet Another Devkit.",
-    "version": (0, 3, 0),
+    "version": (0, 3, 1),
     "blender": (4, 2, 1),
     "category": "",
     }
 
-DEVKIT_SCR_VER = (0, 0, 0)
+DEVKIT_VER = (0, 0, 0)
 
 import os
 import sys
 import ast
 import bpy
+
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -27,8 +28,6 @@ from .modpack   import penumbra
 from .          import operators 
 from .          import panel         as ops_panel 
       
-
-#Test
 modules = [
     penumbra,
     file_manager,
@@ -43,17 +42,17 @@ def menu_emptyvgroup_append(self, context):
     self.layout.operator("ya.remove_empty_vgroups", text="Remove Empty Vertex Groups")
 
 def devkit_check():
-    global DEVKIT_SCR_VER
+    global DEVKIT_VER
     devkit = bpy.data.texts.get("devkit.py")
-
+  
     if devkit:
         first_line = devkit.lines[0].body.strip()
         
-        if first_line.startswith("DEVKIT_SCR_VER"):
+        if first_line.startswith("DEVKIT_VER"):
             version = ast.literal_eval(first_line.split('=')[1].strip())
                 
             if isinstance(version, tuple) and len(version) == 3:
-                DEVKIT_SCR_VER = version
+                DEVKIT_VER = version
                 try:
                     bpy.utils.unregister_class(pmp_panel.ModpackManager)
                 except:
@@ -71,9 +70,8 @@ def register():
             bpy.utils.register_class(cls)
         if module == props:
             props.set_addon_properties()
-                 
-    bpy.app.timers.register(devkit_check, first_interval=0.5)
 
+    bpy.app.timers.register(devkit_check, first_interval=0.1)        
     props.addon_version = bl_info["version"]
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
 
@@ -83,9 +81,10 @@ def unregister():
 
     for module in reversed(modules):
         for cls in reversed(module.classes):
-            if DEVKIT_SCR_VER > (0, 0, 0) and cls == pmp_panel.ModpackManager:
+            try:
+                bpy.utils.unregister_class(cls)
+            except:
                 continue
-            bpy.utils.unregister_class(cls)
 
     del bpy.types.Scene.pmp_props
     del bpy.types.Scene.pmp_group_options

@@ -128,7 +128,7 @@ class ModpackManager(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Devkit"
-    bl_label = "File Manager"
+    bl_label = "Modpack"
     bl_options = {'DEFAULT_CLOSED'}
     bl_order = 2
 
