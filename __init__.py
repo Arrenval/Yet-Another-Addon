@@ -71,12 +71,12 @@ def register():
         if module == props:
             props.set_addon_properties()
 
-    bpy.app.timers.register(devkit_check, first_interval=0.1)        
-    props.addon_version = bl_info["version"]
+    bpy.app.timers.register(devkit_check, first_interval=0.1)
+    bpy.types.Scene.ya_addon_ver = bl_info["version"]
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
 
 def unregister():
-    del props.addon_version
+    del bpy.types.Scene.ya_addon_ver
     bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_emptyvgroup_append)
 
     for module in reversed(modules):

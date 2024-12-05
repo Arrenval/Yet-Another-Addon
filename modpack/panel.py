@@ -1,4 +1,7 @@
-from bpy.types import Panel
+import bpy
+
+from pathlib       import Path
+from bpy.types     import Panel
 
 def draw_modpack(self, layout, section_prop, devkit=False):
     row = layout.row(align=True)
@@ -24,8 +27,15 @@ def draw_modpack(self, layout, section_prop, devkit=False):
     split.alignment = "RIGHT"
     split.label(text="FBX:")
     split.prop(section_prop, "savemodpack_display_directory", text="")
-    
     row.operator("ya.modpack_dir_selector", icon="FILE_FOLDER", text="").category = "savemodpack"
+    
+    if len(bpy.context.scene.fbx_subfolder) > 1:
+        row = layout.row(align=True)
+        split = row.split(factor=0.25, align=True)
+        split.alignment = "RIGHT"
+        split.label(text="Subfolder:")
+        split.prop(section_prop, "fbx_subfolder", text="") 
+        row.label(icon="FOLDER_REDIRECT") 
 
     if devkit:
         row = layout.row(align=True)
@@ -38,73 +48,85 @@ def draw_modpack(self, layout, section_prop, devkit=False):
     row.prop(section_prop, "button_modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
     row.prop(section_prop, "button_modpack_replace", text="Update", icon="CURRENT_FILE",)
 
+    box.separator(factor=0.5,type="LINE")
+
     if section_prop.button_modpack_replace:
-        
-        row = box.row()
-        split = row.split(factor=0.33)
+
+        row = box.row(align=True)
+        split = row.split(factor=0.25)
         col2 = split.column(align=True)
         col2.label(text="Ver.")
         col2.prop(section_prop, "loadmodpack_version", text="")
+
         col = split.column(align=True)
         col.label(text="Modpack:")
         col.prop(section_prop, "loadmodpack_display_directory", text="", emboss=False)
+
         split2 = row.split(factor=0.8)
-        col3 = split2.column(align=True)
+        col3 = split2.column()
         col3.alignment = "CENTER"
-        col3.label(text="")
+        col3.operator("ya.pmp_selector", icon="FILE_FOLDER", text="")
         col3.prop(section_prop, "loadmodpack_author", text="by", emboss=False)
 
-    
-        row = box.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.label(text="")
-        split.operator("ya.pmp_selector", icon="FILE_FOLDER", text="Choose Modpack")
-        
-        
-        row = box.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Replace:")
-        split.prop(section_prop, "modpack_groups", text="")
+        if Path(section_prop.loadmodpack_directory).is_file():
+            selection = section_prop.modpack_groups
 
-        row = box.row()
-        split = row.split(factor=0.25)
-        col2 = split.column(align=True)
-        if section_prop.modpack_groups == "0":
-            col2.prop(section_prop, "mod_group_type", text="")
+            row = box.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            text = "Create:" if selection == "0" else "Replace:"
+            split.label(text=text)
+            split.prop(section_prop, "modpack_groups", text="")
+            sub = row.row(align=True)
+            sub.alignment = "RIGHT"
+            if selection != "0":
+                sub.prop(section_prop, "modpack_ui_page", emboss=False)
+            else:
+                sub.prop(section_prop, "modpack_page", emboss=True)
+
+            row = box.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Name:")
+            split.prop(section_prop, "modpack_rename_group", text="")
+            sub = row.row(align=True)
+            sub.alignment = "RIGHT"
+            sub.prop(section_prop, "mod_group_type", text="")
         else:
-            text = "" if section_prop.modpack_groups == "0" else "Rename:"
-            col2.alignment = "RIGHT"
-            col2.label(text=text)
-        col = split.column(align=True)
-        col.prop(section_prop, "modpack_rename_group", text="")
-    
-    else:
-        
+            row = box.row(align=True)
 
-        row = box.row()
+    else:
+
+        row = box.row(align=True)
         split = row.split(factor=0.25)
         col2 = split.column(align=True)
         col2.label(text="Ver.")
         col2.prop(section_prop, "new_mod_version", text="")
+
         col = split.column(align=True)
         col.label(text="Mod Name:")
         col.prop(section_prop, "new_mod_name", text="")
-
-        row = box.row()
-        split = row.split(factor=0.25)
-        col2 = split.column(align=True)
-        col2.label(text="Type:")
-        col2.prop(section_prop, "mod_group_type", text="")
-        col = split.column(align=True)
-        col.label(text="Group Name:")
-        col.prop(section_prop, "modpack_rename_group", text="")
+        
+        split2 = row.split(factor=0.8)
+        col3 = split2.column(align=True)
+        col3.alignment = "CENTER"
+        col3.label(text="Author:")
+        col3.prop(section_prop, "author_name", text="")
 
         row = box.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Author:")
-        split.prop(section_prop, "author_name", text="")
+        split = row.split(factor=0.25)
+        col3 = split.column(align=True)
+        col3.alignment = "RIGHT"
+        col3.label(text="Group:")
+
+        
+        col2 = split.column(align=True)
+        col2.prop(section_prop, "modpack_rename_group", text="")
+
+        split2 = row.split(factor=0.8)
+        col = split2.column(align=True)
+        col.alignment = "CENTER"
+        col.prop(section_prop, "mod_group_type", text="")
 
 
 
@@ -136,7 +158,7 @@ class ModpackManager(Panel):
         layout = self.layout
         section_prop = context.scene.pmp_props
 
-        draw_modpack(self, layout,section_prop)
+        draw_modpack(self, layout, section_prop)
 
 
 classes = [
