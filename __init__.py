@@ -17,24 +17,27 @@ import sys
 import ast
 import bpy
 
-
 sys.path.append(os.path.dirname(__file__))
 
 from importlib  import reload
-from .modpack   import props
-from .modpack   import panel         as pmp_panel
-from .modpack   import file_manager  
-from .modpack   import penumbra  
-from .          import operators 
-from .          import panel         as ops_panel 
+from .ui        import panel
+from .file      import ya_import
+from .file      import export
+from .file      import modpack
+from .util      import props    
+from .outfit    import shapes  
+from .outfit    import mesh  
+from .outfit    import weights        
       
 modules = [
-    penumbra,
-    file_manager,
-    operators,
+    ya_import,
+    export,
+    modpack,
+    weights,
+    shapes,
+    mesh,
     props,
-    pmp_panel,
-    ops_panel,
+    panel
 ]
 
 def menu_emptyvgroup_append(self, context):
@@ -43,21 +46,10 @@ def menu_emptyvgroup_append(self, context):
 
 def devkit_check():
     global DEVKIT_VER
-    devkit = bpy.data.texts.get("devkit.py")
-  
-    if devkit:
-        first_line = devkit.lines[0].body.strip()
-        
-        if first_line.startswith("DEVKIT_VER"):
-            version = ast.literal_eval(first_line.split('=')[1].strip())
-                
-            if isinstance(version, tuple) and len(version) == 3:
-                DEVKIT_VER = version
-                try:
-                    bpy.utils.unregister_class(pmp_panel.ModpackManager)
-                except:
-                    pass
-                return None
+    if bpy.data.texts.get("devkit.py"):
+        devkit = bpy.data.texts["devkit.py"].as_module()
+        DEVKIT_VER = devkit.DEVKIT_VER
+        bpy.types.Scene.devkit = devkit
     else:
         return None
 
@@ -66,7 +58,7 @@ def register():
         reload(module)
 
     for module in modules:
-        for cls in module.classes:
+        for cls in module.CLASSES:
             bpy.utils.register_class(cls)
         if module == props:
             props.set_addon_properties()
@@ -76,18 +68,17 @@ def register():
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
 
 def unregister():
-    del bpy.types.Scene.ya_addon_ver
     bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_emptyvgroup_append)
 
     for module in reversed(modules):
-        for cls in reversed(module.classes):
-            try:
-                bpy.utils.unregister_class(cls)
-            except:
-                continue
+        for cls in reversed(module.CLASSES):
+            if cls == props:
+                props.remove_addon_properties()
+            bpy.utils.unregister_class(cls)
 
-    del bpy.types.Scene.pmp_props
-    del bpy.types.Scene.pmp_group_options
+    del bpy.types.Scene.ya_addon_ver
+    if hasattr(bpy.context.scene, "devkit"):
+        del bpy.types.Scene.devkit
     
 if __name__ == "__main__":
     register()

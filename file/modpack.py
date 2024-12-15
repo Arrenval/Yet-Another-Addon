@@ -5,14 +5,14 @@ import winreg
 import shutil
 import zipfile
 
-from pathlib       import Path
-from functools     import partial
-from datetime      import datetime
-from bpy.types     import Operator
-from bpy.props     import StringProperty
-from .penumbra     import ModGroups, ModMeta
-from dataclasses   import dataclass, field
-from typing        import Dict
+from typing             import Dict
+from pathlib            import Path
+from functools          import partial
+from datetime           import datetime
+from bpy.types          import Operator
+from bpy.props          import StringProperty
+from dataclasses        import dataclass, field
+from ..util.penumbra    import ModGroups, ModMeta
 
 
 def get_modpack_groups():
@@ -21,7 +21,7 @@ def get_modpack_groups():
 def modpack_data(context):
     scene = context.scene
     scene.pmp_group_options.clear()
-    modpack = scene.pmp_props.loadmodpack_directory
+    modpack = scene.file_props.loadmodpack_directory
 
     new_option = scene.pmp_group_options.add()
     new_option.group_value = str(0)
@@ -45,8 +45,8 @@ def modpack_data(context):
                 meta_contents = json.load(meta)
 
                 mod_meta = ModMeta(**meta_contents)
-                scene.pmp_props.loadmodpack_version = mod_meta.Version
-                scene.pmp_props.loadmodpack_author = mod_meta.Author
+                scene.file_props.loadmodpack_version = mod_meta.Version
+                scene.file_props.loadmodpack_author = mod_meta.Author
     
 def modpack_group_data(file_name, pmp, data):
     try:
@@ -77,7 +77,7 @@ class ModpackDirSelector(Operator):
     category: StringProperty() # type: ignore
 
     def invoke(self, context, event):
-        actual_dir = Path(getattr(context.scene.pmp_props, f"{self.category}_directory", ""))     
+        actual_dir = Path(getattr(context.scene.file_props, f"{self.category}_directory", ""))     
 
         if event.alt and event.type == "LEFTMOUSE" and actual_dir.is_dir():
             os.startfile(actual_dir)
@@ -96,8 +96,8 @@ class ModpackDirSelector(Operator):
         selected_file = Path(self.directory)  
 
         if selected_file.is_dir():
-            setattr(context.scene.pmp_props, actual_dir_prop, str(selected_file))
-            setattr(context.scene.pmp_props, display_dir_prop, str(Path(*selected_file.parts[-3:])))
+            setattr(context.scene.file_props, actual_dir_prop, str(selected_file))
+            setattr(context.scene.file_props, display_dir_prop, str(Path(*selected_file.parts[-3:])))
             self.report({"INFO"}, f"Directory selected: {selected_file}")
         
         else:
@@ -114,7 +114,7 @@ class ConsoleToolsDirectory(Operator):
     filepath: StringProperty() # type: ignore
 
     def invoke(self, context, event):
-        textools = context.scene.pmp_props.textools_directory
+        textools = context.scene.file_props.textools_directory
 
         if event.alt and os.path.exists(textools):
             os.startfile(textools)
@@ -132,8 +132,8 @@ class ConsoleToolsDirectory(Operator):
 
         if selected_file.exists() and selected_file.name == "ConsoleTools.exe":
             textools_folder = str(selected_file.parent)
-            context.scene.pmp_props.textools_directory = textools_folder
-            context.scene.pmp_props.consoletools_status = "ConsoleTools Ready!"
+            context.scene.file_props.textools_directory = textools_folder
+            context.scene.file_props.consoletools_status = "ConsoleTools Ready!"
             self.report({'INFO'}, f"Directory selected: {textools_folder}")
         
         else:
@@ -151,7 +151,7 @@ class PMPSelector(Operator):
     category: StringProperty() # type: ignore
 
     def invoke(self, context, event):
-        actual_file = Path(context.scene.pmp_props.loadmodpack_directory) 
+        actual_file = Path(context.scene.file_props.loadmodpack_directory) 
 
         if event.alt and event.type == "LEFTMOUSE" and actual_file.is_file():
             actual_dir = actual_file.parent
@@ -175,8 +175,8 @@ class PMPSelector(Operator):
 
         if selected_file.exists() and selected_file.suffix == ".pmp":
             
-            context.scene.pmp_props.loadmodpack_directory = str(selected_file) 
-            context.scene.pmp_props.loadmodpack_display_directory = selected_file.stem
+            context.scene.file_props.loadmodpack_directory = str(selected_file) 
+            context.scene.file_props.loadmodpack_display_directory = selected_file.stem
             self.report({'INFO'}, f"{selected_file.stem} selected!")
         
         else:
@@ -192,8 +192,8 @@ class CopyToFBX(Operator):
 
     def execute(self, context):
         export_dir = Path(context.scene.devkit_props.export_directory)
-        context.scene.pmp_props.savemodpack_directory = str(export_dir)
-        context.scene.pmp_props.savemodpack_display_directory = str(Path(*export_dir.parts[-3:]))
+        context.scene.file_props.savemodpack_directory = str(export_dir)
+        context.scene.file_props.savemodpack_display_directory = str(Path(*export_dir.parts[-3:]))
     
         return {'FINISHED'}
 
@@ -207,11 +207,11 @@ class ConsoleTools(Operator):
         consoletools, textools = self.console_tools_location(context)
 
         if os.path.exists(consoletools):
-            context.scene.pmp_props.textools_directory = textools
-            context.scene.pmp_props.consoletools_status = "ConsoleTools Ready!"
+            context.scene.file_props.textools_directory = textools
+            context.scene.file_props.consoletools_status = "ConsoleTools Ready!"
         else:
-            context.scene.pmp_props.textools_directory = ""
-            context.scene.pmp_props.consoletools_status = "Not Found. Click Folder."
+            context.scene.file_props.textools_directory = ""
+            context.scene.file_props.consoletools_status = "Not Found. Click Folder."
         
         return {"FINISHED"}
     
@@ -274,7 +274,7 @@ class UserInput:
 
 
     def __post_init__(self):
-        props = bpy.context.scene.pmp_props
+        props = bpy.context.scene.file_props
         subfolder = props.fbx_subfolder
         time = datetime.now().strftime("%H%M%S")
 
@@ -315,7 +315,7 @@ class Modpacker(Operator):
     preset: StringProperty()  # type: ignore # convert_pack, pack, convert are valid presets
     
     def __init__(self):
-        props               = bpy.context.scene.pmp_props
+        props               = bpy.context.scene.file_props
         self.pmp            = Path(props.loadmodpack_directory)
         self.update         = props.button_modpack_replace
         self.mdl_game       = props.game_model_path
@@ -361,7 +361,7 @@ class Modpacker(Operator):
             if self.console != "ConsoleTools Ready!":
                 self.report({'ERROR'}, "Verify that ConsoleTools is ready.")
                 return {'CANCELLED'} 
-            context.scene.pmp_props.modpack_progress = "Converting fbx to mdl..."
+            context.scene.file_props.modpack_progress = "Converting fbx to mdl..."
             self.fbx_to_mdl(context, user_input) 
 
         if self.update and self.preset != "convert":
@@ -398,7 +398,7 @@ class Modpacker(Operator):
         return current_mod_data, current_mod_meta  
  
     def fbx_to_mdl(self, context, user_input:UserInput):
-        textools = Path(context.scene.pmp_props.textools_directory)
+        textools = Path(context.scene.file_props.textools_directory)
         to_convert = [file for file in (user_input.fbx / user_input.subfolder).glob(f'*.fbx') if file.is_file()]
 
         cmd_name = "FBXtoMDL.cmd"
@@ -441,9 +441,9 @@ class Modpacker(Operator):
         if is_cmd:
             return 0.5 
         if not is_cmd and preset == "convert":
-            context.scene.pmp_props.modpack_progress = "Complete!"
+            context.scene.file_props.modpack_progress = "Complete!"
             return None
-        context.scene.pmp_props.modpack_progress = "Creating modpack..." 
+        context.scene.file_props.modpack_progress = "Creating modpack..." 
 
         to_pack = [file for file in user_input.mdl_folder.glob(f'*.mdl') if file.is_file()]
         to_pack = Modpacker.yet_another_sort(to_pack)
@@ -467,7 +467,7 @@ class Modpacker(Operator):
         bpy.app.timers.register(partial(Modpacker.schedule_cleanup, user_input.temp), first_interval=0.1)
         
         modpack_data(context)
-        context.scene.pmp_props.modpack_progress = "Complete!"
+        context.scene.file_props.modpack_progress = "Complete!"
         return None
 
     def yet_another_sort(items:list[Path]):
@@ -481,25 +481,23 @@ class Modpacker(Operator):
             if "Medium" in item.stem:
                 ranking[item] += 2
             if "Mini" in item.stem:
-                ranking[item] += 3
+                ranking[item] += 8
             if "Large" in item.stem:
-                ranking[item] += 4
+                ranking[item] += 9
             if "Omoi" in item.stem:
-                ranking[item] += 5
+                ranking[item] += 10
             if "Sugoi Omoi" in item.stem:
-                ranking[item] += 6
-            if "Watermelon" in item.stem:
-                ranking[item] += 1
+                ranking[item] += 11
             if "Skull" in item.stem:
-                ranking[item] += 2
+                ranking[item] += 4
             if "Soft" in item.stem:
                 ranking[item] += 2
             if "Buff" in item.stem:
-                ranking[item] += 7
+                ranking[item] += 12
             if "Rue" in item.stem:
-                ranking[item] += 8
+                ranking[item] += 42
             if "Yiggle" in item.stem:
-                ranking[item] += 9
+                ranking[item] += 69
 
         sorted_rank = sorted(ranking.items(), key=lambda x: x[1])
         
@@ -509,7 +507,7 @@ class Modpacker(Operator):
         return final_sort
 
     def rolling_backup(user_input:UserInput):
-        bpy.context.scene.pmp_props.modpack_progress = "Creating backup..."
+        bpy.context.scene.file_props.modpack_progress = "Creating backup..."
         folder_bak = user_input.fbx / "BACKUP"
         time = datetime.now().strftime("%Y-%m-%d - %H%M%S")
         pmp_bak = folder_bak / f"{time}.pmp"
@@ -611,7 +609,7 @@ class Modpacker(Operator):
             }
 
     def write_group_json(user_input:UserInput, to_pack:list[Path], create_group:dict, group_dir:str, to_replace:ModGroups=""):
-        bpy.context.scene.pmp_props.modpack_progress = "Writing json..."
+        bpy.context.scene.file_props.modpack_progress = "Writing json..."
         for file_name, (mdl_game, group_name, group_data) in create_group.items():
             
             options = [
@@ -703,7 +701,7 @@ class Modpacker(Operator):
             return user_input.update_group, user_input.group_old_name
    
     def check_duplicate_groups(user_input:UserInput, mod_data:Dict[str, ModGroups]):
-        bpy.context.scene.pmp_props.modpack_progress = "Checking for duplicate groups..."
+        bpy.context.scene.file_props.modpack_progress = "Checking for duplicate groups..."
         # Duplicate groups might use the same files, but on different items, typically Smallclothes/Emperor's.
         # This is to prevent breaking groups that use the same files. Will not catch similar groups. 
         relative_paths = []
@@ -733,7 +731,7 @@ class Modpacker(Operator):
         return duplicate_groups
 
     def delete_orphans(temp_folder:Path, update_group:ModGroups):
-        bpy.context.scene.pmp_props.modpack_progress = "Deleting orphans...." 
+        bpy.context.scene.file_props.modpack_progress = "Deleting orphans...." 
         for options in update_group.Options:
             for gamepath, relpath in options.Files.items():
                 try:
@@ -769,13 +767,13 @@ class Modpacker(Operator):
             if retries > 0:
                 return 5 - retries
             else:
-                bpy.context.scene.pmp_props.modpack_progress = "Failed to delete temp folder..."
+                bpy.context.scene.file_props.modpack_progress = "Failed to delete temp folder..."
                 return None
         cleanup_attempt()
         return cleanup_attempt
 
 
-classes = [
+CLASSES = [
     ModpackDirSelector,
     ConsoleToolsDirectory,
     PMPSelector,

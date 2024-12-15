@@ -107,4 +107,3 @@ class ModMeta:
     def to_json(self):
         return json.dumps(asdict(self), indent=4)
   
-classes = []
