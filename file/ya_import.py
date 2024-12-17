@@ -47,7 +47,7 @@ class SimpleCleanUp(Operator):
         
         return {"FINISHED"}
 
-    def update_material(self):
+    def update_material(self) -> None:
         selected = bpy.context.selected_objects
         for obj in selected:
             bpy.context.view_layer.objects.active = obj
@@ -56,7 +56,7 @@ class SimpleCleanUp(Operator):
                 material.surface_render_method = "DITHERED"
                 material.use_backface_culling = True
 
-    def fix_parent(self):
+    def fix_parent(self) -> None:
         selected = bpy.context.selected_objects
         for obj in selected:
             bpy.context.view_layer.objects.active = obj
@@ -72,7 +72,7 @@ class SimpleCleanUp(Operator):
                     modifier.object = bpy.data.objects["Skeleton"]
                     modifier.name = "Armature"
 
-    def rename_import(self):
+    def rename_import(self) -> None:
         selected = bpy.context.selected_objects
         for obj  in selected:
             bpy.context.view_layer.objects.active = obj

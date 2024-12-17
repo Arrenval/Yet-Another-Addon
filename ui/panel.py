@@ -2,8 +2,37 @@ import os
 import bpy
 
 from pathlib       import Path
-from bpy.types     import Panel, Operator, UILayout
 from bpy.props     import StringProperty
+from ..util.props  import get_object_from_mesh
+from bpy.types     import Panel, Operator, UIList, UILayout, Context, VertexGroup
+
+class MESH_UL_yas(UIList):
+    bl_idname = "MESH_UL_yas"
+
+    def draw_item(self, context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
+        ob = data
+        vgroup = item
+        icon = 201
+        try:
+            category = bpy.context.scene.outfit_props.YAS_BONES[vgroup.name]
+        except:
+            category = "Unknown"
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            if "Mesh has" in vgroup.name:
+                layout.prop(vgroup, "name", text="", emboss=False, icon_value=2)
+            else:
+                layout.prop(vgroup, "name", text=category, emboss=False, icon_value=icon)
+                icon = 'LOCKED' if vgroup.lock_weight else 'UNLOCKED'
+                layout.prop(vgroup, "lock_weight", text="", icon=icon, emboss=False)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+    
+    def get_icon_value(icon_name: str) -> int:
+        icon_items = bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
+        icon_dict = {tup[1].identifier : tup[1].value for tup in icon_items}
+
+        return icon_dict[icon_name]
 
 class DirSelector(Operator):
     bl_idname = "ya.dir_selector"
@@ -20,13 +49,10 @@ class DirSelector(Operator):
             os.startfile(actual_dir)
         elif event.type == "LEFTMOUSE":
             context.window_manager.fileselect_add(self)
-
-
         else:
              self.report({"ERROR"}, "Not a directory!")
     
         return {"RUNNING_MODAL"}
-    
 
     def execute(self, context):
         actual_dir_prop = f"{self.category}_directory"
@@ -51,7 +77,6 @@ class BodyPartSlot(Operator):
     body_part: StringProperty() # type: ignore
 
     def execute(self, context):
-        # Update the export_body_part with the selected body part
         context.scene.file_props.export_body_slot = self.body_part
         return {'FINISHED'}
     
@@ -79,19 +104,19 @@ class OutfitStudio(Panel):
     bl_label = "Outfit Studio"
     bl_order = 1
 
-    def draw(self, context):
+    def draw(self, context:Context):
         if hasattr(context.scene, "devkit_props"):
             devkit_prop = context.scene.devkit_props
 
         section_prop = context.scene.outfit_props
         layout = self.layout
-        button_type = "shpk"
 
         options ={
             "Overview": "INFO",
             "Shapes": "SHAPEKEY_DATA",
             "Mesh": "OUTLINER_OB_MESH",
             "Weights": "WPAINT_HLT",
+            "Animation": "RENDER_ANIMATION"
             }
 
         row = layout.row()
@@ -104,90 +129,8 @@ class OutfitStudio(Panel):
         
             
         if section_prop.outfit_ui == "Shapes":
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="Shapes")
-
-            col = box.column(align=True)
-            split = col.split(factor=0.25, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="Source:")
-            split.prop(section_prop, "shape_key_source", text="", icon="SHAPEKEY_DATA")
-            col.separator(type="LINE", factor=2)
-
-            if not hasattr(context.scene, "devkit_props") and section_prop.shape_key_source != "Selected":
-                row = col.row(align=True)
-                row.alignment = "CENTER"
-                row.label(text="Yet Another Devkit required.", icon="INFO")
-
-            else:
-                if section_prop.shape_key_source == "Chest":
-                    row = col.row(align=True)
-                    row.alignment = "CENTER"
-                    row.prop(section_prop, "sub_shape_keys", text="Include Sub Keys")
-                    row.prop(section_prop, "add_shrinkwrap", text="Shrinkwrap")
-                    col.separator(type="LINE", factor=2)
-                
-                    split = col.split(factor=0.25, align=True)
-                    split.alignment = "RIGHT"
-                    split.label(text="Base:")
-                    split.prop(section_prop, "shape_key_base", text="", icon="SHAPEKEY_DATA")
-                    split = col.split(factor=0.25, align=True)
-                    split.alignment = "RIGHT"
-                    split.label(text="Pin:")
-                    split.prop(section_prop, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
-                    split = col.split(factor=0.25, align=True)
-                    if section_prop.add_shrinkwrap:
-                        split.alignment = "RIGHT"
-                        split.label(text="Exclude:")
-                        split.prop(section_prop, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
-                    col.separator(type="LINE", factor=2)
-
-                    slot = "Chest"
-                    labels = {
-                            "Large":      "LARGE",    
-                            "Medium":     "MEDIUM",    
-                            "Small":      "SMALL", 
-                            "Buff":       "Buff",    
-                            "Rue":        "Rue",        
-                        }
-                    
-                    del labels[section_prop.shape_key_base]
-                    row = col.row(align=True)
-                    row.prop(devkit_prop, "key_pushup_large_ctrl", text="Push-Up Adjustment:")
-                    ctrl = bpy.data.objects["Chest"].visible_get(view_layer=context.view_layer)
-                    icon = "HIDE_ON" if not ctrl else "HIDE_OFF"
-                    adj_op = row.operator("yakit.apply_visibility", text="", icon=icon, depress=ctrl)
-                    adj_op.target = "Shape"
-                    adj_op.key = ""
-
-                    self.dynamic_column_buttons(2, col, devkit_prop, labels, slot, button_type)
-                    
-                    col.separator(type="LINE", factor=2)
-
-                if section_prop.shape_key_source == "Legs":
-
-                    slot = "Legs"
-                    labels = {    
-                            "Skull":      "Skull Crushers",                   
-                            "Mini":       "Mini",                 
-                            "Rue":        "Rue",           
-                            "Alt Hips":   "Alt Hips",
-                            "Small Butt": "Small Butt",         
-                            "Soft Butt":  "Soft Butt",
-                        }
-                    
-                    self.dynamic_column_buttons(2, col, devkit_prop, labels, slot, button_type)
-                    col.separator(type="LINE", factor=2)
-
-                # box.separator(type="LINE", factor=0.5)
-
-                row = col.row()
-                row.alignment = "CENTER"
-                col = row.column(align=True)
-                row = col.row(align=True)
-                col.operator("ya.transfer_shape_keys", text="Transfer")
-
+            self.draw_shapes(box, section_prop, devkit_prop)
+            
         if section_prop.outfit_ui == "Mesh":
             row = box.column(align=True)
             row.label(text="Backfaces", icon="REMOVE")
@@ -200,10 +143,150 @@ class OutfitStudio(Panel):
         if section_prop.outfit_ui == "Weights":
             row = box.row()
             row.alignment = "CENTER"
-            col = row.column(align=True)
-            col.operator("ya.remove_empty_vgroups", text= "Remove Empty Groups")
+            row.label(text="Weights")
 
-    def dynamic_column_buttons(self, columns, layout, section_prop, labels, slot, button_type):
+            obj = context.active_object
+            row = box.row()
+            col = row.column(align=True)
+            if section_prop.filter_vgroups:
+                col.template_list(
+                    "MESH_UL_yas", "", 
+                    context.scene, "yas_vgroups", 
+                    context.scene, "yas_vindex", 
+                    rows=5
+                    )
+            else:
+                if not obj:
+                    obj = get_object_from_mesh("Mannequin")
+                col.template_list(
+                    "MESH_UL_yas", "", 
+                    obj, "vertex_groups", 
+                    obj.vertex_groups, "active_index", 
+                    rows=5
+                    )
+            row = col.row(align=True)
+            row.operator("ya.remove_select_vgroups", text= "Remove Selected").preset = ""
+            row.operator("ya.remove_empty_vgroups", text= "Remove Empty").preset = ""
+            row.prop(section_prop, "filter_vgroups", text="", icon="FILTER")
+
+        if section_prop.outfit_ui == "Animation":
+            row = box.row()
+            row.alignment = "CENTER"
+            row.label(text="Animation")
+            row = box.row()
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Armature:")
+            split.prop(section_prop, "armatures", text="", icon="ARMATURE_DATA")
+            row = box.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Animation:")
+            split.prop(section_prop, "actions", text="", icon="ACTION")
+            row = box.row(align=True)
+            row.alignment = "CENTER"
+            row.operator("screen.frame_jump", text="", icon="FRAME_PREV").end = False
+            row.operator("screen.keyframe_jump", text="", icon="PREV_KEYFRAME").next = False
+            if bpy.context.screen.is_animation_playing:
+                row.scale_x = 2
+                row.operator("screen.animation_play", text="", icon="PAUSE")
+                row.scale_x = 1
+            else:
+                row.operator("screen.animation_play", text="", icon="PLAY_REVERSE").reverse = True
+                row.operator("screen.animation_play", text="", icon="PLAY")
+            row.operator("screen.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
+            row.operator("screen.frame_jump", text="", icon="FRAME_NEXT").end = True
+            
+
+    
+    def draw_shapes(self, layout:UILayout, section_prop, devkit_prop):
+        button_type = "shpk"
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Shapes")
+
+        col = layout.column(align=True)
+        split = col.split(factor=0.25, align=True)
+        split.alignment = "RIGHT"
+        split.label(text="Source:")
+        split.prop(section_prop, "shape_key_source", text="", icon="MESH_CUBE")
+        col.separator(type="LINE", factor=2)
+
+        if not hasattr(bpy.context.scene, "devkit_props") and section_prop.shape_key_source != "Selected":
+            row = col.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="Yet Another Devkit required.", icon="INFO")
+
+        else:
+            if section_prop.shape_key_source == "Chest":
+                row = col.row(align=True)
+                row.alignment = "CENTER"
+                row.prop(section_prop, "sub_shape_keys", text="Sub Keys")
+                row.prop(section_prop, "add_shrinkwrap", text="Shrinkwrap")
+                row.prop(section_prop, "adjust_overhang", text="Overhang")
+                col2 = row.column(align=True)
+                ctrl = bpy.data.objects["Chest"].visible_get(view_layer=bpy.context.view_layer)
+                icon = "HIDE_ON" if not ctrl else "HIDE_OFF"
+                adj_op = col2.operator("yakit.apply_visibility", text="", icon=icon, depress=ctrl)
+                adj_op.target = "Shape"
+                adj_op.key = ""
+                col.separator(type="LINE", factor=2)
+            
+                split = col.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Base:")
+                split.prop(section_prop, "shape_key_base", text="", icon="SHAPEKEY_DATA")
+                split = col.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="Pin:")
+                split.prop(section_prop, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
+                split = col.split(factor=0.25, align=True)
+                if section_prop.add_shrinkwrap:
+                    split.alignment = "RIGHT"
+                    split.label(text="Exclude:")
+                    split.prop(section_prop, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
+                col.separator(type="LINE", factor=2)
+
+                slot = "Chest"
+                labels = {
+                        "Large":      "LARGE",    
+                        "Medium":     "MEDIUM",    
+                        "Small":      "SMALL", 
+                        "Buff":       "Buff",    
+                        "Rue":        "Rue",        
+                    }
+                
+                del labels[section_prop.shape_key_base]
+                # row = col.row(align=True)
+                col.prop(devkit_prop, "key_pushup_large_ctrl", text="Push-Up Adjustment:")
+                col.prop(devkit_prop, "key_squeeze_large_ctrl", text="Squeeze Adjustment:")
+
+                self.dynamic_column_buttons(2, col, devkit_prop, labels, slot, button_type)
+                
+                col.separator(type="LINE", factor=2)
+
+            if section_prop.shape_key_source == "Legs":
+
+                slot = "Legs"
+                labels = {    
+                        "Skull":      "Skull Crushers",                   
+                        "Mini":       "Mini",                 
+                        "Rue":        "Rue",           
+                        "Alt Hips":   "Alt Hips",
+                        "Small Butt": "Small Butt",         
+                        "Soft Butt":  "Soft Butt",
+                    }
+                
+                self.dynamic_column_buttons(2, col, devkit_prop, labels, slot, button_type)
+                col.separator(type="LINE", factor=2)
+
+            row = col.row()
+            row.alignment = "CENTER"
+            col = row.column(align=True)
+            row = col.row(align=True)
+            col.operator("ya.transfer_shape_keys", text="Transfer")
+
+    def dynamic_column_buttons(self, columns, layout:UILayout, section_prop, labels, slot, button_type):
         row = layout.row(align=True)
 
         columns_list = [row.column(align=True) for _ in range(columns)]
@@ -224,7 +307,7 @@ class OutfitStudio(Panel):
                 print(f"{name} has no assigned property!")
         return layout  
 
-    def ui_category_buttons(self, layout, section_prop, prop, options, panel:str):
+    def ui_category_buttons(self, layout:UILayout, section_prop, prop, options, panel:str):
         row = layout
         ui_selector = getattr(section_prop, prop)
 
@@ -246,7 +329,7 @@ class FileManager(Panel):
     bl_options = {'DEFAULT_CLOSED'}
     bl_order = 3
 
-    def draw(self, context):
+    def draw(self, context:Context):
         section_prop = context.scene.file_props
         self.outfit_prop  = context.scene.outfit_props
         if hasattr(context.scene, "devkit_props"):
@@ -282,9 +365,7 @@ class FileManager(Panel):
                 section_prop = context.scene.file_props
                 self.draw_modpack(layout, section_prop, devkit=True)
 
-    def draw_export(self, context, layout:UILayout, section_prop):
-        global is_exporting
-
+    def draw_export(self, context:Context, layout:UILayout, section_prop):
         if section_prop.export_total > 0:
             layout.separator(factor=0.5)
 
@@ -619,8 +700,8 @@ class FileManager(Panel):
             col.label(text="Modpack:")
             col.prop(section_prop, "loadmodpack_display_directory", text="", emboss=False)
 
-            split2 = row.split(factor=0.8)
-            col3 = split2.column()
+            split2 = row.split(factor=1)
+            col3 = split2.column(align=True)
             col3.alignment = "CENTER"
             col3.operator("ya.pmp_selector", icon="FILE_FOLDER", text="")
             col3.prop(section_prop, "loadmodpack_author", text="by", emboss=False)
@@ -664,7 +745,7 @@ class FileManager(Panel):
             col.label(text="Mod Name:")
             col.prop(section_prop, "new_mod_name", text="")
             
-            split2 = row.split(factor=0.8)
+            split2 = row.split(factor=1)
             col3 = split2.column(align=True)
             col3.alignment = "CENTER"
             col3.label(text="Author:")
@@ -676,11 +757,10 @@ class FileManager(Panel):
             col3.alignment = "RIGHT"
             col3.label(text="Group:")
 
-            
             col2 = split.column(align=True)
             col2.prop(section_prop, "modpack_rename_group", text="")
 
-            split2 = row.split(factor=0.8)
+            split2 = row.split(factor=1)
             col = split2.column(align=True)
             col.alignment = "CENTER"
             col.prop(section_prop, "mod_group_type", text="")
@@ -758,6 +838,7 @@ class FileManager(Panel):
 
 
 CLASSES = [
+    MESH_UL_yas,
     DirSelector,
     BodyPartSlot,
     PanelCategory,

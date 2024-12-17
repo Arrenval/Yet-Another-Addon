@@ -5,33 +5,33 @@ from dataclasses import dataclass, asdict, field
 
 @dataclass
 class TypeManip:
-    Entry               :Union[int, float, dict] = None
+    # Entry               :Union[int, float, dict] | None = None
     #EQDP, EQP, Est
-    Gender              :str = None
-    Race                :str = None
-    SetID               :str = None
-    Slot                :str = None
+    Gender              :str | None = None
+    Race                :str | None = None
+    SetID               :str | None = None
+    Slot                :str | None = None
     #Rsp
-    SubRace             :str = None
-    Attribute           :str = None
-    #GlobalEqp
-    Type                :str = None
-    Condition           :str = None
-    #Imc
-    ObjectType          :str = None
-    PrimaryId           :int = None
-    SecondaryId         :int = None
-    Variant             :int = None
-    EquipSlot           :str = None
-    BodySlot            :str = None
-    #ImcDefault
-    MaterialId          :int = None
-    DecalId             :int = None
-    VfxId               :int = None
-    MaterialAnimationId :int = None
-    AttributeAndSound   :int = None
-    AttributeMask       :int = None
-    SoundId             :int = None
+    SubRace             :str | None = None
+    Attribute           :str | None = None
+    #GlobalEqp| None 
+    Type                :str | None = None
+    Condition           :str | None = None
+    #Imc| None 
+    ObjectType          :str | None = None
+    PrimaryId           :int | None = None
+    SecondaryId         :int | None = None
+    Variant             :int | None = None
+    EquipSlot           :str | None = None
+    BodySlot            :str | None = None
+    #ImcDefault| None 
+    MaterialId          :int | None = None
+    DecalId             :int | None = None
+    VfxId               :int | None = None
+    MaterialAnimationId :int | None = None
+    AttributeAndSound   :int | None = None
+    AttributeMask       :int | None = None
+    SoundId             :int | None = None
 
 @dataclass
 class ModManipulations:
@@ -40,14 +40,14 @@ class ModManipulations:
     
     def __post_init__(self):
         self.Manipulation = TypeManip(self.Manipulation)
-
+        
 @dataclass
 class GroupOptions:
-    Files           :Dict[str, str] = None
-    FileSwaps       :Dict[str, str] = None
-    Manipulations   :List[ModManipulations] = None
+    Files           :Dict[str, str] | None = None
+    FileSwaps       :Dict[str, str] | None = None
+    Manipulations   :List[ModManipulations] | None = None
     Priority        :int = 0
-    AttributeMask   :int = None
+    AttributeMask   :int | None = None
     Name            :str = ""
     Description     :str = ""
     Image           :str = ""
@@ -55,31 +55,31 @@ class GroupOptions:
     def __post_init__(self):
         if self.Manipulations != None:
             self.Manipulations = [ModManipulations(**manip) for manip in self.Manipulations]
-        
+                 
 @dataclass
 class ModGroups:
-    Version         :int = None
-    DefaultEntry    :TypeManip = None
-    Identifier      :TypeManip = None
-    AllVariants     :bool = None
-    OnlyAttributes  :bool = None
-    Name            :str = ""
-    Description     :str = ""
-    Priority        :int = 0
-    Image           :str = ""
-    Page            :int = 0
-    Type            :str = None
-    DefaultSettings :int = 0
-    Options         :List[GroupOptions] = None
-    Manipulations   :List[ModManipulations] = None
+    Version         :int       | None              = None
+    DefaultEntry    :TypeManip | None              = None
+    Identifier      :TypeManip | None              = None
+    AllVariants     :bool      | None              = None
+    OnlyAttributes  :bool      | None              = None
+    Name            :str                           = ""
+    Description     :str                           = ""
+    Priority        :int                           = 0
+    Image           :str                           = ""
+    Page            :int                           = 0
+    Type            :str       | None              = None
+    DefaultSettings :int                           = 0
+    Options         :List[GroupOptions]     | None = None
+    Manipulations   :List[ModManipulations] | None = None
 
     def __post_init__(self):
         if self.Options != None:
-            self.Options = [GroupOptions(**option) for option in self.Options]
+            self.Options        = [GroupOptions(**option) for option in self.Options]
         elif self.Manipulations != None:
-            self.Manipulations = [ModManipulations(**manip) for manip in self.Manipulations]
-            self.Identifier = TypeManip(self.Identifier)
-            self.DefaultEntry = TypeManip(self.DefaultEntry)
+            self.Manipulations  = [ModManipulations(**manip) for manip in self.Manipulations]
+            self.Identifier     = TypeManip(self.Identifier)
+            self.DefaultEntry   = TypeManip(self.DefaultEntry)
 
     def to_json(self):
         return json.dumps(self.remove_none(asdict(self)), indent=4)
@@ -95,15 +95,17 @@ class ModGroups:
 
 @dataclass
 class ModMeta:
-    FileVersion: int = 3
-    Name: str = ""
-    Author: str = ""
-    Description: str = ""
-    Image: str = ""
-    Version: str = ""
-    Website: str = ""
-    ModTags: list = field(default_factory=list)
+    FileVersion :int  = 3
+    Name        :str  = ""
+    Author      :str  = ""
+    Description :str  = ""
+    Image       :str  = ""
+    Version     :str  = ""
+    Website     :str  = ""
+    ModTags     :list = field(default_factory=list)
 
     def to_json(self):
         return json.dumps(asdict(self), indent=4)
-  
+
+
+CLASSES = []

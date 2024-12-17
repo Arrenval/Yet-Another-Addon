@@ -33,6 +33,7 @@ class ShapeKeyTransfer(Operator):
         if self.source_input == "Chest":
             self.shrinkwrap     :bool   = props.add_shrinkwrap
             self.sub_keys_bool  :bool   = props.sub_shape_keys
+            self.overhang       :bool   = props.adjust_overhang
             self.chest_base     :str    = props.shape_key_base
             self.vertex_pin     :str    = props.obj_vertex_groups
             self.exclude_wrap   :str    = props.exclude_vertex_groups
@@ -67,7 +68,7 @@ class ShapeKeyTransfer(Operator):
         self.transfer(source, target)
         return {'FINISHED'}
     
-    def get_shape_keys(self):
+    def get_shape_keys(self) -> dict:
         options = {}
         prop = bpy.context.scene.devkit_props
 
@@ -89,7 +90,7 @@ class ShapeKeyTransfer(Operator):
 
         return options
     
-    def add_driver(self, new_key:ShapeKey, source:Object, target:Object):
+    def add_driver(self, new_key:ShapeKey, source:Object, target:Object) -> None:
         new_key.driver_remove("value")
         new_key.driver_remove("mute")
         value = new_key.driver_add("value").driver
@@ -124,7 +125,7 @@ class ShapeKeyTransfer(Operator):
         mute_var.targets[0].id = source.data.shape_keys
         mute_var.targets[0].data_path = f'key_blocks["{new_key.name}"].mute'
         
-    def transfer(self, source:Object, target:Object):
+    def transfer(self, source:Object, target:Object) -> None:
         sub_keys = ["squeeze", "squish", "push-up", "omoi", "sag", "nip nops", "sayonara", "mini"]
         transfer = [
             key for key in source.data.shape_keys.key_blocks 
@@ -173,7 +174,7 @@ class ShapeKeyTransfer(Operator):
                     bpy.ops.mesh.select_all(action='DESELECT')
                     bpy.ops.object.mode_set(mode='OBJECT')
     
-    def create_keys(self, shape_key:ShapeKey, target:Object, relative:str):
+    def create_keys(self, shape_key:ShapeKey, target:Object, relative:str) -> None:
         if target.data.shape_keys.key_blocks.get(shape_key.name):
                 new_key = target.data.shape_keys.key_blocks[shape_key.name]
         else:
@@ -186,9 +187,8 @@ class ShapeKeyTransfer(Operator):
         self.deform(new_key, target)
         self.driver.append(new_key)
                     
-    def deform(self, new_key:ShapeKey, target:Object):
+    def deform(self, new_key:ShapeKey, target:Object) -> None:
         if any(key == new_key.name for shape, (bool, key) in self.deform_target.items() if bool == True):
-            print(new_key.name)
             if any(new_key.name == deform for deform in self.chest_deforms):
                 source = self.devkit.get_object_from_mesh("Chest Controller")
             else:
@@ -208,7 +208,8 @@ class ShapeKeyTransfer(Operator):
             else:
                 self.add_modifier(new_key.name, source, target)
 
-    def add_modifier(self, key_name:str, source:Object, target:Object):
+    def add_modifier(self, key_name:str, source:Object, target:Object) -> None:
+        source_keys = source.data.shape_keys.key_blocks
         self.controller_state(source)
         if target.modifiers.get("SurfaceDeform"):
                 target.modifiers["SurfaceDeform"].name = "SurfaceDeformBak"
@@ -221,15 +222,15 @@ class ShapeKeyTransfer(Operator):
             target.modifiers[modifier].vertex_group = self.vertex_pin
             target.modifiers[modifier].invert_vertex_group = True
         if key_name == "Less Hip Dips (for Rue)":
-            source.data.shape_keys.key_blocks["Rue"].mute = False
+            source_keys["Rue"].mute = False
         if "Hip Dips" in key_name:
-            source.data.shape_keys.key_blocks["Alt Hips"].mute = False
+            source_keys["Alt Hips"].mute = False
         else:
             if source.data.name == "Chest Controller" and self.chest_base != "Large" and key_name != self.chest_base.upper():
-                source.data.shape_keys.key_blocks[self.chest_base.upper()].mute = True
-                source.data.shape_keys.key_blocks[key_name].mute = False
+                source_keys[self.chest_base.upper()].mute = True
+                source_keys[key_name].mute = False
             else:
-                source.data.shape_keys.key_blocks[key_name].mute = False
+                source_keys[key_name].mute = False
 
         self.apply_modifier(key_name, target, modifier)
         if self.source_input == "Chest":
@@ -245,8 +246,10 @@ class ShapeKeyTransfer(Operator):
                 target.data.shape_keys.key_blocks[key_name].value = 0
         else:
             self.deform_corrections(key_name, source, target, high=False)
+        
+        self.controller_state(source, reset=True)
 
-    def deform_corrections(self, key_name:str, source:Object, target:Object, high:bool):
+    def deform_corrections(self, key_name:str, source:Object, target:Object, high:bool) -> None:
         if high:
             factor = 1.0
             iterations = 10
@@ -282,7 +285,7 @@ class ShapeKeyTransfer(Operator):
 
         self.apply_modifier(key_name, target, modifier)
 
-    def shrinkwrap_exclude(self, target:Object, modifier:str):
+    def shrinkwrap_exclude(self, target:Object, modifier:str) -> None:
         if self.exclude_wrap != "None":
             if self.vertex_pin != "None":
                 target.vertex_groups.active = target.vertex_groups[self.vertex_pin]
@@ -301,7 +304,7 @@ class ShapeKeyTransfer(Operator):
             target.modifiers[modifier].vertex_group = self.vertex_pin
         target.modifiers[modifier].invert_vertex_group = True
 
-    def apply_modifier(self, key_name:str, target:Object, modifier:str):
+    def apply_modifier(self, key_name:str, target:Object, modifier:str) -> None:
         bpy.ops.object.modifier_apply_as_shapekey(keep_modifier=False, modifier=modifier)
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
@@ -314,12 +317,14 @@ class ShapeKeyTransfer(Operator):
         target.active_shape_key_index = key_index
         bpy.ops.object.shape_key_remove(all=False)
 
-    def controller_state(self, source:Object):
+    def controller_state(self, source:Object, reset=False) -> None:
         key_blocks = source.data.shape_keys.key_blocks
         for key in key_blocks:
             key.mute = True
 
         if source.data.name == "Chest Controller":
+            if self.overhang and not reset:
+                key_blocks["Overhang"].mute = False
             key_blocks[self.chest_base.upper()].mute = False
 
 CLASSES = [

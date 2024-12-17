@@ -5,7 +5,7 @@ bl_info = {
     "name": "Yet Another Addon",
     "author": "Aleks",
     "description": "A set of tools made for ease of use with Yet Another Devkit.",
-    "version": (0, 3, 1),
+    "version": (0, 9, 0),
     "blender": (4, 2, 1),
     "category": "",
     }
@@ -14,20 +14,20 @@ DEVKIT_VER = (0, 0, 0)
 
 import os
 import sys
-import ast
 import bpy
 
 sys.path.append(os.path.dirname(__file__))
 
-from importlib  import reload
 from .ui        import panel
-from .file      import ya_import
 from .file      import export
 from .file      import modpack
-from .util      import props    
-from .outfit    import shapes  
-from .outfit    import mesh  
-from .outfit    import weights        
+from .file      import ya_import
+from .util      import props
+from .util      import penumbra
+from .outfit    import mesh 
+from .outfit    import shapes   
+from .outfit    import weights  
+from importlib  import reload      
       
 modules = [
     ya_import,
@@ -36,13 +36,15 @@ modules = [
     weights,
     shapes,
     mesh,
+    penumbra,
     props,
     panel
 ]
 
 def menu_emptyvgroup_append(self, context):
     self.layout.separator(type="LINE")
-    self.layout.operator("ya.remove_empty_vgroups", text="Remove Empty Vertex Groups")
+    self.layout.operator("ya.remove_empty_vgroups", text="Remove Empty Vertex Groups").preset = "menu"
+    self.layout.operator("ya.remove_select_vgroups", text= "Remove Selected and Adjust Parent").preset = "menu"
 
 def devkit_check():
     global DEVKIT_VER
@@ -66,19 +68,31 @@ def register():
     bpy.app.timers.register(devkit_check, first_interval=0.1)
     bpy.types.Scene.ya_addon_ver = bl_info["version"]
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
+    bpy.app.handlers.depsgraph_update_post.append(props.yas_vgroups)
+    bpy.app.handlers.animation_playback_pre.append(props.pre_anim_handling)
+    bpy.app.handlers.animation_playback_post.append(props.post_anim_handling)
 
 def unregister():
     bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_emptyvgroup_append)
 
     for module in reversed(modules):
         for cls in reversed(module.CLASSES):
-            if cls == props:
-                props.remove_addon_properties()
             bpy.utils.unregister_class(cls)
 
-    del bpy.types.Scene.ya_addon_ver
+    del bpy.types.Scene.file_props
+    del bpy.types.Scene.pmp_group_options
+    del bpy.types.Scene.outfit_props
+    del bpy.types.Scene.yas_vgroups
+    del bpy.types.Scene.yas_vindex
+    del bpy.types.Scene.fbx_subfolder
+    del bpy.types.Scene.animation_optimise
+    
     if hasattr(bpy.context.scene, "devkit"):
         del bpy.types.Scene.devkit
-    
+
+    bpy.app.handlers.depsgraph_update_post.remove(props.yas_vgroups)
+    bpy.app.handlers.animation_playback_pre.remove(props.pre_anim_handling)
+    bpy.app.handlers.animation_playback_post.remove(props.post_anim_handling)
+
 if __name__ == "__main__":
     register()
