@@ -72,7 +72,7 @@ class ShapeKeyTransfer(Operator):
         options = {}
         prop = bpy.context.scene.devkit_props
 
-        for shape, (name, slot, shape_category, description, body, key) in self.devkit.ALL_SHAPES.items():
+        for shape, (name, slot, shape_category, description, body, key) in prop.ALL_SHAPES.items():
             if key == "":
                 continue
             if slot != self.source_input:

@@ -4,8 +4,8 @@
 bl_info = {
     "name": "Yet Another Addon",
     "author": "Aleks",
-    "description": "A set of tools made for ease of use with Yet Another Devkit.",
-    "version": (0, 9, 0),
+    "description": "Several tools to speed up XIV modding workflows.",
+    "version": (0, 9, 5),
     "blender": (4, 2, 1),
     "category": "",
     }
@@ -18,18 +18,22 @@ import bpy
 
 sys.path.append(os.path.dirname(__file__))
 
-from .ui        import panel
-from .file      import export
-from .file      import modpack
-from .file      import ya_import
-from .util      import props
-from .util      import penumbra
-from .outfit    import mesh 
-from .outfit    import shapes   
-from .outfit    import weights  
-from importlib  import reload      
+from .ui            import panel
+from .file          import export
+from .file          import modpack
+from .file          import ya_import
+from .util          import props
+from .util          import handlers
+from .util          import penumbra
+from .outfit        import mesh 
+from .outfit        import shapes   
+from .outfit        import weights  
+from importlib      import reload 
+    
       
 modules = [
+    props,
+    handlers,
     ya_import,
     export,
     modpack,
@@ -37,7 +41,6 @@ modules = [
     shapes,
     mesh,
     penumbra,
-    props,
     panel
 ]
 
@@ -64,35 +67,23 @@ def register():
             bpy.utils.register_class(cls)
         if module == props:
             props.set_addon_properties()
-
+      
+    handlers.set_handlers()
     bpy.app.timers.register(devkit_check, first_interval=0.1)
     bpy.types.Scene.ya_addon_ver = bl_info["version"]
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
-    bpy.app.handlers.depsgraph_update_post.append(props.yas_vgroups)
-    bpy.app.handlers.animation_playback_pre.append(props.pre_anim_handling)
-    bpy.app.handlers.animation_playback_post.append(props.post_anim_handling)
 
 def unregister():
+    handlers.remove_handlers()
     bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_emptyvgroup_append)
-
+    
     for module in reversed(modules):
+        if module == props:
+                props.remove_addon_properties()
         for cls in reversed(module.CLASSES):
             bpy.utils.unregister_class(cls)
-
-    del bpy.types.Scene.file_props
-    del bpy.types.Scene.pmp_group_options
-    del bpy.types.Scene.outfit_props
-    del bpy.types.Scene.yas_vgroups
-    del bpy.types.Scene.yas_vindex
-    del bpy.types.Scene.fbx_subfolder
-    del bpy.types.Scene.animation_optimise
     
     if hasattr(bpy.context.scene, "devkit"):
         del bpy.types.Scene.devkit
 
-    bpy.app.handlers.depsgraph_update_post.remove(props.yas_vgroups)
-    bpy.app.handlers.animation_playback_pre.remove(props.pre_anim_handling)
-    bpy.app.handlers.animation_playback_post.remove(props.post_anim_handling)
 
-if __name__ == "__main__":
-    register()

@@ -3,7 +3,7 @@ import bpy
 
 from pathlib       import Path
 from bpy.props     import StringProperty
-from ..util.props  import get_object_from_mesh
+from ..util.props  import get_object_from_mesh, OutfitProps
 from bpy.types     import Panel, Operator, UIList, UILayout, Context, VertexGroup
 
 class MESH_UL_yas(UIList):
@@ -12,14 +12,15 @@ class MESH_UL_yas(UIList):
     def draw_item(self, context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
         ob = data
         vgroup = item
-        icon = 201
+        icon = self.get_icon_value("GROUP_VERTEX")
+        error = self.get_icon_value("ERROR")
         try:
             category = bpy.context.scene.outfit_props.YAS_BONES[vgroup.name]
         except:
             category = "Unknown"
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             if "Mesh has" in vgroup.name:
-                layout.prop(vgroup, "name", text="", emboss=False, icon_value=2)
+                layout.prop(vgroup, "name", text="", emboss=False, icon_value=error)
             else:
                 layout.prop(vgroup, "name", text=category, emboss=False, icon_value=icon)
                 icon = 'LOCKED' if vgroup.lock_weight else 'UNLOCKED'
@@ -28,8 +29,8 @@ class MESH_UL_yas(UIList):
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
     
-    def get_icon_value(icon_name: str) -> int:
-        icon_items = bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
+    def get_icon_value(self, icon_name: str) -> int:
+        icon_items = UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
         icon_dict = {tup[1].identifier : tup[1].value for tup in icon_items}
 
         return icon_dict[icon_name]
@@ -94,6 +95,8 @@ class PanelCategory(Operator):
                 context.scene.file_props.file_man_ui = self.overview
             case "outfit":
                 context.scene.outfit_props.outfit_ui = self.overview
+                if self.overview == "Animation":
+                    OutfitProps.set_action(self, context)
         return {'FINISHED'}
 
 class OutfitStudio(Panel):
@@ -111,7 +114,7 @@ class OutfitStudio(Panel):
         section_prop = context.scene.outfit_props
         layout = self.layout
 
-        options ={
+        self.options ={
             "Overview": "INFO",
             "Shapes": "SHAPEKEY_DATA",
             "Mesh": "OUTLINER_OB_MESH",
@@ -121,7 +124,7 @@ class OutfitStudio(Panel):
 
         row = layout.row()
         colui = row.column()
-        self.ui_category_buttons(colui, section_prop, "outfit_ui", options, "outfit")
+        self.ui_category_buttons(colui, section_prop, "outfit_ui", self.options, "outfit")
         box = row.box()
         
         if section_prop.outfit_ui == "Overview":
@@ -132,6 +135,9 @@ class OutfitStudio(Panel):
             self.draw_shapes(box, section_prop, devkit_prop)
             
         if section_prop.outfit_ui == "Mesh":
+            row = box.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="Mesh", icon=self.options["Mesh"])
             row = box.column(align=True)
             row.label(text="Backfaces", icon="REMOVE")
             col = box.column(align=True)
@@ -140,10 +146,13 @@ class OutfitStudio(Panel):
             sub.operator("ya.create_backfaces", text=f"CREATE")
             sub.operator("ya.tag_backfaces", text="REMOVE").preset = 'REMOVE'
 
+            row = box.row(align=True)
+            row.template_modifiers()
+
         if section_prop.outfit_ui == "Weights":
             row = box.row()
             row.alignment = "CENTER"
-            row.label(text="Weights")
+            row.label(text="Weights", icon=self.options["Weights"])
 
             obj = context.active_object
             row = box.row()
@@ -172,7 +181,7 @@ class OutfitStudio(Panel):
         if section_prop.outfit_ui == "Animation":
             row = box.row()
             row.alignment = "CENTER"
-            row.label(text="Animation")
+            row.label(text="Animation", icon=self.options["Animation"])
             row = box.row()
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
@@ -183,33 +192,40 @@ class OutfitStudio(Panel):
             split.alignment = "RIGHT"
             split.label(text="Animation:")
             split.prop(section_prop, "actions", text="", icon="ACTION")
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.operator("screen.frame_jump", text="", icon="FRAME_PREV").end = False
-            row.operator("screen.keyframe_jump", text="", icon="PREV_KEYFRAME").next = False
-            if bpy.context.screen.is_animation_playing:
-                row.scale_x = 2
-                row.operator("screen.animation_play", text="", icon="PAUSE")
-                row.scale_x = 1
-            else:
-                row.operator("screen.animation_play", text="", icon="PLAY_REVERSE").reverse = True
-                row.operator("screen.animation_play", text="", icon="PLAY")
-            row.operator("screen.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
-            row.operator("screen.frame_jump", text="", icon="FRAME_NEXT").end = True
+            if section_prop.armatures != "None" and section_prop.actions != "None":
+                box.separator(factor=0.5, type="LINE")
+                row = box.row(align=True)
+                col = row.column(align=True)
+                row = col.row(align=True)
+                row.alignment = "CENTER"
+                row.label(text="Animation Frame:")
+                col.prop(section_prop, "animation_frame", text="")
+                row = box.row(align=True)
+                row.alignment = "CENTER"
+                row.operator("screen.frame_jump", text="", icon="FRAME_PREV").end = False
+                row.operator("screen.keyframe_jump", text="", icon="PREV_KEYFRAME").next = False
+                if bpy.context.screen.is_animation_playing:
+                    row.scale_x = 2
+                    row.operator("screen.animation_play", text="", icon="PAUSE")
+                    row.scale_x = 1
+                else:
+                    row.operator("screen.animation_play", text="", icon="PLAY_REVERSE").reverse = True
+                    row.operator("screen.animation_play", text="", icon="PLAY")
+                row.operator("screen.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
+                row.operator("screen.frame_jump", text="", icon="FRAME_NEXT").end = True
             
-
-    
+            
     def draw_shapes(self, layout:UILayout, section_prop, devkit_prop):
         button_type = "shpk"
         row = layout.row(align=True)
         row.alignment = "CENTER"
-        row.label(text="Shapes")
+        row.label(text="Shapes", icon="SHAPEKEY_DATA")
 
         col = layout.column(align=True)
         split = col.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Source:")
-        split.prop(section_prop, "shape_key_source", text="", icon="MESH_CUBE")
+        split.prop(section_prop, "shape_key_source", text="", icon=self.options["Shapes"])
         col.separator(type="LINE", factor=2)
 
         if not hasattr(bpy.context.scene, "devkit_props") and section_prop.shape_key_source != "Selected":

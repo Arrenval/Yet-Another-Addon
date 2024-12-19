@@ -64,7 +64,6 @@ def modpack_group_data(file_name:str, pmp:ZipFile, data:str) -> str | tuple[str,
     except Exception as e:
         return f"ERROR: {file_name[10:-4]}"    
   
-
 class ModpackDirSelector(Operator):
     bl_idname = "ya.modpack_dir_selector"
     bl_label = "Select Folder"
@@ -391,7 +390,7 @@ class Modpacker(Operator):
 
         cmd_name = "FBXtoMDL.cmd"
         sys_drive = textools.drive
-        commands = ["@echo off", f"cd /d {sys_drive}", f"cd {textools}"]
+        commands = ["@echo off", f"cd /d {sys_drive}", f"cd {textools}", "echo Please don't close this window..."]
 
         cmd_path = user_input.fbx / cmd_name
         Path.mkdir(user_input.fbx / user_input.subfolder / "MDL", exist_ok=True)

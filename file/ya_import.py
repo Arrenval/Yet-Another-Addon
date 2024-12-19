@@ -38,8 +38,9 @@ class SimpleCleanUp(Operator):
     
     def execute(self, context):
         props = context.scene.file_props
-        if props.fix_parent:
-            self.fix_parent()
+        if hasattr(context.scene, "devkit_props"):
+            if props.fix_parent:
+                self.fix_parent()
         if props.update_material:
             self.update_material()
         if props.rename_import != "":

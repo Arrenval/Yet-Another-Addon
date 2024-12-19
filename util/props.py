@@ -2,6 +2,7 @@ import os
 import bpy
 
 from pathlib              import Path
+from bpy.app.handlers     import persistent
 from bpy.types            import PropertyGroup, Object, Context
 from ..file.modpack       import get_modpack_groups, modpack_data
 from bpy.props            import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
@@ -79,7 +80,7 @@ class FileProps(PropertyGroup):
                 )
             setattr(FileProps, prop_name, prop)
     
-    def update_directory(context:Context, category:str) -> None:
+    def update_directory(self, context:Context, category:str) -> None:
         prop = context.scene.file_props
         actual_prop = f"{category}_directory"
         display_prop = f"{category}_display_directory"
@@ -332,27 +333,10 @@ class FileProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-def yas_vgroups(dummy) -> None:
-    scene = bpy.context.scene
-    props = bpy.context.scene.outfit_props
+def selected_yas_vgroup() -> None:
     obj = bpy.context.active_object
-    if props.outfit_ui == "Weights" and props.filter_vgroups and obj.type == "MESH":
-        prefix = ("iv_", "ya_")
-        groups = [group for group in obj.vertex_groups if group.name.startswith(prefix)]
-
-        scene.yas_vgroups.clear()
-        for group in groups:
-            new_group = scene.yas_vgroups.add()
-            new_group.name = group.name
-            new_group.lock_weight = obj.vertex_groups[group.name].lock_weight
-        if not groups:
-            new_group = scene.yas_vgroups.add()
-            new_group.name = "Mesh has no YAS groups"
-
-def selected_yas_vgroup(context:Context) -> None:
-    obj = context.active_object
     try:
-        obj.vertex_groups.active = obj.vertex_groups.get(context.scene.yas_vgroups[context.scene.yas_vindex].name)
+        obj.vertex_groups.active = obj.vertex_groups.get(bpy.context.scene.yas_vgroups[bpy.context.scene.yas_vindex].name)
     except:
         pass
 
@@ -536,7 +520,28 @@ class OutfitProps(PropertyGroup):
         armature = prop.armatures
         action = bpy.data.actions.get(prop.actions)
 
-        bpy.data.objects[armature].animation_data.action = action
+        if action and armature != "None":
+
+            bpy.data.objects[armature].animation_data.action = action
+            bpy.context.scene.frame_end = int(action.frame_end)
+
+            if hasattr(OutfitProps, "animation_frame"):
+                del OutfitProps.animation_frame
+            
+            prop = IntProperty(
+                name="Current Frame",
+                default=0,
+                max=int(action.frame_end),
+                min=0,
+                update=lambda self, context: self.animation_frames(context)
+                ) 
+            setattr(OutfitProps, "animation_frame", prop)
+
+    def animation_frames(self, context:Context) -> None:
+        if context.screen.is_animation_playing:
+            self.animation_frame = context.scene.frame_current
+        else:
+            context.scene.frame_current = self.animation_frame
 
     outfit_ui: EnumProperty(
         name= "",
@@ -598,6 +603,13 @@ class OutfitProps(PropertyGroup):
         update=lambda self, context: self.set_action(context)
     ) # type: ignore
 
+    animation_frame: IntProperty(
+        default=0,
+        max=500,
+        min=0,
+        update=lambda self, context: self.animation_frames(context),
+    ) # type: ignore
+
 CLASSES = [
     ModpackGroups,
     FBXSubfolders,
@@ -606,45 +618,6 @@ CLASSES = [
     YASVGroups,
     OutfitProps
 ]
-
-def pre_anim_handling(dummy) ->None:
-    context = bpy.context
-    context.scene.animation_optimise.clear()
-    optimise = bpy.context.scene.animation_optimise.add()
-    if hasattr(bpy.context.scene, "devkit_props"):
-        optimise.triangulation = context.scene.devkit_props.controller_triangulation
-        optimise.uv_transfer   = context.scene.devkit_props.controller_uv_transfers
-        context.scene.devkit_props.controller_triangulation = False
-        context.scene.devkit_props.controller_uv_transfers  = False
-        get_object_from_mesh("Controller").update_tag()
-        bpy.ops.yakit.collection_manager(preset="Animation")
-    
-    try:
-        area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
-        view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
-
-        with context.temp_override(area=area, space=view3d):
-            optimise.show_armature = context.space_data.show_object_viewport_armature
-            context.space_data.show_object_viewport_armature = False
-    except:
-        pass
-
-def post_anim_handling(dummy) ->None:
-    context = bpy.context
-    optimise = context.scene.animation_optimise
-    if hasattr(bpy.context.scene, "devkit_props"):
-        context.scene.devkit_props.controller_triangulation = optimise[0].triangulation
-        context.scene.devkit_props.controller_uv_transfers  = optimise[0].uv_transfer
-        bpy.ops.yakit.collection_manager(preset="Restore") 
-    
-    try:
-        area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
-        view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
-
-        with context.temp_override(area=area, space=view3d):
-            context.space_data.show_object_viewport_armature = optimise[0].show_armature
-    except:
-        pass
 
 def set_addon_properties() -> None:
     bpy.types.Scene.file_props = PointerProperty(
@@ -656,7 +629,7 @@ def set_addon_properties() -> None:
     bpy.types.Scene.yas_vgroups = CollectionProperty(
         type=YASVGroups)
     
-    bpy.types.Scene.yas_vindex = IntProperty(name="YAS Group Index", description="Index of the YAS groups on the active object", update=lambda self, context:selected_yas_vgroup(context))
+    bpy.types.Scene.yas_vindex = IntProperty(name="YAS Group Index", description="Index of the YAS groups on the active object", update=lambda self, context:selected_yas_vgroup())
     
     bpy.types.Scene.pmp_group_options = bpy.props.CollectionProperty(
         type=ModpackGroups)
