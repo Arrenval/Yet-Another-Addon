@@ -7,7 +7,7 @@ from pathlib        import Path
 from functools      import partial
 from itertools      import combinations
 from bpy.props      import StringProperty
-from bpy.types      import Operator, Object, Context
+from bpy.types      import Operator, Object, Context, ShapeKey
 from ..util.props   import get_object_from_mesh, visible_meshobj
 
 def create_backfaces() -> list[Object]:
@@ -85,53 +85,74 @@ def force_yas() -> None:
                 devkit.controller_yas_feet = True
 
 def shape_key_keeper() -> tuple[list[Object], list[Object]]:
-    # Checks all visible meshes for valid shape keys to keep
-    bpy.ops.object.select_all(action="DESELECT")
-    visible_obj = visible_meshobj()
-    mesh_modifiers = ["MIRROR", "SUBSURF", "MASK", "WELD"]
-    to_reset = []
-    to_delete = []
-    to_join = []
-    
-    for original_obj in visible_obj:
+
+    def shapekey_object(original_obj:Object) -> Object:
         old_name = original_obj.name
         split = old_name.split()
         split[0] = "ShapeKey"
         new_name = " ".join(split)
+        original_obj.select_set(state=True)
+        bpy.context.view_layer.objects.active = original_obj
+
+        bpy.ops.object.duplicate()
+        original_obj.hide_set(state=True)
+        shapekey_obj = bpy.context.selected_objects[0]
+        shapekey_obj.name = new_name
+        to_reset.append(original_obj)
+        to_delete.append(shapekey_obj)
+        return shapekey_obj
+    
+    def create_dupe(shapekey_obj:Object, key:ShapeKey) -> Object:
+        shapekey_obj.select_set(state=True)
+        bpy.context.view_layer.objects.active = shapekey_obj
+
+        bpy.ops.object.duplicate()
+        shapekey_dupe = bpy.context.selected_objects[0]
+        shapekey_dupe.data.shape_keys.key_blocks[key.name].value = 1.0
+        bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+        shapekey_dupe.name = key.name
+        return shapekey_dupe
+
+    def check_modifiers(obj:Object, check_mesh=False) -> None:
+        mesh_modifiers = ["MIRROR", "SUBSURF", "MASK", "WELD"]
+        for modifier in obj.modifiers:
+            if modifier.type == "ARMATURE":
+                continue
+            if not modifier.show_viewport:
+                bpy.ops.object.modifier_remove(modifier=modifier.name)
+                continue
+            if check_mesh and any(modifier.type in mesh_modifiers for m in mesh_modifiers):
+                try:
+                    bpy.ops.object.modifier_apply(modifier=modifier.name)
+                except:
+                    bpy.ops.object.modifier_remove(modifier=modifier.name)
+            elif not check_mesh:
+                try:
+                    bpy.ops.object.modifier_apply(modifier=modifier.name)
+                except:
+                    bpy.ops.object.modifier_remove(modifier=modifier.name)
+
+    # Checks all visible meshes for valid shape keys to keep
+    bpy.ops.object.select_all(action="DESELECT")
+    visible_obj = visible_meshobj()
+    # to_reset is the original object(s) that is now hidden, stored to be unhidden later
+    to_reset    :list[Object] = []
+    # to_delete are the shape key meshes that will be deleted after each queue pop
+    to_delete   :list[Object] = []
+    # to_join are the temporary dupes with the shape keys activated that will be merged into the export mesh (shapekey_obj)
+    to_join     :list[Object] = []
+
+    for original_obj in visible_obj:
         xiv_key = [key for key in original_obj.data.shape_keys.key_blocks if key.name.startswith("shp")]
 
         if xiv_key:
-            original_obj.select_set(state=True)
-            bpy.context.view_layer.objects.active = original_obj
-
-            bpy.ops.object.duplicate()
-            original_obj.hide_set(state=True)
-            shapekey_obj = bpy.context.selected_objects[0]
-            shapekey_obj.name = new_name
-            to_reset.append(original_obj)
-            to_delete.append(shapekey_obj)
+            shapekey_obj = shapekey_object(original_obj)
 
         for key in xiv_key:
-            shapekey_obj.select_set(state=True)
-            bpy.context.view_layer.objects.active = shapekey_obj
-
-            bpy.ops.object.duplicate()
-            shapekey_dupe = bpy.context.selected_objects[0]
-            shapekey_dupe.data.shape_keys.key_blocks[key.name].value = 1.0
-            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
-            shapekey_dupe.name = key.name
-
+            shapekey_dupe = create_dupe(shapekey_obj, key)
             shapekey_dupe.select_set(state=True)
             bpy.context.view_layer.objects.active = shapekey_dupe
-            for modifier in shapekey_dupe.modifiers:
-                if any(modifier.type in mesh_modifiers for m in mesh_modifiers):
-                    try:
-                        bpy.ops.object.modifier_apply(modifier=modifier.name)
-                    except:
-                        bpy.ops.object.modifier_remove(modifier=modifier.name)
-                elif modifier.type != "ARMATURE":
-                    bpy.ops.object.modifier_remove(modifier=modifier.name)
-            
+            check_modifiers(shapekey_dupe, check_mesh=True)
             to_join.append(shapekey_dupe)
             bpy.ops.object.select_all(action="DESELECT")
 
@@ -139,14 +160,7 @@ def shape_key_keeper() -> tuple[list[Object], list[Object]]:
             shapekey_obj.select_set(state=True)
             bpy.context.view_layer.objects.active = shapekey_obj
             bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
-            for modifier in shapekey_obj.modifiers:
-                if modifier.type != "ARMATURE" and modifier.show_viewport:
-                    try:
-                        bpy.ops.object.modifier_apply(modifier=modifier.name)
-                    except:
-                        bpy.ops.object.modifier_remove(modifier=modifier.name)
-                elif modifier.type != "ARMATURE":
-                    bpy.ops.object.modifier_remove(modifier=modifier.name)
+            check_modifiers(shapekey_obj)
             for dupe in to_join:
                 dupe.select_set(state=True)
                 bpy.ops.object.join_shapes()
@@ -156,7 +170,7 @@ def shape_key_keeper() -> tuple[list[Object], list[Object]]:
 
     return to_reset, to_delete
 
-def restore_pre_shape_key(to_reset, to_delete) -> None:
+def restore_pre_shape_key(to_reset:list[Object], to_delete:list[Object]) -> None:
     for obj in to_delete:
         bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
     
@@ -195,6 +209,20 @@ def mesh_parts(current_group) -> int:
             groups[group] = part
     return int(groups[current_group])
 
+def armature_visibility(export=False) -> None:
+    # Makes sure armatures are enabled in scene's space data
+    # W ill not affect armatures that are specifically hidden
+    context = bpy.context
+    if export:
+        context.scene.animation_optimise.clear()
+        optimise = bpy.context.scene.animation_optimise.add()
+        optimise.show_armature = context.space_data.show_object_viewport_armature
+        context.space_data.show_object_viewport_armature = True
+    else:
+        optimise = context.scene.animation_optimise
+        context.space_data.show_object_viewport_armature = optimise[0].show_armature
+
+        
 class SimpleExport(Operator):
     bl_idname = "ya.simple_export"
     bl_label = "Simple Export"
@@ -233,6 +261,7 @@ class SimpleExport(Operator):
     def execute(self, context):
         export_path = str(self.directory / self.user_input)
         export_settings = FileExport.get_export_settings(self.gltf)
+        armature_visibility(export=True)
 
         if hasattr(context.scene, "devkit_props"):
             devkit_props = context.scene.devkit_props
@@ -261,7 +290,7 @@ class SimpleExport(Operator):
         if hasattr(context.scene, "devkit_props"):
             ivcs_mune()
             devkit_props.controller_uv_transfers = False
-        
+        armature_visibility()
         return {'FINISHED'}
 
     def draw(self, context):
@@ -354,6 +383,7 @@ class BatchQueue(Operator):
             ivcs_mune(yas)
 
         props.export_total = len(self.queue)
+        armature_visibility(export=True)
         BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot)
         return {'FINISHED'}
     
@@ -623,6 +653,7 @@ class BatchQueue(Operator):
             bpy.ops.yakit.collection_manager(preset="Restore")
             props.controller_uv_transfers = False
             BatchQueue.progress_reset(props)
+            armature_visibility()
             return None
 
     # These functions are responsible for applying the correct model state and appropriate file name.
@@ -659,7 +690,7 @@ class BatchQueue(Operator):
         return file_name
 
     def apply_model_state(options, size, gen, body_slot, ob) -> None:
-        devkit = bpy.data.texts["devkit.py"].as_module()
+        devkit = bpy.context.scene.devkit
         devkit_props = bpy.context.scene.devkit_props
         if body_slot == "Chest & Legs":
             body_slot = "Chest"
