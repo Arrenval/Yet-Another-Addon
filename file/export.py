@@ -71,18 +71,32 @@ def check_triangulation() -> tuple[bool, list[str]]:
     else:
         return True, not_triangulated
 
-def force_yas() -> None:
+def force_yas(export="SIMPLE", body_slot="") -> None:
     devkit = bpy.context.scene.devkit_props
-    for obj in bpy.context.scene.objects:
-        if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
-            if obj.data.name == "Torso":
+    if export == "SIMPLE":
+        for obj in bpy.context.scene.objects:
+            if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
+                if obj.data.name == "Torso":
+                    devkit.controller_yas_chest = True
+                if obj.data.name == "Waist":
+                    devkit.controller_yas_legs = True
+                if obj.data.name == "Hands":
+                    devkit.controller_yas_hands = True
+                if obj.data.name == "Feet":
+                    devkit.controller_yas_feet = True
+    else:
+        match body_slot:
+            case "Chest":
                 devkit.controller_yas_chest = True
-            if obj.data.name == "Waist":
+            case "Legs":
                 devkit.controller_yas_legs = True
-            if obj.data.name == "Hands":
+            case "Hands":
                 devkit.controller_yas_hands = True
-            if obj.data.name == "Feet":
+            case "Feet":
                 devkit.controller_yas_feet = True
+            case "Chest & Legs":
+                devkit.controller_yas_chest = True
+                devkit.controller_yas_legs = True
 
 def shape_key_keeper() -> tuple[list[Object], list[Object]]:
 
@@ -93,6 +107,7 @@ def shape_key_keeper() -> tuple[list[Object], list[Object]]:
         new_name = " ".join(split)
         original_obj.select_set(state=True)
         bpy.context.view_layer.objects.active = original_obj
+        
 
         bpy.ops.object.duplicate()
         original_obj.hide_set(state=True)
@@ -114,7 +129,7 @@ def shape_key_keeper() -> tuple[list[Object], list[Object]]:
         return shapekey_dupe
 
     def check_modifiers(obj:Object, check_mesh=False) -> None:
-        mesh_modifiers = ["MIRROR", "SUBSURF", "MASK", "WELD"]
+        mesh_modifiers = ["MIRROR", "SUBSURF", "MASK", "WELD", "BEVEL", "SOLIDIFY"]
         for modifier in obj.modifiers:
             if modifier.type == "ARMATURE":
                 continue
@@ -143,6 +158,8 @@ def shape_key_keeper() -> tuple[list[Object], list[Object]]:
     to_join     :list[Object] = []
 
     for original_obj in visible_obj:
+        if not original_obj.data.shape_keys:
+            continue
         xiv_key = [key for key in original_obj.data.shape_keys.key_blocks if key.name.startswith("shp")]
 
         if xiv_key:
@@ -219,8 +236,14 @@ def armature_visibility(export=False) -> None:
         optimise.show_armature = context.space_data.show_object_viewport_armature
         context.space_data.show_object_viewport_armature = True
     else:
-        optimise = context.scene.animation_optimise
-        context.space_data.show_object_viewport_armature = optimise[0].show_armature
+        try:
+            area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
+            view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
+
+            with context.temp_override(area=area, space=view3d):
+                context.space_data.show_object_viewport_armature = optimise[0].show_armature
+        except:
+            pass
 
         
 class SimpleExport(Operator):
@@ -267,7 +290,7 @@ class SimpleExport(Operator):
             devkit_props = context.scene.devkit_props
             devkit_props.controller_uv_transfers = True
             if self.force_yas:
-                force_yas()
+                force_yas(export="SIMPLE")
             obj = get_object_from_mesh("Controller")
             yas = obj.modifiers["YAS Chest"].show_viewport
             ivcs_mune(yas)
@@ -333,7 +356,7 @@ class BatchQueue(Operator):
         self.queue = []
         self.leg_queue = []
         
-    def execute(self, context):
+    def execute(self, context): 
         props = bpy.context.scene.file_props
         props.controller_uv_transfers = True
         if self.check_tris:
@@ -341,9 +364,6 @@ class BatchQueue(Operator):
             if not triangulated:
                 self.report({'ERROR'}, f"Not Triangulated: {', '.join(obj)}")
                 return {'CANCELLED'} 
-        if self.force_yas:
-            force_yas()
-        
         if self.subfolder:
             Path.mkdir(self.export_directory / self.body_slot, exist_ok=True)
         
@@ -376,6 +396,9 @@ class BatchQueue(Operator):
             
         self.collection_state()
         bpy.ops.yakit.collection_manager(preset="Export")
+
+        if self.force_yas:
+            force_yas(export="BATCH", body_slot=self.body_slot)
 
         if "Chest" in self.body_slot:
             obj = get_object_from_mesh("Controller")
@@ -514,10 +537,7 @@ class BatchQueue(Operator):
 
         if body_slot == "Chest & Legs":
             body_slot = "Chest"
-        if yiggle:
-            file_names = ["Yiggle"]
-        else:
-            file_names = []
+        file_names = []
         
         gen_name = None
 
@@ -525,7 +545,9 @@ class BatchQueue(Operator):
         for shape, (name, slot, category, description, body, key) in devkit.ALL_SHAPES.items():
             if any(shape in options for option in options) and not shape.startswith("Gen") and name != "YAB":
                 if name == "Hip Dips":
-                    name = "Alt Hip" 
+                    name = "Alt Hip"
+                if name.endswith("Butt"):
+                    name = name[:-len(" Butt")]
                 file_names.append(name)
         
         # Checks if any Genitalia shapes and applies the shortened name 
@@ -549,6 +571,9 @@ class BatchQueue(Operator):
 
         if gen_name != None:
             file_names.append(gen_name)
+        
+        if yiggle:
+            return "Yiggle - " + " - ".join(list(file_names))
         
         return " - ".join(list(file_names))
     
@@ -706,10 +731,13 @@ class BatchQueue(Operator):
 
         # Adds the shape value presets alongside size toggles
         if body_slot == "Chest":
-            keys_to_filter = ["Squeeze", "Squish", "Push-Up", "Nip Nops"]
+            keys_to_filter = ["Nip Nops"]
+            base_size = ["Large", "Medium", "Small"]
             preset = devkit.get_shape_presets(size)
             filtered_preset = {}
-           
+
+            if any(size == base for base in base_size):
+                keys_to_filter = ["Squeeze", "Squish", "Push-Up", "Nip Nops"]
 
             for key in preset.keys():
                 if not any(key.endswith(sub) for sub in keys_to_filter):
@@ -721,7 +749,6 @@ class BatchQueue(Operator):
             bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
             bpy.context.view_layer.update()
                 
-        
         if gen != None and gen.startswith("Gen") and gen != "Gen A":
             ob[gen].mute = False
 

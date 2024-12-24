@@ -5,7 +5,7 @@ from dataclasses import dataclass, asdict, field
 
 @dataclass
 class TypeManip:
-    # Entry               :Union[int, float, dict] | None = None
+    Entry               :Union[int, float, dict] | None = None
     #EQDP, EQP, Est
     Gender              :str | None = None
     Race                :str | None = None
@@ -107,5 +107,3 @@ class ModMeta:
     def to_json(self):
         return json.dumps(asdict(self), indent=4)
 
-
-CLASSES = []

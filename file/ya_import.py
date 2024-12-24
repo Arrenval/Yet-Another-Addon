@@ -56,6 +56,15 @@ class SimpleCleanUp(Operator):
                 material = obj.active_material
                 material.surface_render_method = "DITHERED"
                 material.use_backface_culling = True
+                material.roughness = 0.5
+                material.metallic = 0.0
+                for node in material.node_tree.nodes:
+                    if node.inputs:
+                        try:
+                            node.inputs["Metallic"].default_value = 0.0
+                            node.inputs["Roughness"].default_value = 0.5
+                        except:
+                            pass
 
     def fix_parent(self) -> None:
         selected = bpy.context.selected_objects

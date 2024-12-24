@@ -1,10 +1,11 @@
 import os
 import bpy
+import json
 
 from pathlib              import Path
-from bpy.app.handlers     import persistent
+from zipfile              import ZipFile
+from .penumbra            import ModGroups, ModMeta
 from bpy.types            import PropertyGroup, Object, Context
-from ..file.modpack       import get_modpack_groups, modpack_data
 from bpy.props            import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
 
 
@@ -23,13 +24,62 @@ def get_object_from_mesh(mesh_name:str) -> Object | None:
 class ModpackGroups(PropertyGroup):
     group_value: bpy.props.StringProperty() # type: ignore
     group_name: bpy.props.StringProperty() # type: ignore
-    group_description: bpy.props.StringProperty() # type: ignore
-    group_page: bpy.props.IntProperty() # type: ignore
+    group_description: bpy.props.StringProperty(default="") # type: ignore
+    group_page: bpy.props.IntProperty(default=0) # type: ignore
 
 class FBXSubfolders(PropertyGroup):
-    group_value: bpy.props.StringProperty() # type: ignore
-    group_name: bpy.props.StringProperty() # type: ignore
-    group_description: bpy.props.StringProperty() # type: ignore
+    group_value: bpy.props.StringProperty(default="None") # type: ignore
+    group_name: bpy.props.StringProperty(default="None") # type: ignore
+    group_description: bpy.props.StringProperty(default="") # type: ignore
+
+def modpack_data(context) -> None:
+    scene = context.scene
+    scene.pmp_group_options.clear()
+    modpack = Path(scene.file_props.loadmodpack_directory)
+
+    new_option = scene.pmp_group_options.add()
+    new_option.group_value = str(0)
+    new_option.group_name = "New Group"  
+    new_option.group_description = ""
+
+    if modpack.is_file():
+        with ZipFile(modpack, "r") as pmp:
+            for file_name in pmp.namelist():
+                if file_name.count('/') == 0 and file_name.startswith("group") and not file_name.endswith("bak"):
+                    number = lambda name: ''.join(char for char in name if char.isdigit())
+                    group_name, group_page = modpack_group_data(file_name, pmp, data="name")
+
+                    new_option = context.scene.pmp_group_options.add()
+                    new_option.group_value = str(number(file_name))
+                    new_option.group_name = group_name
+                    new_option.group_description = file_name
+                    new_option.group_page = group_page
+ 
+            with pmp.open("meta.json") as meta:
+                meta_contents = json.load(meta)
+
+                mod_meta = ModMeta(**meta_contents)
+                scene.file_props.loadmodpack_version = mod_meta.Version
+                scene.file_props.loadmodpack_author = mod_meta.Author
+    
+def modpack_group_data(file_name:str, pmp:ZipFile, data:str) -> str | tuple[str,int]:
+    try:
+        with pmp.open(file_name) as file:
+            file_contents = json.load(file)
+                      
+            group_data = ModGroups(**file_contents)
+
+            if data == "name":
+                return str(group_data.Name), int(group_data.Page)
+            if data == "all":
+                return group_data
+
+    except Exception as e:
+        return f"ERROR: {file_name[10:-4]}"    
+  
+def get_modpack_groups() -> list[tuple[str, str, str]]:
+        modpack = bpy.context.scene.pmp_group_options
+        return [(option.group_value, option.group_name, option.group_description) for option in modpack]
 
 class FileProps(PropertyGroup):
 
@@ -90,9 +140,9 @@ class FileProps(PropertyGroup):
         if os.path.exists(display_directory):  
             setattr(prop, actual_prop, display_directory)
            
-    def update_fbx_subfolder() -> None:
-        folder = Path(bpy.context.scene.file_props.savemodpack_directory)
-        props = bpy.context.scene.fbx_subfolder
+    def update_fbx_subfolder(self, context:Context) -> None:
+        folder = Path(context.scene.file_props.savemodpack_directory)
+        props = context.scene.fbx_subfolder
         props.clear()
         slot_dir = ["Chest", "Legs", "Hands", "Feet", "Chest & Legs"]
         
@@ -264,9 +314,9 @@ class FileProps(PropertyGroup):
         name= "",
         description= "Select a manager",
         items= [
-            ("Import", "Import", "Import Files"),
-            ("Export", "Export", "Export models"),
-            ("Modpack", "Modpack", "Package mods"),
+            ("IMPORT", "Import", "Import Files"),
+            ("EXPORT", "Export", "Export models"),
+            ("MODPACK", "Modpack", "Package mods"),
         ]
         )  # type: ignore
     
@@ -335,10 +385,11 @@ class FileProps(PropertyGroup):
 
 def selected_yas_vgroup() -> None:
     obj = bpy.context.active_object
-    try:
-        obj.vertex_groups.active = obj.vertex_groups.get(bpy.context.scene.yas_vgroups[bpy.context.scene.yas_vindex].name)
-    except:
-        pass
+    if bpy.context.scene.yas_vgroups[0].name != "Mesh has no YAS Groups":
+        try:
+            obj.vertex_groups.active = obj.vertex_groups.get(bpy.context.scene.yas_vgroups[bpy.context.scene.yas_vindex].name)
+        except:
+            pass
 
 class AnimationOptimise(PropertyGroup):
     triangulation: BoolProperty() # type: ignore
@@ -353,13 +404,17 @@ class YASVGroups(PropertyGroup):
         description="Maintain the relative weights for the group",
         update=lambda self, context: self.update_lock_weight(context)
         ) # type: ignore
-
+    
     def update_lock_weight(self, context:Context) -> None:
         obj = context.active_object
         if obj and obj.type == 'MESH':
             group = obj.vertex_groups.get(self.name)
             if group:
                 group.lock_weight = self.lock_weight
+
+class DeformModifiers(PropertyGroup):
+    name: StringProperty() # type: ignore
+    icon: StringProperty() # type: ignore
 
 class OutfitProps(PropertyGroup):
 
@@ -373,6 +428,9 @@ class OutfitProps(PropertyGroup):
     'j_asi_a_r':           'Leg',              'j_asi_b_r':            'Knee',         'j_asi_c_r':            'Shin',           
     'j_asi_d_r':           'Foot',             'j_asi_e_r':            'Foot', 
 
+    'n_hizasoubi_l':       'Knee Pad',         'iv_daitai_phys_l':     'Back Thigh',   'ya_daitai_phys_l':     'Front Thigh',
+    'n_hizasoubi_r':       'Knee Pad',         'iv_daitai_phys_r':     'Back Thigh',   'ya_daitai_phys_r':     'Front Thigh', 
+    
     'iv_asi_oya_a_l':      'Toe',              'iv_asi_oya_b_l':       'Toe',              
     'iv_asi_hito_a_l':     'Toe',              'iv_asi_hito_b_l':      'Toe',  
     'iv_asi_naka_a_l':     'Toe',              'iv_asi_naka_b_l':      'Toe',  
@@ -384,9 +442,6 @@ class OutfitProps(PropertyGroup):
     'iv_asi_naka_a_r':     'Toe',              'iv_asi_naka_b_r':      'Toe',  
     'iv_asi_kusu_a_r':     'Toe',              'iv_asi_kusu_b_r':      'Toe',  
     'iv_asi_ko_a_r':       'Toe',              'iv_asi_ko_b_r':        'Toe',  
-
-    'n_hizasoubi_l':       'Knee Pad',         'iv_daitai_phys_l':     'Back Thigh',   'ya_daitai_phys_l':     'Front Thigh',
-    'n_hizasoubi_r':       'Knee Pad',          'iv_daitai_phys_r':    'Back Thigh',   'ya_daitai_phys_r':     'Front Thigh', 
 
     'j_buki2_kosi_l':      'Weapon',           'j_buki2_kosi_r':       'Weapon',       'j_buki_kosi_l':        'Weapon',       'j_buki_kosi_r':        'Weapon',
     'j_buki_sebo_l':       'Weapon',           'j_buki_sebo_r':        'Weapon', 
@@ -415,6 +470,7 @@ class OutfitProps(PropertyGroup):
 
     'j_sebo_a':            'Spine',            'j_sebo_b':             'Spine',        'j_sebo_c':             'Spine',
     'j_mune_l':            'Breasts',          'iv_c_mune_l':          'Breasts',      'j_mune_r':             'Breasts',      'iv_c_mune_r':          'Breasts', 
+    'iv_kyokin_phys_l':    'Pecs',             'iv_kyokin_phys_r':     'Pecs',
 
     'j_kubi':              'Neck',             'j_kao':                'Face',         'j_ago':                'Chin', 
     'j_mimi_l':            'Ear',              'n_ear_a_l':            'Earring',      'n_ear_b_l':            'Earring',      
@@ -441,9 +497,7 @@ class OutfitProps(PropertyGroup):
     'j_oya_a_r':           'Finger',           'j_oya_b_r':            'Finger', 
     
     'n_hijisoubi_l':       'Elbow Pad',        'n_kataarmor_l':        'Shoulder Pad',
-    'n_hijisoubi_r':       'Elbow Pad',        'n_kataarmor_r':        'Shoulder Pad',
-    
-    'iv_kyokin_phys_l':    'Pecs',             'iv_kyokin_phys_r':     'Pecs',  
+    'n_hijisoubi_r':       'Elbow Pad',        'n_kataarmor_r':        'Shoulder Pad',  
     
     'j_ex_top_a_l':        'Clothing',         'j_ex_top_b_l':         'Clothing',
     
@@ -451,16 +505,28 @@ class OutfitProps(PropertyGroup):
     }
 
     outfit_buttons = [
-        ("filter",   "vgroups",   True,    "Switches between showing all vertex groups or just YAS groups"),
-        ("adjust",   "overhang",   False,  "Tries to adjust for clothing that hangs off of the breasts"),
-        ("add",      "shrinkwrap", False,  "Applies a shrinkwrap modifier when deforming the mesh. Remember to exclude parts of the mesh overlapping with the body"),
-        ("sub",      "shape_keys", False,  """Includes minor shape keys without deforms:
+        ("overview",  "category",   True,    "Enables part overview"),
+        ("shapes",    "category",   False,   "Enables shape transfer menu"),
+        ("mesh",      "category",   False,   "Enables mesh editing menu"),
+        ("weights",   "category",   False,   "Enables weight editing menu"),
+        ("animation", "category",   False,   "Enables animation playback menu"),
+        ("keep",      "modifier",   False,   "Keeps the modifier after applying"),
+        ("filter",    "vgroups",    True,    "Switches between showing all vertex groups or just YAS groups"),
+        ("adjust",    "overhang",   False,   "Tries to adjust for clothing that hangs off of the breasts"),
+        ("add",       "shrinkwrap", False,   "Applies a shrinkwrap modifier when deforming the mesh. Remember to exclude parts of the mesh overlapping with the body"),
+        ("sub",       "shape_keys", False,   """Includes minor shape keys without deforms:
         - Squeeze
         - Push-Up
         - Omoi
         - Sag
         - Nip Nops"""),
         ]
+    
+    ui_buttons_list = [
+    ("backfaces",   "expand",     "Opens the category"),
+    ("modifiers",   "expand",     "Opens the category"),
+    
+    ]
     
     @staticmethod
     def extra_options() -> None:
@@ -476,6 +542,24 @@ class OutfitProps(PropertyGroup):
                 )
             setattr(OutfitProps, prop_name, prop)
     
+    @staticmethod
+    def ui_buttons() -> None:
+        for (name, category, description) in OutfitProps.ui_buttons_list:
+            category_lower = category.lower()
+            name_lower = name.lower()
+
+            default = False
+            if name_lower == "advanced":
+                default = True
+            
+            prop_name = f"button_{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
+                )
+            setattr(OutfitProps, prop_name, prop)
+
     def chest_controller_update(self, context:Context) -> None:
         props = context.scene.outfit_props
         key_blocks = get_object_from_mesh("Chest Controller").data.shape_keys.key_blocks
@@ -514,6 +598,12 @@ class OutfitProps(PropertyGroup):
             armature_actions.append(("None", "None", "No actions found"))
             
         return armature_actions
+    
+    def get_deform_modifiers(self, context) -> list[tuple[str, str, str]]:
+        modifiers = context.scene.deform_modifiers
+        if not modifiers:
+            return [("None", "No Deform Modifiers", "")]
+        return [(modifier.name, modifier.name, "", modifier.icon, index) for index, modifier in enumerate(modifiers)]
 
     def set_action(self, context:Context) -> None:
         prop = context.scene.outfit_props
@@ -539,21 +629,9 @@ class OutfitProps(PropertyGroup):
 
     def animation_frames(self, context:Context) -> None:
         if context.screen.is_animation_playing:
-            self.animation_frame = context.scene.frame_current
+            return None
         else:
             context.scene.frame_current = self.animation_frame
-
-    outfit_ui: EnumProperty(
-        name= "",
-        description= "Select a manager",
-        items= [
-            ("Overview", "Overview", ""),
-            ("Shapes", "Shapes", ""),
-            ("Mesh", "Mesh", ""),
-            ("Weights", "Weights", ""),
-            ("Animation", "Animation", ""),
-        ]
-        )  # type: ignore
     
     shape_key_source: EnumProperty(
         name= "",
@@ -588,6 +666,12 @@ class OutfitProps(PropertyGroup):
         items=lambda self, context: self.get_vertex_groups(context)
         )  # type: ignore
     
+    deform_modifiers: EnumProperty(
+        name= "",
+        description= "Select a deform modifier",
+        items=lambda self, context: self.get_deform_modifiers(context)
+        )  # type: ignore
+    
     armatures: EnumProperty(
         name="Armatures",
         description="Select an armature from the scene",
@@ -610,22 +694,24 @@ class OutfitProps(PropertyGroup):
         update=lambda self, context: self.animation_frames(context),
     ) # type: ignore
 
+
 CLASSES = [
     ModpackGroups,
     FBXSubfolders,
     FileProps,
     AnimationOptimise,
     YASVGroups,
+    DeformModifiers,
     OutfitProps
 ]
 
 def set_addon_properties() -> None:
     bpy.types.Scene.file_props = PointerProperty(
         type=FileProps)
-    
+
     bpy.types.Scene.outfit_props = PointerProperty(
         type=OutfitProps)
-    
+
     bpy.types.Scene.yas_vgroups = CollectionProperty(
         type=YASVGroups)
     
@@ -640,15 +726,20 @@ def set_addon_properties() -> None:
     bpy.types.Scene.fbx_subfolder = bpy.props.CollectionProperty(
         type=FBXSubfolders)
     
+    bpy.types.Scene.deform_modifiers = bpy.props.CollectionProperty(
+        type=DeformModifiers)
+    
     FileProps.ui_buttons()
     FileProps.extra_options()
     OutfitProps.extra_options()
+    OutfitProps.ui_buttons()
 
 def remove_addon_properties() -> None:
     del bpy.types.Scene.file_props
-    del bpy.types.Scene.pmp_group_options
     del bpy.types.Scene.outfit_props
     del bpy.types.Scene.yas_vgroups
     del bpy.types.Scene.yas_vindex
-    del bpy.types.Scene.fbx_subfolder
+    del bpy.types.Scene.pmp_group_options
     del bpy.types.Scene.animation_optimise
+    del bpy.types.Scene.fbx_subfolder
+    del bpy.types.Scene.deform_modifiers

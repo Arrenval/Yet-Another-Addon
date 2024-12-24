@@ -1,9 +1,10 @@
 import os
 import bpy
+import platform
 
 from pathlib       import Path
-from bpy.props     import StringProperty
-from ..util.props  import get_object_from_mesh, OutfitProps
+from bpy.props     import StringProperty, BoolProperty
+from ..util.props  import get_object_from_mesh
 from bpy.types     import Panel, Operator, UIList, UILayout, Context, VertexGroup
 
 class MESH_UL_yas(UIList):
@@ -13,14 +14,15 @@ class MESH_UL_yas(UIList):
         ob = data
         vgroup = item
         icon = self.get_icon_value("GROUP_VERTEX")
-        error = self.get_icon_value("ERROR")
+        error = self.get_icon_value("INFO")
         try:
             category = bpy.context.scene.outfit_props.YAS_BONES[vgroup.name]
         except:
             category = "Unknown"
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if "Mesh has" in vgroup.name:
+            if "has no " in vgroup.name:
                 layout.prop(vgroup, "name", text="", emboss=False, icon_value=error)
+                layout.alignment = "CENTER"
             else:
                 layout.prop(vgroup, "name", text=category, emboss=False, icon_value=icon)
                 icon = 'LOCKED' if vgroup.lock_weight else 'UNLOCKED'
@@ -35,6 +37,56 @@ class MESH_UL_yas(UIList):
 
         return icon_dict[icon_name]
 
+class MESH_UL_shape(UIList):
+    bl_idname = "MESH_UL_shape"
+
+    def draw_item(self, context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
+        ob = data
+        shape = item
+        sizes = ["LARGE", "MEDIUM", "SMALL"]
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            if shape.name.isupper() and not any(shape.name == size for size in sizes):
+                layout.prop(shape, "name", text="", emboss=False, icon_value=self.get_icon_value("REMOVE"))
+            else:
+                layout.prop(shape, "name", text="", emboss=False, icon_value=icon)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+    
+    def get_icon_value(self, icon_name: str) -> int:
+        icon_items = UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
+        icon_dict = {tup[1].identifier : tup[1].value for tup in icon_items}
+
+        return icon_dict[icon_name]
+
+class FrameJump(Operator):
+    bl_idname = "ya.frame_jump"
+    bl_label = "Jump to Endpoint"
+    bl_description = "Jump to first/last frame in frame range"
+    bl_options = {'REGISTER'}
+
+    end: BoolProperty() # type: ignore
+ 
+    def execute(self, context):
+        bpy.ops.screen.frame_jump(end=self.end)
+        context.scene.outfit_props.animation_frame = context.scene.frame_current
+
+        return {'FINISHED'}
+
+class KeyframeJump(Operator):
+    bl_idname = "ya.keyframe_jump"
+    bl_label = "Jump to Keyframe"
+    bl_description = "Jump to previous/next keyframe"
+    bl_options = {'REGISTER'}
+
+    next: BoolProperty() # type: ignore
+
+    def execute(self, context):
+        bpy.ops.screen.frame_jump(next=self.next)
+        context.scene.outfit_props.animation_frame = context.scene.frame_current
+
+        return {'FINISHED'}
+    
 class DirSelector(Operator):
     bl_idname = "ya.dir_selector"
     bl_label = "Select Folder"
@@ -86,17 +138,38 @@ class PanelCategory(Operator):
     bl_label = "Select the menu."
     bl_description = "Changes the panel menu"
 
-    overview: StringProperty() # type: ignore
-    panel: StringProperty() # type: ignore
+    menu: StringProperty() # type: ignore
 
     def execute(self, context):
-        match self.panel:
-            case "file":
-                context.scene.file_props.file_man_ui = self.overview
-            case "outfit":
-                context.scene.outfit_props.outfit_ui = self.overview
-                if self.overview == "Animation":
-                    OutfitProps.set_action(self, context)
+        context.scene.file_props.file_man_ui = self.menu
+        return {'FINISHED'}
+
+class OutfitCategory(Operator):
+    bl_idname = "ya.outfit_category"
+    bl_label = "Select menus."
+    bl_description = """Changes the panel menu.
+    *Click to select single category.
+    *Shift+Click to pin/unpin categories"""
+
+    menu: StringProperty() # type: ignore
+    panel: StringProperty() # type: ignore
+
+    def invoke(self, context, event):
+        props = context.scene.outfit_props
+        categories = ["overview", "shapes", "mesh", "weights", "animation"]
+        if event.shift:
+            state = getattr(props, f"{self.menu.lower()}_category")
+            if state:
+                setattr(props, f"{self.menu.lower()}_category", False)
+            else:
+                setattr(props, f"{self.menu.lower()}_category", True)
+        else:
+            for category in categories:
+                if self.menu.lower() == category:
+                    setattr(props, f"{category.lower()}_category", True)
+                else:
+                    setattr(props, f"{category.lower()}_category", False)
+
         return {'FINISHED'}
 
 class OutfitStudio(Panel):
@@ -108,9 +181,6 @@ class OutfitStudio(Panel):
     bl_order = 1
 
     def draw(self, context:Context):
-        if hasattr(context.scene, "devkit_props"):
-            devkit_prop = context.scene.devkit_props
-
         section_prop = context.scene.outfit_props
         layout = self.layout
 
@@ -124,108 +194,39 @@ class OutfitStudio(Panel):
 
         row = layout.row()
         colui = row.column()
-        self.ui_category_buttons(colui, section_prop, "outfit_ui", self.options, "outfit")
-        box = row.box()
+        self.ui_category_buttons(colui, section_prop, self.options)
+        col = row.column()
         
-        if section_prop.outfit_ui == "Overview":
+        if section_prop.overview_category:
+            box = col.box()
             box.label(icon="INFO", text="Work in progress...")
-        
             
-        if section_prop.outfit_ui == "Shapes":
-            self.draw_shapes(box, section_prop, devkit_prop)
+        if section_prop.shapes_category:
+            self.draw_shapes(col, section_prop)
             
-        if section_prop.outfit_ui == "Mesh":
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="Mesh", icon=self.options["Mesh"])
-            row = box.column(align=True)
-            row.label(text="Backfaces", icon="REMOVE")
-            col = box.column(align=True)
-            sub = col.row(align=True)
-            sub.operator("ya.tag_backfaces", text=f"   ADD ").preset = 'ADD'
-            sub.operator("ya.create_backfaces", text=f"CREATE")
-            sub.operator("ya.tag_backfaces", text="REMOVE").preset = 'REMOVE'
+        if section_prop.mesh_category:
+            self.draw_mesh(col, section_prop)
 
-            row = box.row(align=True)
-            row.template_modifiers()
+        if section_prop.weights_category:
+            self.draw_weights(col, section_prop)
 
-        if section_prop.outfit_ui == "Weights":
-            row = box.row()
-            row.alignment = "CENTER"
-            row.label(text="Weights", icon=self.options["Weights"])
-
-            obj = context.active_object
-            row = box.row()
-            col = row.column(align=True)
-            if section_prop.filter_vgroups:
-                col.template_list(
-                    "MESH_UL_yas", "", 
-                    context.scene, "yas_vgroups", 
-                    context.scene, "yas_vindex", 
-                    rows=5
-                    )
-            else:
-                if not obj:
-                    obj = get_object_from_mesh("Mannequin")
-                col.template_list(
-                    "MESH_UL_yas", "", 
-                    obj, "vertex_groups", 
-                    obj.vertex_groups, "active_index", 
-                    rows=5
-                    )
-            row = col.row(align=True)
-            row.operator("ya.remove_select_vgroups", text= "Remove Selected").preset = ""
-            row.operator("ya.remove_empty_vgroups", text= "Remove Empty").preset = ""
-            row.prop(section_prop, "filter_vgroups", text="", icon="FILTER")
-
-        if section_prop.outfit_ui == "Animation":
-            row = box.row()
-            row.alignment = "CENTER"
-            row.label(text="Animation", icon=self.options["Animation"])
-            row = box.row()
-            split = row.split(factor=0.25, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="Armature:")
-            split.prop(section_prop, "armatures", text="", icon="ARMATURE_DATA")
-            row = box.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="Animation:")
-            split.prop(section_prop, "actions", text="", icon="ACTION")
-            if section_prop.armatures != "None" and section_prop.actions != "None":
-                box.separator(factor=0.5, type="LINE")
-                row = box.row(align=True)
-                col = row.column(align=True)
-                row = col.row(align=True)
-                row.alignment = "CENTER"
-                row.label(text="Animation Frame:")
-                col.prop(section_prop, "animation_frame", text="")
-                row = box.row(align=True)
-                row.alignment = "CENTER"
-                row.operator("screen.frame_jump", text="", icon="FRAME_PREV").end = False
-                row.operator("screen.keyframe_jump", text="", icon="PREV_KEYFRAME").next = False
-                if bpy.context.screen.is_animation_playing:
-                    row.scale_x = 2
-                    row.operator("screen.animation_play", text="", icon="PAUSE")
-                    row.scale_x = 1
-                else:
-                    row.operator("screen.animation_play", text="", icon="PLAY_REVERSE").reverse = True
-                    row.operator("screen.animation_play", text="", icon="PLAY")
-                row.operator("screen.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
-                row.operator("screen.frame_jump", text="", icon="FRAME_NEXT").end = True
-            
-            
-    def draw_shapes(self, layout:UILayout, section_prop, devkit_prop):
+        if section_prop.animation_category:
+            self.draw_animation(col, section_prop)
+              
+    def draw_shapes(self, layout:UILayout, section_prop):
+        if hasattr(bpy.context.scene, "devkit_props"):
+            devkit_prop = bpy.context.scene.devkit_props
+        box = layout.box()
         button_type = "shpk"
-        row = layout.row(align=True)
+        row = box.row(align=True)
         row.alignment = "CENTER"
-        row.label(text="Shapes", icon="SHAPEKEY_DATA")
+        row.label(text="Shapes", icon=self.options["Shapes"])
 
-        col = layout.column(align=True)
+        col = box.column(align=True)
         split = col.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Source:")
-        split.prop(section_prop, "shape_key_source", text="", icon=self.options["Shapes"])
+        split.prop(section_prop, "shape_key_source", text="", icon="OBJECT_DATA")
         col.separator(type="LINE", factor=2)
 
         if not hasattr(bpy.context.scene, "devkit_props") and section_prop.shape_key_source != "Selected":
@@ -302,6 +303,134 @@ class OutfitStudio(Panel):
             row = col.row(align=True)
             col.operator("ya.transfer_shape_keys", text="Transfer")
 
+    def draw_mesh(self, layout:UILayout, section_prop):
+        box = layout.box()
+        row = box.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Mesh", icon=self.options["Mesh"])
+        
+        row = box.row(align=True)
+        button = section_prop.button_backfaces_expand
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        row.prop(section_prop, "button_backfaces_expand", text="", icon=icon, emboss=False)
+        row.label(text="Backfaces")
+        
+        if button:
+            col = box.column(align=True)
+            sub = col.row(align=True)
+            sub.scale_x = 4
+            sub.operator("ya.tag_backfaces", text="", icon="ADD").preset = 'ADD'
+            sub.scale_x = 1
+            sub.operator("ya.create_backfaces", text=f"CREATE")
+            sub.scale_x = 4
+            sub.operator("ya.tag_backfaces", text="", icon="REMOVE").preset = 'REMOVE'
+            sub.scale_x = 1
+            
+
+        row = box.row(align=True)
+        button = section_prop.button_modifiers_expand
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        row.prop(section_prop, "button_modifiers_expand", text="", icon=icon, emboss=False)
+        row.label(text="Modifiers")
+        
+        obj = bpy.context.active_object
+        if button and obj is not None:
+            row = box.row(align=True)
+            if obj.modifiers and obj.data.shape_keys:
+                key = obj.data.shape_keys
+                row.template_list(
+                    "MESH_UL_shape", 
+                    "", 
+                    key, 
+                    "key_blocks", 
+                    obj, 
+                    "active_shape_key_index", 
+                    rows=5)
+                row = box.row(align=True)
+                split = row.split(factor=0.75, align=True)
+                split.prop(section_prop, "deform_modifiers")
+                split.operator("ya.apply_modifier", text="Apply")
+                icon = "PINNED" if section_prop.keep_modifier else "UNPINNED"
+                row.prop(section_prop, "keep_modifier", text="", icon=icon)
+            else:
+                row.alignment = "CENTER"
+                row.label(text="Object has no modifiers.", icon="INFO")
+            if obj.type == 'MESH' and section_prop.deform_modifiers == 'None':
+                row = box.row(align=True)
+                row.operator("wm.call_menu", text="Add Modifier", icon="ADD").name = "OBJECT_MT_modifier_add"
+        elif button:
+            row = box.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="No Object Selected.", icon="INFO")
+ 
+    def draw_weights(self, layout:UILayout, section_prop):
+        box = layout.box()
+        row = box.row()
+        row.alignment = "CENTER"
+        row.label(text="Weights", icon=self.options["Weights"])
+
+        obj = bpy.context.active_object
+        row = box.row()
+        col = row.column(align=True)
+        if section_prop.filter_vgroups:
+            col.template_list(
+                "MESH_UL_yas", "", 
+                bpy.context.scene, "yas_vgroups", 
+                bpy.context.scene, "yas_vindex", 
+                rows=5
+                )
+        else:
+            if not obj:
+                obj = get_object_from_mesh("Mannequin")
+            col.template_list(
+                "MESH_UL_yas", "", 
+                obj, "vertex_groups", 
+                obj.vertex_groups, "active_index", 
+                rows=5
+                )
+        row = col.row(align=True)
+        row.operator("ya.remove_select_vgroups", text= "Remove Selected").preset = ""
+        row.operator("ya.remove_empty_vgroups", text= "Remove Empty").preset = ""
+        row.prop(section_prop, "filter_vgroups", text="", icon="FILTER")
+                    
+    def draw_animation(self, layout:UILayout, section_prop):
+        box = layout.box()
+        row = box.row()
+        row.alignment = "CENTER"
+        row.label(text="Animation", icon=self.options["Animation"])
+        row = box.row()
+        split = row.split(factor=0.25, align=True)
+        split.alignment = "RIGHT"
+        split.label(text="Armature:")
+        split.prop(section_prop, "armatures", text="", icon="ARMATURE_DATA")
+        row = box.row(align=True)
+        split = row.split(factor=0.25, align=True)
+        split.alignment = "RIGHT"
+        split.label(text="Animation:")
+        split.prop(section_prop, "actions", text="", icon="ACTION")
+        
+        if section_prop.armatures != "None" and section_prop.actions != "None":
+            box.separator(factor=0.5, type="LINE")
+            row = box.row(align=True)
+            col = row.column(align=True)
+            row = col.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="Animation Frame:")
+            col.prop(section_prop, "animation_frame", text="")
+            row = box.row(align=True)
+            row.alignment = "CENTER"
+            row.operator("ya.frame_jump", text="", icon="FRAME_PREV").end = False
+            row.operator("ya.keyframe_jump", text="", icon="PREV_KEYFRAME").next = False
+            if bpy.context.screen.is_animation_playing:
+                row.scale_x = 2
+                row.operator("screen.animation_play", text="", icon="PAUSE")
+                row.scale_x = 1
+            else:
+                row.operator("screen.animation_play", text="", icon="PLAY_REVERSE").reverse = True
+                row.operator("screen.animation_play", text="", icon="PLAY")
+            row.operator("ya.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
+            row.operator("ya.frame_jump", text="", icon="FRAME_NEXT").end = True
+                    
     def dynamic_column_buttons(self, columns, layout:UILayout, section_prop, labels, slot, button_type):
         row = layout.row(align=True)
 
@@ -323,17 +452,16 @@ class OutfitStudio(Panel):
                 print(f"{name} has no assigned property!")
         return layout  
 
-    def ui_category_buttons(self, layout:UILayout, section_prop, prop, options, panel:str):
+    def ui_category_buttons(self, layout:UILayout, section_prop, options):
         row = layout
-        ui_selector = getattr(section_prop, prop)
 
         for index, (slot, icon) in enumerate(options.items()):
+            button = getattr(section_prop, f"{slot.lower()}_category")
             if index == 0:
                 row.separator(factor=0.5)
-            depress = True if ui_selector == slot else False
-            operator = row.operator("ya.set_ui", text="", icon=icon, depress=depress, emboss=True if depress else False)
-            operator.overview = slot
-            operator.panel = panel
+            depress = True if button else False
+            operator = row.operator("ya.outfit_category", text="", icon=icon, depress=depress, emboss=True if depress else False)
+            operator.menu = slot.upper()
             row.separator(factor=2)
 
 class FileManager(Panel):
@@ -353,33 +481,33 @@ class FileManager(Panel):
         layout = self.layout
 
         options ={
-            "Import": "IMPORT",
-            "Export": "EXPORT",
-            "Modpack": "NEWFOLDER",
+            "IMPORT": "IMPORT",
+            "EXPORT": "EXPORT",
+            "MODPACK": "NEWFOLDER",
             }
 
         box = layout.box()
         row = box.row(align=True)
         row.label(icon=options[section_prop.file_man_ui])
-        row.label(text=f"  {section_prop.file_man_ui}")
+        row.label(text=f"  {section_prop.file_man_ui.capitalize()}")
         button_row = row.row(align=True)
         
-        self.ui_category_buttons(button_row, section_prop, "file_man_ui", options, "file")
+        self.ui_category_buttons(button_row, section_prop, options)
 
         # IMPORT
         button = section_prop.file_man_ui
         # box = self.dropdown_header(button, section_prop, "button_import_expand", "Import", "IMPORT")
-        if button == "Import":
+        if button == "IMPORT":
             self.draw_import(layout, section_prop)
 
         # EXPORT
         # box = self.dropdown_header(button, section_prop, "button_export_expand", "Export", "EXPORT")
-        if button == "Export":
+        if button == "EXPORT":
             self.draw_export(context, layout, section_prop)
 
-        if button == "Modpack":
+        if button == "MODPACK":
                 section_prop = context.scene.file_props
-                self.draw_modpack(layout, section_prop, devkit=True)
+                self.draw_modpack(layout, section_prop)
 
     def draw_export(self, context:Context, layout:UILayout, section_prop):
         if section_prop.export_total > 0:
@@ -657,15 +785,16 @@ class FileManager(Panel):
 
         layout.separator(factor=0.5)
 
-    def draw_modpack(self, layout:UILayout, section_prop, devkit=False):
-        row = layout.row(align=True)
-        split = row.split(factor=0.65, align=True)
-        icon = "CHECKMARK" if section_prop.consoletools_status == "ConsoleTools Ready!" else "X"
-        split.label(text=section_prop.consoletools_status, icon=icon)
-        split.operator("ya.file_console_tools", text="Check")
-        row.operator("ya.consoletools_dir", icon="FILE_FOLDER", text="")
+    def draw_modpack(self, layout:UILayout, section_prop):
+        if platform.system() == "Windows":
+            row = layout.row(align=True)
+            split = row.split(factor=0.65, align=True)
+            icon = "CHECKMARK" if section_prop.consoletools_status == "ConsoleTools Ready!" else "X"
+            split.label(text=section_prop.consoletools_status, icon=icon)
+            split.operator("ya.file_console_tools", text="Check")
+            row.operator("ya.consoletools_dir", icon="FILE_FOLDER", text="")
 
-        layout.separator(factor=0.5,type="LINE")
+            layout.separator(factor=0.5,type="LINE")
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
@@ -691,7 +820,7 @@ class FileManager(Panel):
             split.prop(section_prop, "fbx_subfolder", text="") 
             row.label(icon="FOLDER_REDIRECT") 
 
-        if devkit:
+        if hasattr(bpy.context.scene, "devkit_props"):
             row = layout.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.label(text="")
@@ -784,8 +913,9 @@ class FileManager(Panel):
 
 
         row = box.row(align=True)
-        row.operator("ya.file_modpacker", text="Convert & Pack").preset = "convert_pack"
-        row.operator("ya.file_modpacker", text="Convert").preset = "convert"
+        if platform.system() == "Windows":
+            row.operator("ya.file_modpacker", text="Convert & Pack").preset = "convert_pack"
+            row.operator("ya.file_modpacker", text="Convert").preset = "convert"
         row.operator("ya.file_modpacker", text="Pack").preset = "pack"
 
         box.separator(factor=0.5, type="LINE")
@@ -842,22 +972,25 @@ class FileManager(Panel):
             depress = True if section_prop.export_body_slot == slot else False
             row.operator("ya.set_body_part", text="", icon=icon, depress=depress).body_part = slot
 
-    def ui_category_buttons(self, layout:UILayout, section_prop, prop, options, panel:str):
+    def ui_category_buttons(self, layout:UILayout, section_prop, options):
             row = layout
-            ui_selector = getattr(section_prop, prop)
+            ui_selector = getattr(section_prop, "file_man_ui")
 
             for slot, icon in options.items():
                 depress = True if ui_selector == slot else False
                 operator = row.operator("ya.set_ui", text="", icon=icon, depress=depress)
-                operator.overview = slot
-                operator.panel = panel
+                operator.menu = slot
 
 
 CLASSES = [
     MESH_UL_yas,
+    MESH_UL_shape,
+    FrameJump,
+    KeyframeJump,
     DirSelector,
     BodyPartSlot,
     PanelCategory,
+    OutfitCategory,
     OutfitStudio,
     FileManager
 ]

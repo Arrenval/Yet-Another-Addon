@@ -1,9 +1,7 @@
 import os
 import bpy
 import json
-import winreg
 import shutil
-
 
 from typing             import Dict
 from pathlib            import Path
@@ -12,58 +10,10 @@ from datetime           import datetime
 from bpy.types          import Operator
 from bpy.props          import StringProperty
 from dataclasses        import dataclass, field
+from ..util.props       import get_modpack_groups, modpack_data, modpack_group_data
 from ..util.penumbra    import ModGroups, ModMeta
 from zipfile            import ZipFile, ZIP_DEFLATED
 
-
-def get_modpack_groups() -> list[tuple[str, str, str]]:
-        return [(option.group_value, option.group_name, option.group_description) for option in bpy.context.scene.pmp_group_options]
-
-def modpack_data(context) -> None:
-    scene = context.scene
-    scene.pmp_group_options.clear()
-    modpack = Path(scene.file_props.loadmodpack_directory)
-
-    new_option = scene.pmp_group_options.add()
-    new_option.group_value = str(0)
-    new_option.group_name = "New Group"  
-    new_option.group_description = ""
-
-    if modpack.is_file():
-        with ZipFile(modpack, "r") as pmp:
-            for file_name in pmp.namelist():
-                if file_name.count('/') == 0 and file_name.startswith("group") and not file_name.endswith("bak"):
-                    number = lambda name: ''.join(char for char in name if char.isdigit())
-                    group_name, group_page = modpack_group_data(file_name, pmp, data="name")
-
-                    new_option = context.scene.pmp_group_options.add()
-                    new_option.group_value = str(number(file_name))
-                    new_option.group_name = group_name
-                    new_option.group_description = file_name
-                    new_option.group_page = group_page
- 
-            with pmp.open("meta.json") as meta:
-                meta_contents = json.load(meta)
-
-                mod_meta = ModMeta(**meta_contents)
-                scene.file_props.loadmodpack_version = mod_meta.Version
-                scene.file_props.loadmodpack_author = mod_meta.Author
-    
-def modpack_group_data(file_name:str, pmp:ZipFile, data:str) -> str | tuple[str,int]:
-    try:
-        with pmp.open(file_name) as file:
-            file_contents = json.load(file)
-                      
-            group_data = ModGroups(**file_contents)
-
-            if data == "name":
-                return str(group_data.Name), int(group_data.Page)
-            if data == "all":
-                return group_data
-
-    except Exception as e:
-        return f"ERROR: {file_name[10:-4]}"    
-  
 class ModpackDirSelector(Operator):
     bl_idname = "ya.modpack_dir_selector"
     bl_label = "Select Folder"
@@ -164,12 +114,19 @@ class PMPSelector(Operator):
     
     def execute(self, context):
         selected_file = Path(self.filepath)
-
+        try:
+            current_option = int(context.scene.file_props.modpack_groups) + 1
+        except:
+            pass
         if selected_file.exists() and selected_file.suffix == ".pmp":
-            
             context.scene.file_props.loadmodpack_directory = str(selected_file) 
             context.scene.file_props.loadmodpack_display_directory = selected_file.stem
             self.report({'INFO'}, f"{selected_file.stem} selected!")
+            try:
+                if current_option > len(context.scene.pmp_group_options):
+                    context.scene.file_props.modpack_groups = "0"
+            except:
+                pass
         
         else:
             self.report({'ERROR'}, "Not a valid modpack!")
@@ -182,7 +139,7 @@ class CopyToFBX(Operator):
     bl_description = "Copies the export directory to your modpack directory. This should be where your FBX files are located"
 
     def execute(self, context):
-        export_dir = Path(context.scene.devkit_props.export_directory)
+        export_dir = Path(context.scene.file_props.export_directory)
         context.scene.file_props.savemodpack_directory = str(export_dir)
         context.scene.file_props.savemodpack_display_directory = str(Path(*export_dir.parts[-3:]))
         return {'FINISHED'}
@@ -205,16 +162,15 @@ class ConsoleTools(Operator):
         return {"FINISHED"}
     
     def console_tools_location(self, context) -> tuple[str, str]:
+        import winreg
         textools = "FFXIV TexTools"
         textools_install = ""
         
         registry_path = r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-        
         reg_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, registry_path)
         
         for i in range(0, winreg.QueryInfoKey(reg_key)[0]):
             subkey_name = winreg.EnumKey(reg_key, i)
-            
             subkey = winreg.OpenKey(reg_key, subkey_name)
             
             try:
@@ -348,7 +304,7 @@ class Modpacker(Operator):
             if self.console != "ConsoleTools Ready!":
                 self.report({'ERROR'}, "Verify that ConsoleTools is ready.")
                 return {'CANCELLED'} 
-            context.scene.file_props.modpack_progress = "Converting fbx to mdl..."
+            context.scene.file_props.modpack_progress = "Converting FBX to MDL..."
             self.fbx_to_mdl(context, user_input) 
 
         if self.update and self.preset != "convert":
@@ -433,6 +389,9 @@ class Modpacker(Operator):
         context.scene.file_props.modpack_progress = "Creating modpack..." 
 
         to_pack = [file for file in user_input.mdl_folder.glob(f'*.mdl') if file.is_file()]
+        if not to_pack:
+            context.scene.file_props.modpack_progress = "No MDLs to pack..."
+            return None
         to_pack = Modpacker.yet_another_sort(to_pack)
 
         Path.mkdir(user_input.temp, exist_ok=True)
@@ -452,8 +411,16 @@ class Modpacker(Operator):
                     pmp.write(file_path, os.path.relpath(file_path, user_input.temp))
 
         bpy.app.timers.register(partial(Modpacker.schedule_cleanup, user_input.temp), first_interval=0.1)
-        
+        try:
+            current_option = int(context.scene.file_props.modpack_groups) + 1
+        except:
+            pass
         modpack_data(context)
+        try:
+            if current_option > len(context.scene.pmp_group_options):
+                    context.scene.file_props.modpack_groups = "0"
+        except:
+            pass
         context.scene.file_props.modpack_progress = "Complete!"
         return None
 
@@ -464,23 +431,29 @@ class Modpacker(Operator):
         for item in items:
             ranking[item] = 0
             if "Small" in item.stem:
-                ranking[item] += 1
-            if "Medium" in item.stem:
                 ranking[item] += 2
+            if "Medium" in item.stem:
+                ranking[item] += 3
+            if "Sayonara" in item.stem:
+                ranking[item] += 4
+            if "Tsukareta" in item.stem:
+                ranking[item] += 5
+            if "Tsukareta+" in item.stem:
+                ranking[item] += 1
             if "Mini" in item.stem:
                 ranking[item] += 8
             if "Large" in item.stem:
                 ranking[item] += 9
             if "Omoi" in item.stem:
                 ranking[item] += 10
-            if "Sugoi Omoi" in item.stem:
-                ranking[item] += 11
+            if "Sugoi" in item.stem:
+                ranking[item] += 1
             if "Skull" in item.stem:
-                ranking[item] += 4
+                ranking[item] += 1
             if "Soft" in item.stem:
-                ranking[item] += 2
+                ranking[item] += 4
             if "Buff" in item.stem:
-                ranking[item] += 12
+                ranking[item] += 20
             if "Rue" in item.stem:
                 ranking[item] += 42
             if "Yiggle" in item.stem:
@@ -695,26 +668,26 @@ class Modpacker(Operator):
         dupe_rel_paths = []
         duplicate_groups = {}
         
-
         for options in mod_data[user_input.update_group].Options:
             for gamepath, relpath in options.Files.items():
                 relative_paths.append(relpath)
         for group in mod_data:
+            dupe_mdl = set()
             file_contents = mod_data[group]
             if group != user_input.update_group:
                 try:
-                    mdl_game = set()
                     for option in file_contents.Options:
                         for gamepath, relpath in option.Files.items():
                             if any(relpath in relative_paths for path in relative_paths):
                                 dupe_rel_paths.append(relpath)
-                                mdl_game.add(gamepath)
-                    
-                    if sorted(dupe_rel_paths) == sorted(relative_paths):
-                        duplicate_groups[group] = (str(mdl_game), file_contents.Name)
-                        dupe_rel_paths = []     
+                                dupe_mdl.add(gamepath)
                 except:
                     continue
+        
+            if sorted(dupe_rel_paths) == sorted(relative_paths) and len(dupe_mdl) == 1:
+                duplicate_groups[group] = ("".join(dupe_mdl), file_contents.Name)
+                dupe_rel_paths = []
+            dupe_rel_paths = []
         return duplicate_groups
 
     def delete_orphans(temp_folder:Path, update_group:ModGroups) -> None:
@@ -739,9 +712,9 @@ class Modpacker(Operator):
 
     def schedule_cleanup(temp_folder:Path) -> None:
         retries = 5
-        def cleanup_attempt() -> function:
+        def cleanup_attempt():
             nonlocal retries
-            for attempt in range(retries):
+            if retries != 0:
                 try:
                     if temp_folder.is_dir():
                         shutil.rmtree(temp_folder)
@@ -749,7 +722,7 @@ class Modpacker(Operator):
                 except FileNotFoundError as e:
                     return None
                 except PermissionError as e:
-                    break
+                    pass
             retries -= 1
             if retries > 0:
                 return 5 - retries
@@ -757,7 +730,9 @@ class Modpacker(Operator):
                 bpy.context.scene.file_props.modpack_progress = "Failed to delete temp folder..."
                 return None
         cleanup_attempt()
-        return cleanup_attempt
+        if retries == 0:
+            return None
+        return cleanup_attempt()
 
 
 CLASSES = [

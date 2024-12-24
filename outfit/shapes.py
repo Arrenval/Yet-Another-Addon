@@ -134,7 +134,6 @@ class ShapeKeyTransfer(Operator):
         new_base = []
         self.driver = []
         self.retry_relative = []
-
         if not target.data.shape_keys:
                 if self.source_input == "Chest" and self.chest_base != "Large":
                     target.shape_key_add(name=self.chest_base.upper())
@@ -245,7 +244,9 @@ class ShapeKeyTransfer(Operator):
 
                 target.data.shape_keys.key_blocks[key_name].value = 0
         else:
+            target.data.shape_keys.key_blocks[key_name].value = 1
             self.deform_corrections(key_name, source, target, high=False)
+            target.data.shape_keys.key_blocks[key_name].value = 0
         
         self.controller_state(source, reset=True)
 

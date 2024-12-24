@@ -1,6 +1,6 @@
 import bpy
 
-from bpy.types import Operator, Context
+from bpy.types import Operator, Context, Object
 from bpy.props import StringProperty
 
 class TagBackfaces(Operator):
@@ -159,7 +159,44 @@ class CreateBackfaces(Operator):
                 groups[group] = part
         return int(groups[current_group])
     
+class ModifierActiveShape(Operator):
+    bl_idname = "ya.apply_modifier"
+    bl_label = "Backfaces"
+    bl_description = "Applies Deform Modifier to active shape key"
+    bl_options = {'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT"
+
+    def execute(self, context):
+        props = context.scene.outfit_props
+        self.keep = props.keep_modifier
+        obj = context.active_object
+        modifier = props.deform_modifiers
+        key_name = obj.active_shape_key.name
+
+        self.apply_modifier(key_name, obj, modifier)
+        self.report({'INFO'}, "Modifier Applied to Shape.")
+        return {'FINISHED'}
+    
+    def apply_modifier(self, key_name:str, target:Object, modifier:str) -> None:
+        bpy.ops.object.modifier_apply_as_shapekey(keep_modifier=self.keep, modifier=modifier)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        key_index = target.data.shape_keys.key_blocks.find(key_name)
+        target.active_shape_key_index = key_index
+        bpy.ops.mesh.blend_from_shape(shape=modifier, add=False)
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        key_index = target.data.shape_keys.key_blocks.find(modifier)
+        target.active_shape_key_index = key_index
+        bpy.ops.object.shape_key_remove(all=False)
+        key_index = target.data.shape_keys.key_blocks.find(key_name)
+        target.active_shape_key_index = key_index
+
 CLASSES = [
     TagBackfaces,
-    CreateBackfaces
+    CreateBackfaces,
+    ModifierActiveShape
 ]

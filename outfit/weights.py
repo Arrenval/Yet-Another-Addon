@@ -19,6 +19,7 @@ class RemoveEmptyVGroups(Operator):
         prop = context.scene.outfit_props
         obj = context.active_object
         prefixes = ["ya_", "iv_"]
+        removed = []
         
         for vg in obj.vertex_groups:
             # Ignores yas and ivcs prefixed groups as they could be empty even if you need them later
@@ -31,8 +32,11 @@ class RemoveEmptyVGroups(Operator):
             emptyvg = not any(g.weight > 0 for v in obj.data.vertices for g in v.groups if g.group == vg.index)
 
             if emptyvg:
+                removed.append(vg.name)
                 obj.vertex_groups.remove(vg)
+                
 
+        self.report({'INFO'}, f"Removed {', '.join(removed)}.")
         return {"FINISHED"}
     
 class RemoveSelectedVGroups(Operator):
@@ -80,6 +84,7 @@ class RemoveSelectedVGroups(Operator):
         for index, weight in old_weight.items():
             new_group.add(index=[index], weight=weight, type='ADD')
 
+        self.report({'INFO'}, f"Removed {vertex_group.name}.")
         return {"FINISHED"}
 
     def get_parent_group(self, obj:Object, vertex_group:VertexGroup) -> str:
