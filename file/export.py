@@ -245,7 +245,42 @@ def armature_visibility(export=False) -> None:
         except:
             pass
 
+def save_sizes() -> dict[str, dict[str, float]]:
+        obj    = get_object_from_mesh("Torso")
+        saved_sizes = {
+            "Large" : {},
+            "Medium": {},
+            "Small" : {}
+        }
+
+        for key in obj.data.shape_keys.key_blocks:
+            if key.name.startswith("- "):
+                name = key.name[2:]
+                saved_sizes["Large"][name] = round(key.value, 2)
+            if key.name.startswith("-- "):
+                name = key.name[3:]
+                saved_sizes["Medium"][name] = round(key.value, 2)
+            if key.name.startswith("--- "):
+                name = name = key.name[4:]
+                saved_sizes["Small"][name] = round(key.value, 2)
         
+        print(saved_sizes)
+        return saved_sizes
+
+def reset_chest_values(saved_sizes) -> None:
+    devkit       = bpy.context.scene.devkit
+    devkit_props = bpy.context.scene.devkit_props
+    base_size    = ["Large", "Medium", "Small"]
+
+    for size in base_size:
+        preset      = saved_sizes[size]
+        category = devkit_props.ALL_SHAPES[size][2]
+        devkit.ApplyShapes.apply_shape_values("torso", category, preset)
+    
+    bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
+    bpy.context.view_layer.update()
+
+
 class SimpleExport(Operator):
     bl_idname = "ya.simple_export"
     bl_label = "Simple Export"
@@ -356,7 +391,7 @@ class BatchQueue(Operator):
         self.queue = []
         self.leg_queue = []
         
-    def execute(self, context): 
+    def execute(self, context):
         props = bpy.context.scene.file_props
         props.controller_uv_transfers = True
         if self.check_tris:
@@ -407,7 +442,8 @@ class BatchQueue(Operator):
 
         props.export_total = len(self.queue)
         armature_visibility(export=True)
-        BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot)
+        saved_sizes = save_sizes()
+        BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, saved_sizes)
         return {'FINISHED'}
     
     # The following functions is executed to establish the queue and valid options 
@@ -580,7 +616,7 @@ class BatchQueue(Operator):
     # These functions are responsible for processing the queue.
     # Export queue is running on a timer interval until the queue is empty.
 
-    def process_queue(context:Context, queue:list, leg_queue:list, body_slot) -> None:
+    def process_queue(context:Context, queue:list, leg_queue:list, body_slot:str, saved_sizes) -> None:
         devkit = context.scene.devkit_props
         devkit.is_exporting = False
         start_time = time.time()
@@ -588,11 +624,11 @@ class BatchQueue(Operator):
         # randomising the list gives a much better time estimate
         random.shuffle(queue)
         BatchQueue.progress_tracker(queue)
-        callback = partial(BatchQueue.export_queue, context, queue, leg_queue, body_slot, start_time)
+        callback = partial(BatchQueue.export_queue, context, queue, leg_queue, body_slot, saved_sizes, start_time)
        
         bpy.app.timers.register(callback, first_interval=0.5) 
         
-    def export_queue(context, queue:list, leg_queue, body_slot, start_time) -> int | None:
+    def export_queue(context, queue:list, leg_queue, body_slot:str, saved_sizes, start_time) -> int | None:
         devkit = context.scene.devkit_props
         props = context.scene.file_props
         collection = context.view_layer.layer_collection.children
@@ -605,7 +641,7 @@ class BatchQueue(Operator):
         main_name, options, size, gen, target = queue.pop()
        
         BatchQueue.reset_model_state(body_slot, target)
-        BatchQueue.apply_model_state(options, size, gen, body_slot, target)
+        BatchQueue.apply_model_state(options, size, gen, body_slot, target, saved_sizes)
         props.export_file_name = main_name
 
         if body_slot == "Hands":
@@ -637,10 +673,8 @@ class BatchQueue(Operator):
                 leg_name, options, size, gen, leg_target = leg_task
                 # rue_match stops non-rue tops to be used with rue legs and vice versa
                 if BatchQueue.check_rue_match(options, main_name):
-                    body_slot = "Legs"
-                    
-                    BatchQueue.reset_model_state(body_slot, leg_target)
-                    BatchQueue.apply_model_state(options, size, gen, body_slot, leg_target)
+                    BatchQueue.reset_model_state("Legs", leg_target)
+                    BatchQueue.apply_model_state(options, size, gen, "Legs", leg_target, saved_sizes)
 
                     combined_name = main_name + " - " + leg_name
                     final_name = BatchQueue.clean_file_name(combined_name)
@@ -673,8 +707,9 @@ class BatchQueue(Operator):
             
             return 0.1
         else:
-            if body_slot == "Chest":
+            if body_slot == "Chest" or body_slot == "Chest & Legs":
                 ivcs_mune()
+                reset_chest_values(saved_sizes)
             bpy.ops.yakit.collection_manager(preset="Restore")
             props.controller_uv_transfers = False
             BatchQueue.progress_reset(props)
@@ -714,8 +749,8 @@ class BatchQueue(Operator):
 
         return file_name
 
-    def apply_model_state(options, size, gen, body_slot, ob) -> None:
-        devkit = bpy.context.scene.devkit
+    def apply_model_state(options, size, gen, body_slot, ob, saved_sizes) -> None:
+        Devkit = bpy.context.scene.devkit
         devkit_props = bpy.context.scene.devkit_props
         if body_slot == "Chest & Legs":
             body_slot = "Chest"
@@ -732,20 +767,21 @@ class BatchQueue(Operator):
         # Adds the shape value presets alongside size toggles
         if body_slot == "Chest":
             keys_to_filter = ["Nip Nops"]
-            base_size = ["Large", "Medium", "Small"]
-            preset = devkit.get_shape_presets(size)
+            preset = {}
             filtered_preset = {}
 
-            if any(size == base for base in base_size):
-                keys_to_filter = ["Squeeze", "Squish", "Push-Up", "Nip Nops"]
-
+            try:
+                preset = saved_sizes[size]
+            except:
+                preset = Devkit.get_shape_presets(size)
+            
             for key in preset.keys():
                 if not any(key.endswith(sub) for sub in keys_to_filter):
                     filtered_preset[key] = preset[key]
 
             category = devkit_props.ALL_SHAPES[size][2]
-            devkit.ApplyShapes.mute_chest_shapes(ob, category)
-            devkit.ApplyShapes.apply_shape_values("torso", category, filtered_preset)
+            Devkit.ApplyShapes.mute_chest_shapes(ob, category)
+            Devkit.ApplyShapes.apply_shape_values("torso", category, filtered_preset)
             bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
             bpy.context.view_layer.update()
                 
