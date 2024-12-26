@@ -31,8 +31,6 @@ class RemoveEmptyVGroups(Operator):
             #     continue
             if vg.lock_weight:
                 continue
-            if self.preset != "menu" and prop.filter_vgroups and not any(vg.name == name for name in context.scene.yas_vgroups):
-                continue
             emptyvg = not any(g.weight > 0 for v in obj.data.vertices for g in v.groups if g.group == vg.index)
 
             if emptyvg:

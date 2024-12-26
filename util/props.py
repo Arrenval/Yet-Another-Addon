@@ -21,6 +21,18 @@ def get_object_from_mesh(mesh_name:str) -> Object | None:
             return obj
     return None
 
+def scene_armatures() -> list[tuple[str, str, str]]:
+        armatures = []
+        
+        for obj in bpy.context.scene.objects:
+            if obj.type == 'ARMATURE':
+                armatures.append((obj.name, obj.name, "Armature"))
+        
+        if not armatures:
+            armatures.append(("None", "None", "No armature found"))
+        
+        return armatures
+
 class ModpackGroups(PropertyGroup):
     group_value: bpy.props.StringProperty() # type: ignore
     group_name: bpy.props.StringProperty() # type: ignore
@@ -92,8 +104,8 @@ class FileProps(PropertyGroup):
         ("create",   "backfaces",  True,   "Creates backface meshes on export based on existing vertex groups"),
         ("check",    "tris",       True,   "Verify that the meshes have an active triangulation modifier"),
         ("force",    "yas",        False,  "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
-        ("fix",      "parent",     True,   "Parents the meshes to the devkit skeleton and removes non-mesh objects"),
-        ("update",   "material",   True,   "Changes material rendering and enables backface culling"),
+        ("remove",   "nonmesh",    True,   "Removes objects without any meshes. Cleans up unnecessary files from TT imports"),
+        ("update",   "material",   True,   "Changes material rendering and enables backface culling. Tries to normalise metallic and roughness values of TT materials"),
         ("keep",     "shapekeys",  True,   "Preserves vanilla clothing shape keys"),
         ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),
     ]
@@ -172,7 +184,14 @@ class FileProps(PropertyGroup):
         for group in groups:
             if selection == group[0]:
                     return [(str(group[1]), f"Pg: {group[1]:<3}", "")]
-            
+
+    armatures: EnumProperty(
+        name="Armatures",
+        description="Select an armature from the scene to parent meshes to",
+        items=lambda self, context: scene_armatures(),
+        default= 0,
+    ) # type: ignore
+ 
     fbx_subfolder: EnumProperty(
         name= "",
         description= "Alternate folder for fbx/mdl files",
@@ -576,18 +595,6 @@ class OutfitProps(PropertyGroup):
         else:
             return [("None", "Select a mesh", "")]
 
-    def scene_armatures(self) -> list[tuple[str, str, str]]:
-        armatures = []
-        
-        for obj in bpy.context.scene.objects:
-            if obj.type == 'ARMATURE':
-                armatures.append((obj.name, obj.name, "Armature"))
-        
-        if not armatures:
-            armatures.append(("None", "None", "No armature found"))
-        
-        return armatures
-
     def scene_actions(self) -> list[tuple[str, str, str]]: 
         armature_actions = []
     
@@ -675,7 +682,7 @@ class OutfitProps(PropertyGroup):
     armatures: EnumProperty(
         name="Armatures",
         description="Select an armature from the scene",
-        items=lambda self, context: self.scene_armatures(),
+        items=lambda self, context: scene_armatures(),
         default= 0,
     ) # type: ignore
 

@@ -9,11 +9,11 @@ class ShapeKeyTransfer(Operator):
     bl_description = "Transfers and links shape keys to your active mesh"
     bl_options = {'UNDO'}
 
-    sub_keys_bool  :bool   = False
-    shrinkwrap     :bool   = False
-    chest_base     :str    = ""
-    vertex_pin     :str    = "None"
-    exclude_wrap   :str    = "None"
+    sub_keys_bool:bool = False
+    shrinkwrap   :bool = False
+    chest_base   :str  = ""
+    vertex_pin   :str  = "None"
+    exclude_wrap :str  = "None"
 
     @classmethod
     def poll(cls, context):
@@ -91,49 +91,64 @@ class ShapeKeyTransfer(Operator):
         return options
     
     def add_driver(self, new_key:ShapeKey, source:Object, target:Object) -> None:
-        new_key.driver_remove("value")
-        new_key.driver_remove("mute")
-        value = new_key.driver_add("value").driver
-        mute = new_key.driver_add("mute").driver
+            new_key.driver_remove("value")
+            new_key.driver_remove("mute")
+            value = new_key.driver_add("value").driver
+            mute = new_key.driver_add("mute").driver
 
-        if new_key.name == "LARGE" and self.chest_base != "LARGE":
-            value.type = "SCRIPTED"
-            value.expression = "1 if mute == 0 else 0"
-            value_var = value.variables.new()
-            value_var.name = "mute"
-            value_var.type = "SINGLE_PROP"
+            if new_key.name == "LARGE" and self.chest_base != "LARGE":
+                value.type = "SCRIPTED"
+                value.expression = "1 if mute == 0 else 0"
+                value_var = value.variables.new()
+                value_var.name = "key_value"
+                value_var.type = "SINGLE_PROP"
 
-            value_var.targets[0].id_type = "KEY"
-            value_var.targets[0].id = target.data.shape_keys
-            value_var.targets[0].data_path = f'key_blocks["LARGE"].mute'
-        else:
-            value.type = "AVERAGE"
-            value_var = value.variables.new()
-            value_var.name = "key_value"
-            value_var.type = "SINGLE_PROP"
+                value_var.targets[0].id_type = "KEY"
+                value_var.targets[0].id = target.data.shape_keys
+                value_var.targets[0].data_path = f'key_blocks["LARGE"].mute'
+            else:
+                value.type = "AVERAGE"
+                value_var = value.variables.new()
+                value_var.name = "key_value"
+                value_var.type = "SINGLE_PROP"
 
-            value_var.targets[0].id_type = "KEY"
-            value_var.targets[0].id = source.data.shape_keys
-            value_var.targets[0].data_path = f'key_blocks["{new_key.name}"].value'
+                value_var.targets[0].id_type = "KEY"
+                value_var.targets[0].id = source.data.shape_keys
+                value_var.targets[0].data_path = f'key_blocks["{new_key.name}"].value'
 
-        mute.type = "AVERAGE"
-        mute_var = mute.variables.new()
-        mute_var.name = "key_mute"
-        mute_var.type = "SINGLE_PROP"
-        
-        mute_var.targets[0].id_type = "KEY"
-        mute_var.targets[0].id = source.data.shape_keys
-        mute_var.targets[0].data_path = f'key_blocks["{new_key.name}"].mute'
-        
+            mute.type = "AVERAGE"
+            mute_var = mute.variables.new()
+            mute_var.name = "key_mute"
+            mute_var.type = "SINGLE_PROP"
+            
+            mute_var.targets[0].id_type = "KEY"
+            mute_var.targets[0].id = source.data.shape_keys
+            mute_var.targets[0].data_path = f'key_blocks["{new_key.name}"].mute'
+
     def transfer(self, source:Object, target:Object) -> None:
+
+        def create_keys(shape_key:ShapeKey, target:Object, relative:str) -> None:
+            if target.data.shape_keys.key_blocks.get(shape_key.name):
+                    new_key = target.data.shape_keys.key_blocks[shape_key.name]
+            else:
+                new_key = target.shape_key_add(name=shape_key.name, from_mix=False)
+            try:
+                new_key.relative_key = target.data.shape_keys.key_blocks[relative]
+            except:
+                self.retry_relative.append((new_key, relative))
+
+            self.deform(new_key, target)
+            self.driver.append(new_key)
+
         sub_keys = ["squeeze", "squish", "push-up", "omoi", "sag", "nip nops", "sayonara", "mini"]
         transfer = [
             key for key in source.data.shape_keys.key_blocks 
             if not any(sub in key.name.lower() for sub in self.key_filter)
             ]
-        new_base = []
-        self.driver = []
-        self.retry_relative = []
+        new_base           : list[tuple[ShapeKey, str]] = []
+        self.driver        : list[ShapeKey]             = []
+        self.retry_relative: list[tuple[ShapeKey, str]] = []
+
         if not target.data.shape_keys:
                 if self.source_input == "Chest" and self.chest_base != "Large":
                     target.shape_key_add(name=self.chest_base.upper())
@@ -149,11 +164,11 @@ class ShapeKeyTransfer(Operator):
                     new_base.append((shape_key, self.chest_base.upper()))
                 continue
 
-            self.create_keys(shape_key, target, shape_key.relative_key.name)
+            create_keys(shape_key, target, shape_key.relative_key.name)
 
         for (shape_key, relative) in new_base:
             # adds back the filtered shape keys for the new base
-            self.create_keys(shape_key, target, relative)
+            create_keys(shape_key, target, relative)
 
         for new_key in self.driver:
             self.add_driver(new_key, source, target)
@@ -172,19 +187,6 @@ class ShapeKeyTransfer(Operator):
                     bpy.ops.mesh.blend_from_shape(shape=relative, add=False)    
                     bpy.ops.mesh.select_all(action='DESELECT')
                     bpy.ops.object.mode_set(mode='OBJECT')
-    
-    def create_keys(self, shape_key:ShapeKey, target:Object, relative:str) -> None:
-        if target.data.shape_keys.key_blocks.get(shape_key.name):
-                new_key = target.data.shape_keys.key_blocks[shape_key.name]
-        else:
-            new_key = target.shape_key_add(name=shape_key.name, from_mix=False)
-        try:
-            new_key.relative_key = target.data.shape_keys.key_blocks[relative]
-        except:
-            self.retry_relative.append((new_key, relative))
-
-        self.deform(new_key, target)
-        self.driver.append(new_key)
                     
     def deform(self, new_key:ShapeKey, target:Object) -> None:
         if any(key == new_key.name for shape, (bool, key) in self.deform_target.items() if bool == True):

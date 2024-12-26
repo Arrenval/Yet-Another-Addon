@@ -82,7 +82,7 @@ class KeyframeJump(Operator):
     next: BoolProperty() # type: ignore
 
     def execute(self, context):
-        bpy.ops.screen.frame_jump(next=self.next)
+        bpy.ops.screen.keyframe_jump(next=self.next)
         context.scene.outfit_props.animation_frame = context.scene.frame_current
 
         return {'FINISHED'}
@@ -767,17 +767,17 @@ class FileManager(Panel):
         split = row.split(factor=0.33)
         col = split.column(align=True)
         col.alignment = "RIGHT"
-        if hasattr(bpy.context.scene, "devkit_props"):
-            col.label(text="Fix Parenting:")
+        col.label(text="Armature:")
+        col.label(text="Non-Mesh:")
         col.label(text="Update Material:")
         col.label(text="Rename:")
         
         col2 = split.column(align=True)
         col2.alignment = "RIGHT"
-        if hasattr(bpy.context.scene, "devkit_props"):
-            icon = 'CHECKMARK' if section_prop.fix_parent else 'PANEL_CLOSE'
-            text = 'Enabled' if section_prop.fix_parent else 'Disabled'
-            col2.prop(section_prop, "fix_parent", text=text, icon=icon)
+        icon = 'CHECKMARK' if section_prop.remove_nonmesh else 'PANEL_CLOSE'
+        col2.prop(section_prop, "armatures", text="", icon="ARMATURE_DATA")
+        text = 'Remove' if section_prop.remove_nonmesh else 'Keep'
+        col2.prop(section_prop, "remove_nonmesh", text=text, icon=icon)
         icon = 'CHECKMARK' if section_prop.update_material else 'PANEL_CLOSE'
         text = 'Enabled' if section_prop.update_material else 'Disabled'
         col2.prop(section_prop, "update_material", text=text, icon=icon)
