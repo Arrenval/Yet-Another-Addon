@@ -6,16 +6,20 @@ from bpy.types import Operator, Object, VertexGroup, Context
 class RemoveEmptyVGroups(Operator):
     bl_idname = "ya.remove_empty_vgroups"
     bl_label = "Weights"
-    bl_description = "Removes unlocked Vertex Groups with no weights. Ignores IVCS and YAS groups"
+    bl_description = "Removes Vertex Groups with no weights. Ignores locked groups."
     bl_options = {'UNDO'}
 
     preset: StringProperty() # type: ignore
     @classmethod
     def poll(cls, context):
         obj = bpy.context.active_object
-        return obj is not None and obj.type == 'MESH' and context.mode == "OBJECT"
+        return obj is not None and obj.type == 'MESH'
 
     def execute(self, context:Context):
+        old_mode = context.mode
+        if old_mode == 'PAINT_WEIGHT':
+            old_mode = 'WEIGHT_PAINT'
+        bpy.ops.object.mode_set(mode='OBJECT')
         prop = context.scene.outfit_props
         obj = context.active_object
         prefixes = ["ya_", "iv_"]
@@ -23,8 +27,8 @@ class RemoveEmptyVGroups(Operator):
         
         for vg in obj.vertex_groups:
             # Ignores yas and ivcs prefixed groups as they could be empty even if you need them later
-            if vg.name.startswith(tuple(prefixes)):
-                continue
+            # if vg.name.startswith(tuple(prefixes)):
+            #     continue
             if vg.lock_weight:
                 continue
             if self.preset != "menu" and prop.filter_vgroups and not any(vg.name == name for name in context.scene.yas_vgroups):
@@ -37,6 +41,7 @@ class RemoveEmptyVGroups(Operator):
                 
 
         self.report({'INFO'}, f"Removed {', '.join(removed)}.")
+        bpy.ops.object.mode_set(mode=old_mode)
         return {"FINISHED"}
     
 class RemoveSelectedVGroups(Operator):
@@ -50,9 +55,13 @@ class RemoveSelectedVGroups(Operator):
     @classmethod
     def poll(cls, context:Context):
         obj = context.active_object
-        return obj is not None and obj.type == 'MESH' and context.mode == "OBJECT"
+        return obj is not None and obj.type == 'MESH'
 
     def execute(self, context:Context):
+        old_mode = context.mode
+        if old_mode == 'PAINT_WEIGHT':
+            old_mode = 'WEIGHT_PAINT'
+        bpy.ops.object.mode_set(mode='OBJECT')
         obj = context.active_object
         old_weight = {}
         if self.preset != "menu" and context.scene.outfit_props.filter_vgroups:
@@ -79,12 +88,12 @@ class RemoveSelectedVGroups(Operator):
             except:
                 continue
 
-        obj.vertex_groups.remove(group=vertex_group)
-
         for index, weight in old_weight.items():
             new_group.add(index=[index], weight=weight, type='ADD')
 
-        self.report({'INFO'}, f"Removed {vertex_group.name}.")
+        self.report({'INFO'}, f"Removed {vertex_group.name}, weights added to {parent_vgroup}.")
+        obj.vertex_groups.remove(group=vertex_group)
+        bpy.ops.object.mode_set(mode=old_mode)
         return {"FINISHED"}
 
     def get_parent_group(self, obj:Object, vertex_group:VertexGroup) -> str:
