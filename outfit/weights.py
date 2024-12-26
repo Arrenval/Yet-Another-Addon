@@ -3,7 +3,7 @@ import bpy
 from bpy.props import StringProperty
 from bpy.types import Operator, Object, VertexGroup, Context
 
-class RemoveEmptyVGroups(Operator):
+class RemoveEmptyVGroups(Operator):                         
     bl_idname = "ya.remove_empty_vgroups"
     bl_label = "Weights"
     bl_description = "Removes Vertex Groups with no weights. Ignores locked groups."
