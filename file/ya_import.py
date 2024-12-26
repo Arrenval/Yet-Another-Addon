@@ -38,9 +38,11 @@ class SimpleCleanUp(Operator):
     
     def execute(self, context):
         props = context.scene.file_props
-        if hasattr(context.scene, "devkit_props"):
-            if props.fix_parent:
-                self.fix_parent()
+        armature = props.armatures
+        if props.remove_nonmesh:
+            self.remove()
+        if armature != "None":
+            self.fix_parent(armature)
         if props.update_material:
             self.update_material()
         if props.rename_import != "":
@@ -66,21 +68,27 @@ class SimpleCleanUp(Operator):
                         except:
                             pass
 
-    def fix_parent(self) -> None:
+    def fix_parent(self, armature) -> None:
         selected = bpy.context.selected_objects
         for obj in selected:
+            if obj.type != "MESH":
+                continue
             bpy.context.view_layer.objects.active = obj
             old_transform = obj.matrix_world.copy()
-            obj.parent = bpy.data.objects["Skeleton"]
+            obj.parent = bpy.data.objects[armature]
             obj.matrix_world = old_transform
             bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
-            if obj.type != "MESH":
-                bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
-                continue
             for modifier in obj.modifiers:
                 if modifier.type == "ARMATURE":
-                    modifier.object = bpy.data.objects["Skeleton"]
+                    modifier.object = bpy.data.objects[armature]
                     modifier.name = "Armature"
+
+    def remove(self):
+        selected = bpy.context.selected_objects
+        for obj in selected:
+            if obj.type == "MESH":
+                continue
+            bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
 
     def rename_import(self) -> None:
         selected = bpy.context.selected_objects
