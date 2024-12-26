@@ -195,8 +195,12 @@ def restore_pre_shape_key(to_reset:list[Object], to_delete:list[Object]) -> None
         obj.hide_set(state=False)
 
 def ivcs_mune(yas=False) -> None:
-    visible_obj = visible_meshobj() 
-    for obj in visible_obj:
+    chest_obj = []
+    collection = bpy.data.collections.get("Chest")
+    for obj in collection.all_objects:
+        chest_obj.append(obj)
+
+    for obj in chest_obj:
         for group in obj.vertex_groups:
             try:
                 if yas:
@@ -263,8 +267,6 @@ def save_sizes() -> dict[str, dict[str, float]]:
             if key.name.startswith("--- "):
                 name = name = key.name[4:]
                 saved_sizes["Small"][name] = round(key.value, 2)
-        
-        print(saved_sizes)
         return saved_sizes
 
 def reset_chest_values(saved_sizes) -> None:
@@ -279,7 +281,6 @@ def reset_chest_values(saved_sizes) -> None:
     
     bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
     bpy.context.view_layer.update()
-
 
 class SimpleExport(Operator):
     bl_idname = "ya.simple_export"
@@ -617,9 +618,9 @@ class BatchQueue(Operator):
     # Export queue is running on a timer interval until the queue is empty.
 
     def process_queue(context:Context, queue:list, leg_queue:list, body_slot:str, saved_sizes) -> None:
-        devkit = context.scene.devkit_props
-        devkit.is_exporting = False
         start_time = time.time()
+        devkit_props = bpy.context.scene.devkit_props
+        setattr(devkit_props, "is_exporting", False)
 
         # randomising the list gives a much better time estimate
         random.shuffle(queue)
@@ -629,16 +630,15 @@ class BatchQueue(Operator):
         bpy.app.timers.register(callback, first_interval=0.5) 
         
     def export_queue(context, queue:list, leg_queue, body_slot:str, saved_sizes, start_time) -> int | None:
-        devkit = context.scene.devkit_props
+        bpy.context.view_layer.update()
         props = context.scene.file_props
+        devkit_props = bpy.context.scene.devkit_props
         collection = context.view_layer.layer_collection.children
-        global is_exporting
-
-        if devkit.is_exporting:
-            return 0.1
-        devkit.is_exporting = True
-
         main_name, options, size, gen, target = queue.pop()
+
+        if getattr(devkit_props, "is_exporting"):
+            return 0.2
+        setattr(devkit_props, "is_exporting", True)
        
         BatchQueue.reset_model_state(body_slot, target)
         BatchQueue.apply_model_state(options, size, gen, body_slot, target, saved_sizes)
@@ -693,7 +693,7 @@ class BatchQueue(Operator):
                 created_meshes = create_backfaces()
             bpy.ops.ya.file_export(file_name=main_name, body_slot=body_slot)
 
-        devkit.is_exporting = False
+        setattr(devkit_props, "is_exporting", False)
 
         if props.create_backfaces:
                 delete_backfaces(created_meshes)
@@ -704,8 +704,7 @@ class BatchQueue(Operator):
             duration = end_time - start_time
             props.export_time = duration
             BatchQueue.progress_tracker(queue)
-            
-            return 0.1
+            return 0.2
         else:
             if body_slot == "Chest" or body_slot == "Chest & Legs":
                 ivcs_mune()
@@ -811,6 +810,7 @@ class BatchQueue(Operator):
         props.export_progress = (props.export_total - len(queue)) / props.export_total
         props.export_step = (props.export_total - len(queue)) 
         props.export_file_name = queue[-1][0]
+        bpy.context.view_layer.update()
 
     def progress_reset(props) -> None:
         props.export_total = 0
