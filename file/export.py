@@ -10,48 +10,29 @@ from bpy.props      import StringProperty
 from bpy.types      import Operator, Object, Context, ShapeKey
 from ..util.props   import get_object_from_mesh, visible_meshobj
 
-def create_backfaces() -> list[Object]:
-    visible = visible_meshobj()
-    obj_backfaces = []
-    created_meshes = [] 
+def add_driver(shape_key:ShapeKey, source:Object) -> None:
+            shape_key.driver_remove("value")
+            shape_key.driver_remove("mute")
+            value = shape_key.driver_add("value").driver
+            mute = shape_key.driver_add("mute").driver
+            
+            value.type = "AVERAGE"
+            value_var = value.variables.new()
+            value_var.name = "key_value"
+            value_var.type = "SINGLE_PROP"
 
-    for obj in visible:
-        backfaces = obj.vertex_groups.get("BACKFACES")
-        if backfaces:
-            obj_backfaces.append(obj)
-    
-    for obj in obj_backfaces:
-        bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.ops.object.select_all(action="DESELECT")
-        obj.select_set(state=True)
-        bpy.context.view_layer.objects.active = obj
-        bpy.ops.object.duplicate()
-        backfaces_mesh = bpy.context.active_object
+            value_var.targets[0].id_type = "KEY"
+            value_var.targets[0].id = source.data.shape_keys
+            value_var.targets[0].data_path = f'key_blocks["{shape_key.name}"].value'
 
-        split = obj.name.split(" ")
-        split[0] = "Backfaces"
-        group_id = split[-1].split(".")
-        group = int(group_id[0])
-        part = mesh_parts(group) + 1
-        group_id[1] = str(part)
-        split[-1] = ".".join(group_id)
-
-        backfaces_mesh.name = " ".join(split)
-        backfaces_mesh.vertex_groups.active = backfaces_mesh.vertex_groups["BACKFACES"]
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.object.vertex_group_deselect()
-        bpy.ops.mesh.delete(type='FACE')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.flip_normals()
-        created_meshes.append(backfaces_mesh)
-    if created_meshes:
-        bpy.ops.object.mode_set(mode='OBJECT')
-    return created_meshes
-
-def delete_backfaces(created_meshes) -> None:
-    for obj in created_meshes:
-        bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
+            mute.type = "AVERAGE"
+            mute_var = mute.variables.new()
+            mute_var.name = "key_mute"
+            mute_var.type = "SINGLE_PROP"
+            
+            mute_var.targets[0].id_type = "KEY"
+            mute_var.targets[0].id = source.data.shape_keys
+            mute_var.targets[0].data_path = f'key_blocks["{shape_key.name}"].mute'
 
 def check_triangulation() -> tuple[bool, list[str]]:
     visible = visible_meshobj()
@@ -98,102 +79,6 @@ def force_yas(export="SIMPLE", body_slot="") -> None:
                 devkit.controller_yas_chest = True
                 devkit.controller_yas_legs = True
 
-def shape_key_keeper() -> tuple[list[Object], list[Object]]:
-
-    def shapekey_object(original_obj:Object) -> Object:
-        old_name = original_obj.name
-        split = old_name.split()
-        split[0] = "ShapeKey"
-        new_name = " ".join(split)
-        original_obj.select_set(state=True)
-        bpy.context.view_layer.objects.active = original_obj
-        
-
-        bpy.ops.object.duplicate()
-        original_obj.hide_set(state=True)
-        shapekey_obj = bpy.context.selected_objects[0]
-        shapekey_obj.name = new_name
-        to_reset.append(original_obj)
-        to_delete.append(shapekey_obj)
-        return shapekey_obj
-    
-    def create_dupe(shapekey_obj:Object, key:ShapeKey) -> Object:
-        shapekey_obj.select_set(state=True)
-        bpy.context.view_layer.objects.active = shapekey_obj
-
-        bpy.ops.object.duplicate()
-        shapekey_dupe = bpy.context.selected_objects[0]
-        shapekey_dupe.data.shape_keys.key_blocks[key.name].value = 1.0
-        bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
-        shapekey_dupe.name = key.name
-        return shapekey_dupe
-
-    def check_modifiers(obj:Object, check_mesh=False) -> None:
-        mesh_modifiers = ["MIRROR", "SUBSURF", "MASK", "WELD", "BEVEL", "SOLIDIFY"]
-        for modifier in obj.modifiers:
-            if modifier.type == "ARMATURE":
-                continue
-            if not modifier.show_viewport:
-                bpy.ops.object.modifier_remove(modifier=modifier.name)
-                continue
-            if check_mesh and any(modifier.type in mesh_modifiers for m in mesh_modifiers):
-                try:
-                    bpy.ops.object.modifier_apply(modifier=modifier.name)
-                except:
-                    bpy.ops.object.modifier_remove(modifier=modifier.name)
-            elif not check_mesh:
-                try:
-                    bpy.ops.object.modifier_apply(modifier=modifier.name)
-                except:
-                    bpy.ops.object.modifier_remove(modifier=modifier.name)
-
-    # Checks all visible meshes for valid shape keys to keep
-    bpy.ops.object.select_all(action="DESELECT")
-    visible_obj = visible_meshobj()
-    # to_reset is the original object(s) that is now hidden, stored to be unhidden later
-    to_reset    :list[Object] = []
-    # to_delete are the shape key meshes that will be deleted after each queue pop
-    to_delete   :list[Object] = []
-    # to_join are the temporary dupes with the shape keys activated that will be merged into the export mesh (shapekey_obj)
-    to_join     :list[Object] = []
-
-    for original_obj in visible_obj:
-        if not original_obj.data.shape_keys:
-            continue
-        xiv_key = [key for key in original_obj.data.shape_keys.key_blocks if key.name.startswith("shp")]
-
-        if xiv_key:
-            shapekey_obj = shapekey_object(original_obj)
-
-        for key in xiv_key:
-            shapekey_dupe = create_dupe(shapekey_obj, key)
-            shapekey_dupe.select_set(state=True)
-            bpy.context.view_layer.objects.active = shapekey_dupe
-            check_modifiers(shapekey_dupe, check_mesh=True)
-            to_join.append(shapekey_dupe)
-            bpy.ops.object.select_all(action="DESELECT")
-
-        if to_join:
-            shapekey_obj.select_set(state=True)
-            bpy.context.view_layer.objects.active = shapekey_obj
-            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
-            check_modifiers(shapekey_obj)
-            for dupe in to_join:
-                dupe.select_set(state=True)
-                bpy.ops.object.join_shapes()
-                bpy.data.objects.remove(dupe, do_unlink=True, do_id_user=True, do_ui_user=True)
-            to_join = []
-        bpy.ops.object.select_all(action="DESELECT")
-
-    return to_reset, to_delete
-
-def restore_pre_shape_key(to_reset:list[Object], to_delete:list[Object]) -> None:
-    for obj in to_delete:
-        bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
-    
-    for obj in to_reset:
-        obj.hide_set(state=False)
-
 def ivcs_mune(yas=False) -> None:
     chest_obj = []
     collection = bpy.data.collections.get("Chest")
@@ -215,20 +100,6 @@ def ivcs_mune(yas=False) -> None:
                         group.name = "j_mune_l"
             except:
                 continue
-
-def mesh_parts(current_group) -> int:
-    visible = visible_meshobj()
-    groups = {}
-    for obj in visible:
-        split = obj.name.split(" ")[-1]
-        group = int(split.split(".")[0])
-        part = int(split.split(".")[1])
-        if group in groups:
-            if part > groups[group]:
-                groups[group] = part
-        else:
-            groups[group] = part
-    return int(groups[current_group])
 
 def armature_visibility(export=False) -> None:
     # Makes sure armatures are enabled in scene's space data
@@ -282,6 +153,152 @@ def reset_chest_values(saved_sizes) -> None:
     bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
     bpy.context.view_layer.update()
 
+class MeshHandler:
+
+    def __init__(self):
+        props                        = bpy.context.scene.file_props
+        self.shapekeys  :bool         = props.keep_shapekeys
+        self.backfaces  :bool         = props.create_backfaces
+        self.reset      :list[Object] = []
+        self.delete     :list[Object] = []
+    
+    def pre_export(self):
+        if self.shapekeys:
+            self.shape_key_keeper()
+        if self.backfaces:
+            self.create_backfaces()
+        
+        return self.reset, self.delete
+
+    def check_modifiers(self, obj:Object, check_mesh=False) -> None:
+        mesh_modifiers = ["MIRROR", "SUBSURF", "MASK", "WELD", "BEVEL", "SOLIDIFY"]
+        for modifier in obj.modifiers:
+            if modifier.type == "ARMATURE":
+                continue
+            if not modifier.show_viewport:
+                bpy.ops.object.modifier_remove(modifier=modifier.name)
+                continue
+            if check_mesh and any(modifier.type in m for m in mesh_modifiers):
+                try:
+                    bpy.ops.object.modifier_apply(modifier=modifier.name)
+                except:
+                    bpy.ops.object.modifier_remove(modifier=modifier.name)
+            elif not check_mesh:
+                try:
+                    bpy.ops.object.modifier_apply(modifier=modifier.name)
+                except:
+                    bpy.ops.object.modifier_remove(modifier=modifier.name)
+
+    def shape_key_keeper(self) -> None:
+
+        def shapekey_object(original_obj:Object) -> Object:
+            old_name = original_obj.name
+            split    = old_name.split()
+            split[0] = "ShapeKey"
+            new_name = " ".join(split)
+            original_obj.select_set(state=True)
+            bpy.context.view_layer.objects.active = original_obj
+            
+            bpy.ops.object.duplicate()
+            original_obj.hide_set(state=True)
+            shapekey_obj = bpy.context.selected_objects[0]
+            shapekey_obj.name = new_name
+            self.reset.append(original_obj)
+            self.delete.append(shapekey_obj)
+            return shapekey_obj
+        
+        def create_dupe(shapekey_obj:Object, key:ShapeKey) -> Object:
+            shapekey_obj.select_set(state=True)
+            bpy.context.view_layer.objects.active = shapekey_obj
+
+            bpy.ops.object.duplicate()
+            shapekey_dupe = bpy.context.selected_objects[0]
+            shapekey_dupe.data.shape_keys.key_blocks[key.name].value = 1.0
+            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+            shapekey_dupe.name = key.name
+            return shapekey_dupe
+
+        # Checks all visible meshes for valid shape keys to keep
+        bpy.ops.object.select_all(action="DESELECT")
+        visible_obj = visible_meshobj()
+        
+        # to_join are the temporary dupes with the shape keys activated that will be merged into the export mesh (shapekey_obj)
+        to_join     :list[Object] = []
+
+        for original_obj in visible_obj:
+            if not original_obj.data.shape_keys:
+                continue
+            xiv_key = [key for key in original_obj.data.shape_keys.key_blocks if key.name.startswith("shp")]
+
+            if xiv_key:
+                shapekey_obj = shapekey_object(original_obj)
+
+            for key in xiv_key:
+                shapekey_dupe = create_dupe(shapekey_obj, key)
+                shapekey_dupe.select_set(state=True)
+                bpy.context.view_layer.objects.active = shapekey_dupe
+                self.check_modifiers(shapekey_dupe, check_mesh=True)
+                to_join.append(shapekey_dupe)
+                bpy.ops.object.select_all(action="DESELECT")
+
+            if to_join:
+                shapekey_obj.select_set(state=True)
+                bpy.context.view_layer.objects.active = shapekey_obj
+                bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+                self.check_modifiers(shapekey_obj)
+                for dupe in to_join:
+                    dupe.select_set(state=True)
+                    bpy.ops.object.join_shapes()
+                    bpy.data.objects.remove(dupe, do_unlink=True, do_id_user=True, do_ui_user=True)
+                to_join = []
+            bpy.ops.object.select_all(action="DESELECT")
+
+    def create_backfaces(self) -> None:
+        visible = visible_meshobj()
+        for obj in visible:
+            if not obj.vertex_groups.get("BACKFACES"):
+                continue
+            
+            old_name = obj.name
+            split    = old_name.split()
+            split[0] = "Backfaces"
+            new_name = " ".join(split)
+
+            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.select_all(action="DESELECT")
+            obj.select_set(state=True)
+            bpy.context.view_layer.objects.active = obj
+            bpy.ops.object.duplicate()
+            obj.hide_set(state=True)
+            backfaces_mesh = bpy.context.selected_objects[0]
+            backfaces_mesh.name = new_name
+
+            if backfaces_mesh.data.shape_keys:
+                xiv_key = [key for key in backfaces_mesh.data.shape_keys.key_blocks if key.name.startswith("shp")]
+            
+            if not xiv_key:
+                if backfaces_mesh.data.shape_keys:
+                    bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+                self.reset.append(obj)
+
+            self.check_modifiers(backfaces_mesh)
+
+            backfaces_mesh.vertex_groups.active = backfaces_mesh.vertex_groups["BACKFACES"]
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.object.vertex_group_select()
+            bpy.ops.mesh.duplicate()
+            bpy.ops.mesh.flip_normals()
+            self.delete.append(backfaces_mesh)
+        if self.delete:
+            bpy.ops.object.mode_set(mode='OBJECT')
+    
+    def restore_meshes(self) -> None:
+        for obj in self.delete:
+            bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
+        
+        for obj in self.reset:
+            obj.hide_set(state=False)
+
 class SimpleExport(Operator):
     bl_idname = "ya.simple_export"
     bl_label = "Simple Export"
@@ -298,9 +315,6 @@ class SimpleExport(Operator):
         self.props              = bpy.context.scene.file_props
         self.check_tris         = self.props.check_tris
         self.force_yas          = self.props.force_yas
-        self.keep_shapekeys     = self.props.keep_shapekeys
-        self.create_backfaces   = self.props.create_backfaces
-        self.gltf               = self.props.file_gltf 
         self.directory          = Path(self.props.export_directory)
 
     def invoke(self, context, event):
@@ -318,8 +332,7 @@ class SimpleExport(Operator):
         return {'RUNNING_MODAL'}
 
     def execute(self, context):
-        export_path = str(self.directory / self.user_input)
-        export_settings = FileExport.get_export_settings(self.gltf)
+        mesh_handler        = MeshHandler()
         armature_visibility(export=True)
 
         if hasattr(context.scene, "devkit_props"):
@@ -331,20 +344,9 @@ class SimpleExport(Operator):
             yas = obj.modifiers["YAS Chest"].show_viewport
             ivcs_mune(yas)
 
-        if self.keep_shapekeys:
-            to_reset, to_delete = shape_key_keeper()
-        if self.create_backfaces:
-            created_meshes = create_backfaces()
-
-        if self.gltf:
-            bpy.ops.export_scene.gltf(filepath=export_path + ".gltf", **export_settings)
-        else:
-            bpy.ops.export_scene.fbx(filepath=export_path + ".fbx", **export_settings)
-
-        if self.create_backfaces:
-            delete_backfaces(created_meshes)
-        if self.keep_shapekeys:
-            restore_pre_shape_key(to_reset, to_delete)
+        mesh_handler.pre_export()
+        FileExport().export_template(self.user_input, "")
+        mesh_handler.restore_meshes()
 
         if hasattr(context.scene, "devkit_props"):
             ivcs_mune()
@@ -443,8 +445,7 @@ class BatchQueue(Operator):
 
         props.export_total = len(self.queue)
         armature_visibility(export=True)
-        saved_sizes = save_sizes()
-        BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, saved_sizes)
+        BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot)
         return {'FINISHED'}
     
     # The following functions is executed to establish the queue and valid options 
@@ -617,7 +618,7 @@ class BatchQueue(Operator):
     # These functions are responsible for processing the queue.
     # Export queue is running on a timer interval until the queue is empty.
 
-    def process_queue(context:Context, queue:list, leg_queue:list, body_slot:str, saved_sizes) -> None:
+    def process_queue(context:Context, queue:list, leg_queue:list, body_slot:str) -> None:
         start_time = time.time()
         devkit_props = bpy.context.scene.devkit_props
         setattr(devkit_props, "is_exporting", False)
@@ -625,24 +626,27 @@ class BatchQueue(Operator):
         # randomising the list gives a much better time estimate
         random.shuffle(queue)
         BatchQueue.progress_tracker(queue)
+        saved_sizes = save_sizes()
         callback = partial(BatchQueue.export_queue, context, queue, leg_queue, body_slot, saved_sizes, start_time)
        
         bpy.app.timers.register(callback, first_interval=0.5) 
         
     def export_queue(context, queue:list, leg_queue, body_slot:str, saved_sizes, start_time) -> int | None:
-        bpy.context.view_layer.update()
-        props = context.scene.file_props
+        props        = context.scene.file_props
         devkit_props = bpy.context.scene.devkit_props
-        collection = context.view_layer.layer_collection.children
-        main_name, options, size, gen, target = queue.pop()
-
+        collection   = context.view_layer.layer_collection.children
+        
         if getattr(devkit_props, "is_exporting"):
-            return 0.2
+            return 0.1
         setattr(devkit_props, "is_exporting", True)
+        
+        mesh_handler = MeshHandler()
+        main_name, options, size, gen, target = queue.pop()
        
         BatchQueue.reset_model_state(body_slot, target)
         BatchQueue.apply_model_state(options, size, gen, body_slot, target, saved_sizes)
         props.export_file_name = main_name
+        bpy.context.view_layer.update()
 
         if body_slot == "Hands":
 
@@ -678,33 +682,24 @@ class BatchQueue(Operator):
 
                     combined_name = main_name + " - " + leg_name
                     final_name = BatchQueue.clean_file_name(combined_name)
-                    if props.keep_shapekeys:
-                        to_reset, to_delete = shape_key_keeper()
-                    if props.create_backfaces:
-                        created_meshes = create_backfaces()
                     if not any(final_name in name for name in exported):
                         exported.append(final_name)
-                        bpy.ops.ya.file_export(file_name=final_name, body_slot="Chest & Legs")
+                        mesh_handler.pre_export()
+                        FileExport().export_template(final_name, "Chest & Legs")
         
         else:
-            if props.keep_shapekeys:
-                to_reset, to_delete = shape_key_keeper()
-            if props.create_backfaces:
-                created_meshes = create_backfaces()
-            bpy.ops.ya.file_export(file_name=main_name, body_slot=body_slot)
+            mesh_handler.pre_export()
+            FileExport().export_template(main_name, body_slot)
 
         setattr(devkit_props, "is_exporting", False)
 
-        if props.create_backfaces:
-                delete_backfaces(created_meshes)
-        if props.keep_shapekeys:
-            restore_pre_shape_key(to_reset, to_delete)
+        mesh_handler.restore_meshes()
         if queue:
             end_time = time.time()
             duration = end_time - start_time
             props.export_time = duration
             BatchQueue.progress_tracker(queue)
-            return 0.2
+            return 0.1
         else:
             if body_slot == "Chest" or body_slot == "Chest & Legs":
                 ivcs_mune()
@@ -819,36 +814,28 @@ class BatchQueue(Operator):
         props.export_time = 0
         props.export_file_name = ""
 
-class FileExport(Operator):
-    bl_idname = "ya.file_export"
-    bl_label = "Export"
-    bl_description = ""
+class FileExport:
 
-    file_name: StringProperty() # type: ignore
-    body_slot: StringProperty() # type: ignore
+    def __init__(self):
+        scene = bpy.context.scene
+        self.gltf = scene.file_props.file_gltf
+        self.subfolder = scene.file_props.create_subfolder
+        self.selected_directory = Path(scene.file_props.export_directory)
 
-    def execute(self, context):
-            FileExport.export_template(context, self.file_name, self.body_slot)
-            return {'FINISHED'}
-
-    def export_template(context, file_name, body_slot):
-        gltf = context.scene.file_props.file_gltf
-        subfolder = bpy.context.scene.file_props.create_subfolder
-        selected_directory = Path(context.scene.file_props.export_directory)
-
-        if subfolder:
-            export_path = str(selected_directory / body_slot / file_name)
+    def export_template(self, file_name:str, body_slot:str):
+        if self.subfolder:
+            export_path = str(self.selected_directory / body_slot / file_name)
         else:
-            export_path = str(selected_directory / file_name)
-        export_settings = FileExport.get_export_settings(gltf)
+            export_path = str(self.selected_directory / file_name)
+        export_settings = self.get_export_settings()
 
-        if gltf:
+        if self.gltf:
             bpy.ops.export_scene.gltf(filepath=export_path + ".gltf", **export_settings)
         else:
             bpy.ops.export_scene.fbx(filepath=export_path + ".fbx", **export_settings)
         
-    def get_export_settings(gltf) -> dict[str, str | int | bool]:
-        if gltf:
+    def get_export_settings(self) -> dict[str, str | int | bool]:
+        if self.gltf:
             return {
                 "export_format": "GLTF_SEPARATE", 
                 "export_texture_dir": "GLTF Textures",
@@ -882,6 +869,5 @@ class FileExport(Operator):
 
 CLASSES = [
     SimpleExport,
-    BatchQueue,
-    FileExport
+    BatchQueue
 ]
