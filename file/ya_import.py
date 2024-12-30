@@ -39,10 +39,10 @@ class SimpleCleanUp(Operator):
     def execute(self, context):
         props = context.scene.file_props
         armature = props.armatures
-        if props.remove_nonmesh:
-            self.remove()
         if armature != "None":
             self.fix_parent(armature)
+        if props.remove_nonmesh:
+            self.remove()
         if props.update_material:
             self.update_material()
         if props.rename_import != "":

@@ -156,7 +156,7 @@ def reset_chest_values(saved_sizes) -> None:
 class MeshHandler:
 
     def __init__(self):
-        props                        = bpy.context.scene.file_props
+        props                         = bpy.context.scene.file_props
         self.shapekeys  :bool         = props.keep_shapekeys
         self.backfaces  :bool         = props.create_backfaces
         self.reset      :list[Object] = []
@@ -170,25 +170,26 @@ class MeshHandler:
         
         return self.reset, self.delete
 
-    def check_modifiers(self, obj:Object, check_mesh=False) -> None:
-        mesh_modifiers = ["MIRROR", "SUBSURF", "MASK", "WELD", "BEVEL", "SOLIDIFY"]
+    def check_modifiers(self, obj:Object, data_transfer=False) -> None:
         for modifier in obj.modifiers:
             if modifier.type == "ARMATURE":
                 continue
             if not modifier.show_viewport:
                 bpy.ops.object.modifier_remove(modifier=modifier.name)
                 continue
-            if check_mesh and any(modifier.type in m for m in mesh_modifiers):
+            if data_transfer and modifier.type == "DATA_TRANSFER":
+                bpy.ops.object.shape_key_add(from_mix=True)
                 try:
                     bpy.ops.object.modifier_apply(modifier=modifier.name)
                 except:
                     bpy.ops.object.modifier_remove(modifier=modifier.name)
-            elif not check_mesh:
+                bpy.ops.object.shape_key_remove()
+            elif not data_transfer:
                 try:
                     bpy.ops.object.modifier_apply(modifier=modifier.name)
                 except:
                     bpy.ops.object.modifier_remove(modifier=modifier.name)
-
+        
     def shape_key_keeper(self) -> None:
 
         def shapekey_object(original_obj:Object) -> Object:
@@ -213,6 +214,7 @@ class MeshHandler:
 
             bpy.ops.object.duplicate()
             shapekey_dupe = bpy.context.selected_objects[0]
+            shapekey_dupe.data.shape_keys.key_blocks[key.name].mute  = False
             shapekey_dupe.data.shape_keys.key_blocks[key.name].value = 1.0
             bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
             shapekey_dupe.name = key.name
@@ -232,12 +234,12 @@ class MeshHandler:
 
             if xiv_key:
                 shapekey_obj = shapekey_object(original_obj)
-
+                self.check_modifiers(shapekey_obj, data_transfer=True)
             for key in xiv_key:
                 shapekey_dupe = create_dupe(shapekey_obj, key)
                 shapekey_dupe.select_set(state=True)
                 bpy.context.view_layer.objects.active = shapekey_dupe
-                self.check_modifiers(shapekey_dupe, check_mesh=True)
+                self.check_modifiers(shapekey_dupe)
                 to_join.append(shapekey_dupe)
                 bpy.ops.object.select_all(action="DESELECT")
 
@@ -254,6 +256,7 @@ class MeshHandler:
             bpy.ops.object.select_all(action="DESELECT")
 
     def create_backfaces(self) -> None:
+        
         visible = visible_meshobj()
         for obj in visible:
             if not obj.vertex_groups.get("BACKFACES"):
@@ -263,14 +266,14 @@ class MeshHandler:
             split    = old_name.split()
             split[0] = "Backfaces"
             new_name = " ".join(split)
+            xiv_key  = []
 
-            bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.select_all(action="DESELECT")
             obj.select_set(state=True)
             bpy.context.view_layer.objects.active = obj
             bpy.ops.object.duplicate()
             obj.hide_set(state=True)
-            backfaces_mesh = bpy.context.selected_objects[0]
+            backfaces_mesh = bpy.context.view_layer.objects.active
             backfaces_mesh.name = new_name
 
             if backfaces_mesh.data.shape_keys:
@@ -281,7 +284,7 @@ class MeshHandler:
                     bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
                 self.reset.append(obj)
 
-            self.check_modifiers(backfaces_mesh)
+            self.check_modifiers(backfaces_mesh, data_transfer=True)
 
             backfaces_mesh.vertex_groups.active = backfaces_mesh.vertex_groups["BACKFACES"]
             bpy.ops.object.mode_set(mode='EDIT')
@@ -289,15 +292,69 @@ class MeshHandler:
             bpy.ops.mesh.duplicate()
             bpy.ops.mesh.flip_normals()
             self.delete.append(backfaces_mesh)
+            bpy.ops.object.mode_set(mode='OBJECT')
         if self.delete:
             bpy.ops.object.mode_set(mode='OBJECT')
-    
+        
     def restore_meshes(self) -> None:
         for obj in self.delete:
             bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
         
         for obj in self.reset:
             obj.hide_set(state=False)
+
+class FileExport:
+
+    def __init__(self):
+        scene = bpy.context.scene
+        self.gltf = scene.file_props.file_gltf
+        self.subfolder = scene.file_props.create_subfolder
+        self.selected_directory = Path(scene.file_props.export_directory)
+
+    def export_template(self, file_name:str, body_slot:str):
+        if self.subfolder:
+            export_path = str(self.selected_directory / body_slot / file_name)
+        else:
+            export_path = str(self.selected_directory / file_name)
+        export_settings = self.get_export_settings()
+        
+        if self.gltf:
+            bpy.ops.export_scene.gltf(filepath=export_path + ".gltf", **export_settings)
+        else:
+            bpy.ops.export_scene.fbx(filepath=export_path + ".fbx", **export_settings)
+        
+    def get_export_settings(self) -> dict[str, str | int | bool]:
+        if self.gltf:
+            return {
+                "export_format": "GLTF_SEPARATE", 
+                "export_texture_dir": "GLTF Textures",
+                "use_selection": False,
+                "use_active_collection": False,
+                "export_animations": False,
+                "export_extras": True,
+                "export_leaf_bone": False,
+                "export_apply": True,
+                "use_visible": True,
+                "export_try_sparse_sk": False,
+                "export_attributes": True,
+                "export_tangents": True,
+                "export_influence_nb": 8,
+                "export_active_vertex_color_when_no_material": True,
+                "export_all_vertex_colors": True,
+                "export_image_format": "NONE"
+            }
+        
+        else:
+            return {
+                "use_selection": False,
+                "use_active_collection": False,
+                "bake_anim": False,
+                "use_custom_props": True,
+                "use_triangles": False,
+                "add_leaf_bones": False,
+                "use_mesh_modifiers": True,
+                "use_visible": True,
+            }
 
 class SimpleExport(Operator):
     bl_idname = "ya.simple_export"
@@ -336,8 +393,6 @@ class SimpleExport(Operator):
         armature_visibility(export=True)
 
         if hasattr(context.scene, "devkit_props"):
-            devkit_props = context.scene.devkit_props
-            devkit_props.controller_uv_transfers = True
             if self.force_yas:
                 force_yas(export="SIMPLE")
             obj = get_object_from_mesh("Controller")
@@ -350,7 +405,6 @@ class SimpleExport(Operator):
 
         if hasattr(context.scene, "devkit_props"):
             ivcs_mune()
-            devkit_props.controller_uv_transfers = False
         armature_visibility()
         return {'FINISHED'}
 
@@ -366,9 +420,9 @@ class BatchQueue(Operator):
 
     ob_mesh_dict = {
             "Chest": "Torso", 
-            "Legs": "Waist", 
+            "Legs" : "Waist", 
             "Hands": "Hands",
-            "Feet": "Feet"
+            "Feet" : "Feet"
             }
     
     @classmethod
@@ -396,7 +450,7 @@ class BatchQueue(Operator):
         
     def execute(self, context):
         props = bpy.context.scene.file_props
-        props.controller_uv_transfers = True
+        
         if self.check_tris:
             triangulated, obj = check_triangulation()
             if not triangulated:
@@ -445,7 +499,7 @@ class BatchQueue(Operator):
 
         props.export_total = len(self.queue)
         armature_visibility(export=True)
-        BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot)
+        self.process_queue(context)
         return {'FINISHED'}
     
     # The following functions is executed to establish the queue and valid options 
@@ -614,26 +668,26 @@ class BatchQueue(Operator):
             return "Yiggle - " + " - ".join(list(file_names))
         
         return " - ".join(list(file_names))
-    
+     
     # These functions are responsible for processing the queue.
     # Export queue is running on a timer interval until the queue is empty.
 
-    def process_queue(context:Context, queue:list, leg_queue:list, body_slot:str) -> None:
+    def process_queue(self, context:Context) -> None:
         start_time = time.time()
         devkit_props = bpy.context.scene.devkit_props
         setattr(devkit_props, "is_exporting", False)
 
         # randomising the list gives a much better time estimate
-        random.shuffle(queue)
-        BatchQueue.progress_tracker(queue)
+        random.shuffle(self.queue)
+        BatchQueue.progress_tracker(self.queue)
         saved_sizes = save_sizes()
-        callback = partial(BatchQueue.export_queue, context, queue, leg_queue, body_slot, saved_sizes, start_time)
-       
+
+        callback = partial(BatchQueue.export_queue, context, self.queue, self.leg_queue, self.body_slot, saved_sizes, start_time)
         bpy.app.timers.register(callback, first_interval=0.5) 
         
-    def export_queue(context, queue:list, leg_queue, body_slot:str, saved_sizes, start_time) -> int | None:
+    def export_queue(context:Context, queue:list, leg_queue:list, body_slot:str, saved_sizes, start_time: float) -> int | None:
         props        = context.scene.file_props
-        devkit_props = bpy.context.scene.devkit_props
+        devkit_props = context.scene.devkit_props
         collection   = context.view_layer.layer_collection.children
         
         if getattr(devkit_props, "is_exporting"):
@@ -642,11 +696,10 @@ class BatchQueue(Operator):
         
         mesh_handler = MeshHandler()
         main_name, options, size, gen, target = queue.pop()
-       
+
         BatchQueue.reset_model_state(body_slot, target)
         BatchQueue.apply_model_state(options, size, gen, body_slot, target, saved_sizes)
         props.export_file_name = main_name
-        bpy.context.view_layer.update()
 
         if body_slot == "Hands":
 
@@ -704,8 +757,8 @@ class BatchQueue(Operator):
             if body_slot == "Chest" or body_slot == "Chest & Legs":
                 ivcs_mune()
                 reset_chest_values(saved_sizes)
+            
             bpy.ops.yakit.collection_manager(preset="Restore")
-            props.controller_uv_transfers = False
             BatchQueue.progress_reset(props)
             armature_visibility()
             return None
@@ -713,6 +766,16 @@ class BatchQueue(Operator):
     # These functions are responsible for applying the correct model state and appropriate file name.
     # They are called from the export_queue function.
 
+    def hide_export_obj(size, export_obj:dict[str, Object], devkit_props) -> Object:
+        category = devkit_props.ALL_SHAPES[size][2]
+        for key, obj in export_obj.items():
+            if key == category:
+                print(f"Showing {obj.name}")
+                obj.hide_set(state=False)
+            else:
+                print(f"Hiding {obj.name}")
+                obj.hide_set(state=True)
+     
     def check_rue_match (options, file_name) -> bool:
         '''This function checks the name of the leg export vs the chest export and makes sure only 
         rue tops and bottoms are combined'''
@@ -726,7 +789,7 @@ class BatchQueue(Operator):
     
         return True
 
-    def clean_file_name (file_name:str) -> str:
+    def clean_file_name (file_name: str) -> str:
         parts = file_name.split(" - ")
         rue_match = False
         new_parts = []
@@ -743,7 +806,7 @@ class BatchQueue(Operator):
 
         return file_name
 
-    def apply_model_state(options, size, gen, body_slot, ob, saved_sizes) -> None:
+    def apply_model_state(options: tuple[str], size:str , gen: str, body_slot: str, obj: Object, saved_sizes: dict[str, dict[str, float]]) -> None:
         Devkit = bpy.context.scene.devkit
         devkit_props = bpy.context.scene.devkit_props
         if body_slot == "Chest & Legs":
@@ -752,11 +815,11 @@ class BatchQueue(Operator):
         for shape, (name, slot, category, description, body, key) in devkit_props.ALL_SHAPES.items():
 
             if shape == size and key != "":
-                ob[key].mute = False
+                obj[key].mute = False
 
             if any(shape in options for option in options):
                 if key != "":
-                    ob[key].mute = False
+                    obj[key].mute = False
 
         # Adds the shape value presets alongside size toggles
         if body_slot == "Chest":
@@ -774,15 +837,15 @@ class BatchQueue(Operator):
                     filtered_preset[key] = preset[key]
 
             category = devkit_props.ALL_SHAPES[size][2]
-            Devkit.ApplyShapes.mute_chest_shapes(ob, category)
+            Devkit.ApplyShapes.mute_chest_shapes(obj, category)
             Devkit.ApplyShapes.apply_shape_values("torso", category, filtered_preset)
             bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
             bpy.context.view_layer.update()
                 
         if gen != None and gen.startswith("Gen") and gen != "Gen A":
-            ob[gen].mute = False
+            obj[gen].mute = False
 
-    def reset_model_state(body_slot, ob) -> None:
+    def reset_model_state(body_slot: str, key_block) -> None:
         devkit = bpy.context.scene.devkit_props
         if body_slot == "Chest & Legs":
             body_slot = "Chest"
@@ -798,7 +861,7 @@ class BatchQueue(Operator):
                     reset_shape_keys.append(key)
 
         for key in reset_shape_keys:   
-            ob[key].mute = True
+            key_block[key].mute = True
 
     def progress_tracker(queue) -> None:
         props = bpy.context.scene.file_props
@@ -814,58 +877,6 @@ class BatchQueue(Operator):
         props.export_time = 0
         props.export_file_name = ""
 
-class FileExport:
-
-    def __init__(self):
-        scene = bpy.context.scene
-        self.gltf = scene.file_props.file_gltf
-        self.subfolder = scene.file_props.create_subfolder
-        self.selected_directory = Path(scene.file_props.export_directory)
-
-    def export_template(self, file_name:str, body_slot:str):
-        if self.subfolder:
-            export_path = str(self.selected_directory / body_slot / file_name)
-        else:
-            export_path = str(self.selected_directory / file_name)
-        export_settings = self.get_export_settings()
-
-        if self.gltf:
-            bpy.ops.export_scene.gltf(filepath=export_path + ".gltf", **export_settings)
-        else:
-            bpy.ops.export_scene.fbx(filepath=export_path + ".fbx", **export_settings)
-        
-    def get_export_settings(self) -> dict[str, str | int | bool]:
-        if self.gltf:
-            return {
-                "export_format": "GLTF_SEPARATE", 
-                "export_texture_dir": "GLTF Textures",
-                "use_selection": False,
-                "use_active_collection": False,
-                "export_animations": False,
-                "export_extras": True,
-                "export_leaf_bone": False,
-                "export_apply": True,
-                "use_visible": True,
-                "export_try_sparse_sk": False,
-                "export_attributes": True,
-                "export_tangents": True,
-                "export_influence_nb": 8,
-                "export_active_vertex_color_when_no_material": True,
-                "export_all_vertex_colors": True,
-                "export_image_format": "NONE"
-            }
-        
-        else:
-            return {
-                "use_selection": False,
-                "use_active_collection": False,
-                "bake_anim": False,
-                "use_custom_props": True,
-                "use_triangles": False,
-                "add_leaf_bones": False,
-                "use_mesh_modifiers": True,
-                "use_visible": True,
-            }
 
 CLASSES = [
     SimpleExport,

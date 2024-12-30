@@ -20,7 +20,10 @@ class ModpackDirSelector(Operator):
     bl_description = "Select file or directory. Hold Alt to open the folder"
     
     directory: StringProperty() # type: ignore
-    category: StringProperty() # type: ignore
+    category: StringProperty(options={'HIDDEN'}) # type: ignore
+    filter_glob: bpy.props.StringProperty(
+        subtype="DIR_PATH",
+        options={'HIDDEN'}) # type: ignore
 
     def invoke(self, context, event):
         actual_dir = Path(getattr(context.scene.file_props, f"{self.category}_directory", ""))     
@@ -91,7 +94,10 @@ class PMPSelector(Operator):
     bl_description = "Select a modpack. If selected, hold Alt to open the folder, hold Shift to open modpack"
     
     filepath: StringProperty() # type: ignore
-    category: StringProperty() # type: ignore
+    category: StringProperty(options={'HIDDEN'}) # type: ignore
+    filter_glob: bpy.props.StringProperty(
+        default='*.pmp',
+        options={'HIDDEN'}) # type: ignore
 
     def invoke(self, context, event):
         actual_file = Path(context.scene.file_props.loadmodpack_directory) 
@@ -218,22 +224,22 @@ class UserInput:
 
 
     def __post_init__(self):
-        props = bpy.context.scene.file_props
-        subfolder = props.fbx_subfolder
-        time = datetime.now().strftime("%H%M%S")
+        props               = bpy.context.scene.file_props
+        subfolder           = props.fbx_subfolder
+        time                = datetime.now().strftime("%H%M%S")
 
         self.selection      = props.modpack_groups
         self.mdl_game       = props.game_model_path
         self.update         = props.button_modpack_replace
         if subfolder != "None":
             self.subfolder  = subfolder
-        self.fbx        = Path(props.savemodpack_directory)
+        self.fbx            = Path(props.savemodpack_directory)
         self.mdl_folder     = self.fbx / self.subfolder / "MDL"
         self.temp           = self.fbx / f"temp_pmp_{time}"
         self.group_new_name = props.modpack_rename_group
         self.group_type     = props.mod_group_type
         self.load_mod_ver   = props.loadmodpack_version
-        self.new_page       = int(props.modpack_page)
+        self.new_page       = 0 if props.modpack_page == "" else int(props.modpack_page)
 
         if self.update:
             self.pmp_name = props.loadmodpack_display_directory
@@ -253,10 +259,18 @@ class UserInput:
 class Modpacker(Operator):
     bl_idname = "ya.file_modpacker"
     bl_label = "Modpacker"
-    bl_description = "Converts FBX and/or packages FFXIV model files into a penumbra Modpack"
 
     preset: StringProperty()  # type: ignore # convert_pack, pack, convert are valid presets
     
+    @classmethod
+    def description(cls, context, properties):
+        if properties.preset == "convert_pack":
+            return "Converts FBX to MDL and packages MDLs into a Penumbra Modpack"
+        if properties.preset == "convert":
+            return "Converts FBX to MDL"
+        else:
+            return "Packages MDLs into a Penumbra Modpack"
+
     def __init__(self):
         props               = bpy.context.scene.file_props
         self.pmp            = Path(props.loadmodpack_directory)
@@ -357,13 +371,13 @@ class Modpacker(Operator):
             files_left = total_files - cmds_added    
             fbx_to_mdl = f'"{user_input.fbx / user_input.subfolder / file.name}" "{user_input.mdl_folder / file.stem}.mdl" "{user_input.mdl_game}"'
             
-            if cmds_added % 5 == 0 and cmds_added == 0:
-                commands.append(f"echo {files_left} files to convert...")
+            # if cmds_added % 5 == 0 and cmds_added == 0:
+            #     commands.append(f"echo {files_left} files to convert...")
             
-            elif cmds_added % 5 == 0:
-                commands.append(f"echo {files_left} files left...")
+            # elif cmds_added % 5 == 0:
+            #     commands.append(f"echo {files_left} files left...")
             
-            commands.append(f"echo Converting: {file.stem}")
+            commands.append(f"echo ({cmds_added + 1}/{total_files}) Converting: {file.stem}")
             commands.append(f"ConsoleTools.exe /wrap {fbx_to_mdl} >nul")
             cmds_added += 1
         
@@ -507,11 +521,9 @@ class Modpacker(Operator):
     def update_mod (user_input:UserInput, mod_data:Dict[str, ModGroups], to_pack:list[Path], mod_meta:ModMeta) -> None:
         group_dir = user_input.group_new_name if user_input.group_new_name else user_input.group_old_name
         group_data = Modpacker.get_group_data_template(user_input, mod_data)
-        duplicate_groups = {} 
         update_page = False
         
         if user_input.selection != "0":
-            duplicate_groups = Modpacker.check_duplicate_groups(user_input, mod_data)
             Path.unlink(user_input.temp / user_input.update_group)
             Modpacker.delete_orphans(user_input.temp, mod_data[user_input.update_group])
         else:
@@ -520,10 +532,6 @@ class Modpacker(Operator):
 
         file_name, group_name = Modpacker.update_file_name(user_input, mod_data, update_page)
         create_group = {file_name: (user_input.mdl_game, group_name, group_data)}
-        
-        if duplicate_groups:
-            for dupe_group, (other_gamepath, dupe_group_name) in duplicate_groups.items():
-                    create_group[dupe_group] = (other_gamepath, dupe_group_name, group_data)
         
         if user_input.update_group in mod_data:
                 to_replace:ModGroups = mod_data[user_input.update_group]

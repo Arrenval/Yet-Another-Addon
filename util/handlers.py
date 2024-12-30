@@ -8,16 +8,19 @@ def frame_ui(dummy):
 
 @persistent
 def get_mesh_props(dummy) -> None:
-    scene = bpy.context.scene
-    props = bpy.context.scene.outfit_props
-    obj = bpy.context.active_object
+    obj           = bpy.context.active_object
+    scene         = bpy.context.scene
+    props         = bpy.context.scene.outfit_props
+    mod_button    = props.button_modifiers_expand
+    weight_button = props.filter_vgroups
+    
 
     if obj is None:
         scene.deform_modifiers.clear()
         scene.yas_vgroups.clear()
         return None
 
-    if obj.modifiers:
+    if getattr(props, "mesh_category") and mod_button and obj.modifiers:
         deform = {
                 'ARMATURE', 'DISPLACE', 'LATTICE', 'MESH_DEFORM', 'SIMPLE_DEFORM',
                 'WARP', 'SMOOTH', 'SHRINKWRAP', 'SURFACE_DEFORM', 'CORRECTIVE_SMOOTH'
@@ -33,12 +36,16 @@ def get_mesh_props(dummy) -> None:
                 new_modifier.icon = "MOD_MESHDEFORM"
             else:
                 new_modifier.icon = f"MOD_{modifier.type.upper()}"
+        
+        if props.deform_modifiers == "":
+            props.deform_modifiers = "None"
+
     else:
         scene.deform_modifiers.clear()
         
-    if obj.vertex_groups:
-        prefix = ("iv_", "ya_")
-        groups = [group for group in obj.vertex_groups if group.name.startswith(prefix)]
+    if getattr(props, "weights_category") and weight_button and obj.vertex_groups:
+        prefixes = ("iv_", "ya_")
+        groups = [group for group in obj.vertex_groups if any(group.name.startswith(prefix) for prefix in prefixes)]
 
         scene.yas_vgroups.clear()
         for group in groups:
@@ -48,8 +55,10 @@ def get_mesh_props(dummy) -> None:
         if not groups:
             new_group = scene.yas_vgroups.add()
             new_group.name = "Mesh has no YAS Groups"
+
     else:
         scene.yas_vgroups.clear()
+        
 
 DEVKIT_VER = (0, 0, 0)
 
@@ -73,9 +82,7 @@ def pre_anim_handling(dummy) ->None:
     optimise = bpy.context.scene.animation_optimise.add()
     if hasattr(bpy.context.scene, "devkit_props"):
         optimise.triangulation = context.scene.devkit_props.controller_triangulation
-        optimise.uv_transfer   = context.scene.devkit_props.controller_uv_transfers
         context.scene.devkit_props.controller_triangulation = False
-        context.scene.devkit_props.controller_uv_transfers  = False
         get_object_from_mesh("Controller").update_tag()
         bpy.ops.yakit.collection_manager(preset="Animation")
     
@@ -97,7 +104,6 @@ def post_anim_handling(dummy) ->None:
     optimise = context.scene.animation_optimise
     if hasattr(bpy.context.scene, "devkit_props"):
         context.scene.devkit_props.controller_triangulation = optimise[0].triangulation
-        context.scene.devkit_props.controller_uv_transfers  = optimise[0].uv_transfer
         bpy.ops.yakit.collection_manager(preset="Restore") 
     
     context.scene.outfit_props.animation_frame = context.scene.frame_current

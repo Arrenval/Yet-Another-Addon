@@ -22,11 +22,13 @@ class TagBackfaces(Operator):
 
         self.obj = bpy.context.active_object
 
-        if self.obj.material_slots[0].name.endswith(".BACKFACES"):
-            self.obj.active_material_index = 0
-            bpy.ops.object.material_slot_move(direction="DOWN")
-
-        self.material = self.obj.active_material
+        backface_material = [material.name for material in self.obj.data.materials if material.name.endswith(".BACKFACES")][0]
+        
+        if backface_material:
+            self.material = backface_material[:-10]
+        else:
+            self.material = self.obj.active_material.name
+        
         self.selected_vertices = [v.index for v in self.obj.data.vertices if v.select]
 
         if not self.selected_vertices:
@@ -55,21 +57,21 @@ class TagBackfaces(Operator):
         return {'FINISHED'}
     
     def add_material(self):
-        backface_material_name = self.material.name + ".BACKFACES"
-        index = self.obj.data.materials.find(backface_material_name)
+        backface_material = self.material + ".BACKFACES"
+        index = self.obj.data.materials.find(backface_material)
         if len(self.obj.material_slots) == 1:
             for material in bpy.data.materials:
-                if material.name == backface_material_name:
+                if material.name == backface_material:
                     self.obj.data.materials.append(material)
 
         if len(self.obj.material_slots) == 1:
-            backface_material = self.material.copy()
-            backface_material.name = backface_material_name
-            backface_material.use_backface_culling = False
-            self.obj.data.materials.append(backface_material)
-            self.obj.active_material_index = index
+            new_material = self.obj.data.materials[0].copy()
+            new_material.name = backface_material
+            new_material.use_backface_culling = False
+            self.obj.data.materials.append(new_material)
+            self.obj.active_material_index = self.obj.data.materials.find(backface_material)
             bpy.ops.object.material_slot_assign()
-        elif len(self.obj.material_slots) == 2 and self.obj.material_slots[1].name.endswith(".BACKFACES"):
+        elif index != -1:
             self.obj.active_material_index = index
             bpy.ops.object.material_slot_assign()
 
@@ -78,9 +80,10 @@ class TagBackfaces(Operator):
         group = self.obj.vertex_groups.get("BACKFACES")
         group.remove(index=self.selected_vertices)
 
-        if not self.obj.material_slots[0].name.endswith(".BACKFACES"):
+        if any(material.name.endswith(".BACKFACES") for material in self.obj.data.materials):
+            index = self.obj.data.materials.find(self.material)
             bpy.ops.object.mode_set(mode='EDIT')
-            self.obj.active_material_index = 0
+            self.obj.active_material_index = index
             bpy.ops.object.material_slot_assign()
 
         return {'FINISHED'}
@@ -109,15 +112,11 @@ class CreateBackfaces(Operator):
         if not selected:
             self.report({'ERROR'}, "No mesh selected.")
             return {'CANCELLED'}
-        obj_backfaces = []
         created_meshes = [] 
 
         for obj in selected:
-            backfaces = obj.vertex_groups.get("BACKFACES")
-            if backfaces:
-                obj_backfaces.append(obj)
-        
-        for obj in obj_backfaces:
+            if not obj.vertex_groups.get("BACKFACES"):
+                continue
             bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.select_all(action="DESELECT")
             obj.select_set(state=True)

@@ -86,7 +86,7 @@ class ShapeKeyTransfer(Operator):
                 options[shape] = (getattr(prop, prop_name), key)
         
         if self.source_input == "Chest":
-            options[self.chest_base] = (True , self.chest_base.upper())
+            options[self.chest_base] = (False , self.chest_base.upper())
 
         return options
     

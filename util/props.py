@@ -57,7 +57,7 @@ def modpack_data(context) -> None:
     if modpack.is_file():
         with ZipFile(modpack, "r") as pmp:
             for file_name in pmp.namelist():
-                if file_name.count('/') == 0 and file_name.startswith("group") and not file_name.endswith("bak"):
+                if file_name.count('/') == 0 and file_name.startswith("group") and file_name.endswith(".json"):
                     number = lambda name: ''.join(char for char in name if char.isdigit())
                     group_name, group_page = modpack_group_data(file_name, pmp, data="name")
 
@@ -412,7 +412,6 @@ def selected_yas_vgroup() -> None:
 
 class AnimationOptimise(PropertyGroup):
     triangulation: BoolProperty() # type: ignore
-    uv_transfer: BoolProperty() # type: ignore
     show_armature: BoolProperty() # type: ignore
 
 class YASVGroups(PropertyGroup):
@@ -426,7 +425,7 @@ class YASVGroups(PropertyGroup):
     
     def update_lock_weight(self, context:Context) -> None:
         obj = context.active_object
-        if obj and obj.type == 'MESH':
+        if obj.type == 'MESH':
             group = obj.vertex_groups.get(self.name)
             if group:
                 group.lock_weight = self.lock_weight
@@ -640,6 +639,16 @@ class OutfitProps(PropertyGroup):
         else:
             context.scene.frame_current = self.animation_frame
     
+    def update_directory(self, context:Context, category:str) -> None:
+        prop = context.scene.file_props
+        actual_prop = f"{category}_directory"
+        display_prop = f"{category}_display_directory"
+
+        display_directory = getattr(prop, display_prop, "")
+
+        if os.path.exists(display_directory):  
+            setattr(prop, actual_prop, display_directory)
+
     shape_key_source: EnumProperty(
         name= "",
         description= "Select an overview",
@@ -688,7 +697,7 @@ class OutfitProps(PropertyGroup):
 
     actions: EnumProperty(
         name="Animations",
-        description="Select an animatoons from the scene",
+        description="Select an animation from the scene",
         items=lambda self, context: self.scene_actions(),
         default= 0,
         update=lambda self, context: self.set_action(context)
@@ -701,6 +710,11 @@ class OutfitProps(PropertyGroup):
         update=lambda self, context: self.animation_frames(context),
     ) # type: ignore
 
+    pose_display_directory: StringProperty(
+        default="Select .pose file",
+        subtype="FILE_PATH", 
+        maxlen=255,
+        )  # type: ignore
 
 CLASSES = [
     ModpackGroups,

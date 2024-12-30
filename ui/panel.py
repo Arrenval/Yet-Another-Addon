@@ -10,17 +10,17 @@ from bpy.types     import Panel, Operator, UIList, UILayout, Context, VertexGrou
 class MESH_UL_yas(UIList):
     bl_idname = "MESH_UL_yas"
 
-    def draw_item(self, context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
+    def draw_item(self, context:Context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
         ob = data
         vgroup = item
         icon = self.get_icon_value("GROUP_VERTEX")
-        error = self.get_icon_value("INFO")
         try:
             category = bpy.context.scene.outfit_props.YAS_BONES[vgroup.name]
         except:
             category = "Unknown"
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if "has no " in vgroup.name:
+            if len(context.scene.yas_vgroups) == 1 and "has no " in vgroup.name:
+                error = self.get_icon_value("INFO")
                 layout.prop(vgroup, "name", text="", emboss=False, icon_value=error)
                 layout.alignment = "CENTER"
             else:
@@ -93,7 +93,12 @@ class DirSelector(Operator):
     bl_description = "Select file or directory. Hold Alt to open the folder"
     
     directory: StringProperty() # type: ignore
-    category: StringProperty() # type: ignore
+    category: StringProperty(options={'HIDDEN'}) # type: ignore
+    filter_glob: bpy.props.StringProperty(
+        subtype="DIR_PATH",
+        options={'HIDDEN'}) # type: ignore
+    
+    
 
     def invoke(self, context, event):
         actual_dir = getattr(context.scene.file_props, f"{self.category}_directory", "")     
@@ -352,9 +357,12 @@ class OutfitStudio(Panel):
                 split.operator("ya.apply_modifier", text="Apply")
                 icon = "PINNED" if section_prop.keep_modifier else "UNPINNED"
                 row.prop(section_prop, "keep_modifier", text="", icon=icon)
-            else:
+            elif not obj.modifiers:
                 row.alignment = "CENTER"
                 row.label(text="Object has no modifiers.", icon="INFO")
+            elif not obj.data.shape_keys:
+                row.alignment = "CENTER"
+                row.label(text="Object has no shape keys.", icon="INFO")
             if obj.type == 'MESH' and section_prop.deform_modifiers == 'None':
                 row = box.row(align=True)
                 row.operator("wm.call_menu", text="Add Modifier", icon="ADD").name = "OBJECT_MT_modifier_add"
@@ -408,6 +416,14 @@ class OutfitStudio(Panel):
         split.alignment = "RIGHT"
         split.label(text="Animation:")
         split.prop(section_prop, "actions", text="", icon="ACTION")
+        row = box.row(align=True)
+        split = row.split(factor=0.25, align=True)
+        split.alignment = "RIGHT"
+        split.label(text="Pose:")
+        split.label(text=bpy.context.scene.outfit_props.pose_display_directory)
+        buttonrow = split.row(align=True)
+        buttonrow.operator("ya.pose_apply", text="Apply")
+        buttonrow.operator("ya.pose_apply", text="", icon="FILE_REFRESH").reset = True
         
         if section_prop.armatures != "None" and section_prop.actions != "None":
             box.separator(factor=0.5, type="LINE")
@@ -430,6 +446,7 @@ class OutfitStudio(Panel):
                 row.operator("screen.animation_play", text="", icon="PLAY")
             row.operator("ya.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
             row.operator("ya.frame_jump", text="", icon="FRAME_NEXT").end = True
+        
                     
     def dynamic_column_buttons(self, columns, layout:UILayout, section_prop, labels, slot, button_type):
         row = layout.row(align=True)
@@ -848,7 +865,7 @@ class FileManager(Panel):
             split2 = row.split(factor=1)
             col3 = split2.column(align=True)
             col3.alignment = "CENTER"
-            col3.operator("ya.pmp_selector", icon="FILE_FOLDER", text="")
+            col3.operator("ya.pmp_selector", icon="FILE", text="")
             col3.prop(section_prop, "loadmodpack_author", text="by", emboss=False)
 
             if Path(section_prop.loadmodpack_directory).is_file():
