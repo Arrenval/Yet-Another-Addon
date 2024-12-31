@@ -527,7 +527,7 @@ class OutfitProps(PropertyGroup):
         ("shapes",    "category",   False,   "Enables shape transfer menu"),
         ("mesh",      "category",   False,   "Enables mesh editing menu"),
         ("weights",   "category",   False,   "Enables weight editing menu"),
-        ("animation", "category",   False,   "Enables animation playback menu"),
+        ("armature", "category",   False,    "Enables animation playback and pose/scaling menu"),
         ("keep",      "modifier",   False,   "Keeps the modifier after applying"),
         ("filter",    "vgroups",    True,    "Switches between showing all vertex groups or just YAS groups"),
         ("adjust",    "overhang",   False,   "Tries to adjust for clothing that hangs off of the breasts"),

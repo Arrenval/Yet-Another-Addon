@@ -161,7 +161,7 @@ class OutfitCategory(Operator):
 
     def invoke(self, context, event):
         props = context.scene.outfit_props
-        categories = ["overview", "shapes", "mesh", "weights", "animation"]
+        categories = ["overview", "shapes", "mesh", "weights", "armature"]
         if event.shift:
             state = getattr(props, f"{self.menu.lower()}_category")
             if state:
@@ -194,7 +194,7 @@ class OutfitStudio(Panel):
             "Shapes": "SHAPEKEY_DATA",
             "Mesh": "OUTLINER_OB_MESH",
             "Weights": "WPAINT_HLT",
-            "Animation": "RENDER_ANIMATION"
+            "Armature": "ARMATURE_DATA"
             }
 
         row = layout.row()
@@ -215,8 +215,8 @@ class OutfitStudio(Panel):
         if section_prop.weights_category:
             self.draw_weights(col, section_prop)
 
-        if section_prop.animation_category:
-            self.draw_animation(col, section_prop)
+        if section_prop.armature_category:
+            self.draw_armature(col, section_prop)
               
     def draw_shapes(self, layout:UILayout, section_prop):
         if hasattr(bpy.context.scene, "devkit_props"):
@@ -401,11 +401,11 @@ class OutfitStudio(Panel):
         row.operator("ya.remove_empty_vgroups", text= "Remove Empty").preset = ""
         row.prop(section_prop, "filter_vgroups", text="", icon="FILTER")
                     
-    def draw_animation(self, layout:UILayout, section_prop):
+    def draw_armature(self, layout:UILayout, section_prop):
         box = layout.box()
         row = box.row()
         row.alignment = "CENTER"
-        row.label(text="Animation", icon=self.options["Animation"])
+        row.label(text="Armature", icon=self.options["Armature"])
         row = box.row()
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
@@ -446,8 +446,7 @@ class OutfitStudio(Panel):
                 row.operator("screen.animation_play", text="", icon="PLAY")
             row.operator("ya.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
             row.operator("ya.frame_jump", text="", icon="FRAME_NEXT").end = True
-        
-                    
+                     
     def dynamic_column_buttons(self, columns, layout:UILayout, section_prop, labels, slot, button_type):
         row = layout.row(align=True)
 

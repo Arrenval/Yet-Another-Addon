@@ -8,7 +8,7 @@ bl_info = {
     "name": "Yet Another Addon",
     "author": "Aleks",
     "description": "Several tools to speed up XIV modding workflows.",
-    "version": (0, 9, 12),
+    "version": (0, 9, 13),
     "blender": (4, 2, 1),
     "category": "",
     }
@@ -29,7 +29,7 @@ from .util          import penumbra
 from .outfit        import mesh 
 from .outfit        import shapes   
 from .outfit        import weights  
-from .outfit        import animation
+from .outfit        import armature
 from importlib      import reload
     
       
@@ -39,7 +39,7 @@ modules = [
     export,
     modpack,
     weights,
-    animation,
+    armature,
     shapes,
     mesh,
     panel
