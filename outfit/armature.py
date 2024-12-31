@@ -1,0 +1,246 @@
+import os
+import bpy
+import json
+
+from math          import pi
+from pathlib       import Path
+from mathutils     import Quaternion
+from bpy.types     import Operator, Object, PoseBone, Context
+from bpy.props     import StringProperty, BoolProperty
+
+    
+class PoseApply(Operator):
+    bl_idname = "ya.pose_apply"
+    bl_label = ""
+    bl_options = {'UNDO'}
+
+    filepath: StringProperty() # type: ignore
+    filter_glob: bpy.props.StringProperty(
+        default='*.pose',
+        options={'HIDDEN'}) # type: ignore
+    reset: BoolProperty(default=False, options={'HIDDEN'}) # type: ignore
+
+    def __init__(self):
+        self.old_bone_map = {
+            "j_asi_e_l": "ToesLeft",
+            "j_asi_d_l": "FootLeft",
+            "j_asi_c_l": "CalfLeft",
+            "j_asi_b_l": "KneeLeft",
+            "j_asi_a_l": "LegLeft",
+            "j_asi_e_r": "ToesRight",
+            "j_asi_d_r": "FootRight",
+            "j_asi_c_r": "CalfRight",
+            "j_asi_b_r": "KneeRight",
+            "j_asi_a_r": "LegRight",
+            "j_ko_b_r": "PinkyBRight",
+            "j_ko_a_r": "PinkyARight",
+            "j_kusu_b_r": "RingBRight",
+            "j_kusu_a_r": "RingARight",
+            "j_naka_b_r": "MiddleBRight",
+            "j_naka_a_r": "MiddleARight",
+            "j_hito_b_r": "IndexBRight",
+            "j_hito_a_r": "IndexARight",
+            "j_oya_b_r": "ThumbBRight",
+            "j_oya_a_r": "ThumbARight",
+            "j_te_r": "HandRight",
+            "n_hte_r": "WristRight",
+            "j_ude_b_r": "ForearmRight",
+            "j_ude_a_r": "ArmRight",
+            "n_hhiji_r": "ElbowRight",
+            "n_hkata_r": "ShoulderRight",
+            "j_ko_b_l": "PinkyBLeft",
+            "j_ko_a_l": "PinkyALeft",
+            "j_kusu_b_l": "RingBLeft",
+            "j_kusu_a_l": "RingALeft",
+            "j_naka_b_l": "MiddleBLeft",
+            "j_naka_a_l": "MiddleALeft",
+            "j_hito_b_l": "IndexBLeft",
+            "j_hito_a_l": "IndexALeft",
+            "j_oya_b_l": "ThumbBLeft",
+            "j_oya_a_l": "ThumbALeft",
+            "j_te_l": "HandLeft",
+            "n_hte_l": "WristLeft",
+            "j_ude_b_l": "ForearmLeft",
+            "j_ude_a_l": "ArmLeft",
+            "n_hhiji_l": "ElbowLeft",
+            "n_hkata_l": "ShoulderLeft",
+            "j_kao": "Head",
+            "j_kubi": "Neck",
+            "j_kosi": "Waist",
+            "j_sebo_a": "SpineA",
+            "j_sebo_b": "SpineB",
+            "j_sebo_c": "SpineC",
+            "j_mune_r": "BreastRight",
+            "j_mune_l": "BreastLeft",
+            "j_sako_r": "ClavicleRight",
+            "j_sako_l": "ClavicleLeft",
+            "n_throw": "Throw",
+            "n_hara": "Root",
+            "j_ago": "Jaw",
+            "j_f_dlip_a": "LipLowerA",
+            "j_f_dlip_b": "LipLowerB",
+            "j_f_ulip_a": "LipUpperA",
+            "j_f_ulip_b": "LipUpperB",
+            "j_f_lip_l": "LipsLeft",
+            "j_f_lip_r": "LipsRight",
+            "j_f_hoho_r": "CheekRight",
+            "j_f_hoho_l": "CheekLeft",
+            "j_f_hana": "Nose",
+            "n_sippo_a": "TailA",
+            "n_sippo_b": "TailB",
+            "n_sippo_c": "TailC",
+            "n_sippo_d": "TailD",
+            "n_sippo_e": "TailE",
+            "j_f_memoto": "Bridge",
+            "j_f_umab_l": "EyelidUpperLeft",
+            "j_f_dmab_l": "EyelidLowerLeft",
+            "j_f_eye_l": "EyeLeft",
+            "j_f_umab_r": "EyelidUpperRight",
+            "j_f_dmab_r": "EyelidLowerRight",
+            "j_f_eye_r": "EyeRight",
+            "j_f_miken_l": "BrowLeft",
+            "j_f_mayu_l": "EyebrowLeft",
+            "j_f_miken_r": "BrowRight",
+            "j_f_mayu_r": "EyebrowRight",
+            "j_mimi_r": "EarRight",
+            "j_mimi_l": "EarLeft",
+            "n_ear_a_l": "EarringALeft",
+            "n_ear_b_l": "EarringBLeft",
+            "n_ear_a_r": "EarringARight",
+            "n_ear_b_r": "EarringBRight"
+            }
+    
+    @classmethod
+    def description(cls, context, properties):
+        if properties.reset:
+            return """Reset armature"""
+        else:
+            return """Select and apply .pose to armature:
+            * Hold Shift to reapply.
+            * Hold Alt to open folder"""
+        
+    @classmethod
+    def poll(self, context):
+        obj = bpy.data.objects[context.scene.outfit_props.armatures]
+        return obj is not None and obj.type == "ARMATURE"
+    
+    def invoke(self, context, event):
+        self.actual_file = Path(self.filepath) 
+
+        if self.reset:
+            self.execute(context)
+        elif event.alt and event.type == "LEFTMOUSE" and self.actual_file.is_file():
+            actual_dir = self.actual_file.parent
+            os.startfile(str(actual_dir))
+        elif event.shift and event.type == "LEFTMOUSE" and self.actual_file.is_file():
+            self.execute(context)
+        elif event.type == "LEFTMOUSE":
+            context.window_manager.fileselect_add(self)
+        else:
+             self.report({"ERROR"}, "Not a valid pose file!")
+    
+        return {"RUNNING_MODAL"}
+    
+    def execute(self, context):
+        pose_file        = Path(self.filepath)
+        skeleton: Object = bpy.data.objects[context.scene.outfit_props.armatures]
+        visibility = skeleton.hide_get()
+        skeleton.hide_set(state=False)
+        if self.reset:
+            self.reset_armature(context, skeleton)
+        elif pose_file.exists() and pose_file.suffix == ".pose": 
+            context.scene.outfit_props.pose_display_directory = pose_file.stem
+            self.apply(context, skeleton, pose_file)
+            self.report({'INFO'}, f"{pose_file.stem} selected!")  
+        else:
+            self.report({'ERROR'}, "Not a valid pose file!")
+        skeleton.hide_set(state=visibility)
+        return {'FINISHED'}
+    
+    def reset_armature(self, context:Context, skeleton:Object):
+        skeleton: Object = bpy.data.objects[context.scene.outfit_props.armatures]
+        context.view_layer.objects.active = skeleton
+        bpy.ops.object.mode_set(mode='POSE')
+        bpy.ops.pose.select_all(action='SELECT')
+        bpy.ops.pose.transforms_clear()
+        bpy.ops.pose.select_all(action='DESELECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    def apply(self, context:Context, skeleton:Object, pose_file:Path) -> None:
+        # Get world space matrix of armature
+        self.armature_world = skeleton.matrix_world
+        # XIV armatures are rotated -90 on the X axis, this will align rotation with Blender's default world space
+        self.rotation_x90   = Quaternion((1, 0, 0), pi / 2)
+        # Checks if the armature has an unapplied World Space x axis rotation, typical for TT n_roots
+        self.is_rotated     = skeleton.rotation_euler[0] != 0.0
+        
+        with open(pose_file, "r") as file:
+            pose = json.load(file)
+        
+        # We need to update Blender's depsgraph per bone level or else child bones will not be given the proper local space rotation
+        bone_levels = self.get_bone_hierarchy_levels(skeleton)
+
+        for level in range(max(bone_levels.keys())):
+            level_bones = bone_levels[level]
+            for bone in level_bones:
+                self.convert_rotation_space(skeleton, pose["Bones"], bone)
+            skeleton.update_tag(refresh={'DATA'})
+            context.evaluated_depsgraph_get().update()
+    
+    def convert_rotation_space(self, skeleton:Object, source_bone_rotations:dict[str, str], bone:PoseBone) -> None:
+        bone_name = bone.name
+        if bone_name not in source_bone_rotations:
+            if bone_name not in self.old_bone_map:
+                return
+            if self.old_bone_map[bone_name] not in source_bone_rotations:
+                return
+            bone_name = self.old_bone_map[bone.name]
+            
+        # Get rotation data for current bone
+        rotation_str = source_bone_rotations[bone_name]["Rotation"]
+        rotation = rotation_str.split(", ")
+        # XYZW to WXYZ
+        rotation = Quaternion([float(rotation[3]), float(rotation[0]), float(rotation[1]), float(rotation[2])])
+        
+        rotation_matrix = rotation.to_matrix().to_4x4() 
+        
+        if self.is_rotated:
+            final_rotation      = rotation_matrix
+        else:
+            # Include skeleton transformation matrix, aligned with Blender's world space
+            world_rotation      = (rotation_matrix @ self.armature_world).to_quaternion()
+            
+            # Corrects world rotation to match devkit skeleton's
+            corrected_rotation  = self.rotation_x90 @ world_rotation
+            final_rotation      = corrected_rotation.to_matrix().to_4x4()
+        
+        # Gives us local space rotation for the bone
+        bone_rotation = skeleton.convert_space(
+            pose_bone=bone,
+            matrix=final_rotation,
+            from_space='POSE',
+            to_space='LOCAL'
+        )
+        
+        bone.rotation_mode = 'QUATERNION'
+        bone.rotation_quaternion = bone_rotation.to_quaternion()
+
+    def get_bone_hierarchy_levels(self, skeleton: Object) -> dict[int, list]:
+        bone_levels: dict[int, list] = {}
+        
+        def calculate_bone_level(bone: PoseBone, level: int):
+            bone_levels.setdefault(level, [])
+            bone_levels[level].append(bone)
+            for child in bone.children:
+                calculate_bone_level(child, level + 1)
+        
+        for bone in skeleton.pose.bones:
+            if not bone.parent:
+                calculate_bone_level(bone, 0)
+        
+        return bone_levels
+        
+
+CLASSES = [
+    PoseApply
+]
