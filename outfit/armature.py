@@ -5,8 +5,9 @@ import json
 from math          import pi
 from pathlib       import Path
 from mathutils     import Quaternion
-from bpy.types     import Operator, Object, PoseBone, Context
+from bpy.types     import Operator, Object, PoseBone, Context, Modifier
 from bpy.props     import StringProperty, BoolProperty
+from ..util.props  import visible_meshobj
 
     
 class PoseApply(Operator):
@@ -21,6 +22,7 @@ class PoseApply(Operator):
     reset: BoolProperty(default=False, options={'HIDDEN'}) # type: ignore
 
     def __init__(self):
+        self.scaling      = bpy.context.scene.outfit_props.scaling_armature
         self.old_bone_map = {
             "j_asi_e_l": "ToesLeft",
             "j_asi_d_l": "FootLeft",
@@ -113,16 +115,23 @@ class PoseApply(Operator):
     @classmethod
     def description(cls, context, properties):
         if properties.reset:
-            return """Reset armature"""
+            if bpy.context.scene.outfit_props.scaling_armature:
+                return "Reset scaling"
+            else:
+                return "Reset pose"
         else:
-            return """Select and apply .pose to armature:
-            * Hold Shift to reapply.
-            * Hold Alt to open folder"""
+            if bpy.context.scene.outfit_props.scaling_armature:
+                return """Select and apply scaling to armature:
+            *Hold Shift to reapply.
+            *Hold Alt to open folder"""
+            else:
+                return """Select and apply pose to armature:
+                *Hold Shift to reapply.
+                *Hold Alt to open folder"""
         
     @classmethod
-    def poll(self, context):
-        obj = bpy.data.objects[context.scene.outfit_props.armatures]
-        return obj is not None and obj.type == "ARMATURE"
+    def poll(cls, context):
+        return bpy.context.scene.outfit_props.armatures != "None" or bpy.context.scene.outfit_props.armatures != ""
     
     def invoke(self, context, event):
         self.actual_file = Path(self.filepath) 
@@ -162,30 +171,51 @@ class PoseApply(Operator):
         context.view_layer.objects.active = skeleton
         bpy.ops.object.mode_set(mode='POSE')
         bpy.ops.pose.select_all(action='SELECT')
-        bpy.ops.pose.transforms_clear()
+        if self.scaling:
+            bpy.ops.pose.scale_clear()
+        else:
+            bpy.ops.pose.rot_clear()
+            bpy.ops.pose.loc_clear()
         bpy.ops.pose.select_all(action='DESELECT')
         bpy.ops.object.mode_set(mode='OBJECT')
 
     def apply(self, context:Context, skeleton:Object, pose_file:Path) -> None:
-        # Get world space matrix of armature
-        self.armature_world = skeleton.matrix_world
-        # XIV armatures are rotated -90 on the X axis, this will align rotation with Blender's default world space
-        self.rotation_x90   = Quaternion((1, 0, 0), pi / 2)
-        # Checks if the armature has an unapplied World Space x axis rotation, typical for TT n_roots
-        self.is_rotated     = skeleton.rotation_euler[0] != 0.0
-        
         with open(pose_file, "r") as file:
             pose = json.load(file)
-        
-        # We need to update Blender's depsgraph per bone level or else child bones will not be given the proper local space rotation
-        bone_levels = self.get_bone_hierarchy_levels(skeleton)
+ 
+        if self.scaling:
+            for bone in skeleton.data.bones:
+                bone.inherit_scale = 'NONE'
+            for bone in skeleton.pose.bones:
+                self.scale_bones(pose["Bones"], bone )
 
-        for level in range(max(bone_levels.keys())):
-            level_bones = bone_levels[level]
-            for bone in level_bones:
-                self.convert_rotation_space(skeleton, pose["Bones"], bone)
-            skeleton.update_tag(refresh={'DATA'})
-            context.evaluated_depsgraph_get().update()
+        else:
+            visible_mesh = visible_meshobj()
+            # Dictionary of objects linked to the skeleton and their armature modifier state.
+            # We toggle off any armature modifiers to reduce render time for the depsgraph update later.
+            obj_skeleton: dict[str, tuple[str, bool]] = {}
+            for obj in visible_mesh:
+                arm_modifiers: list[Modifier] = [modifier for modifier in obj.modifiers if modifier.type == "ARMATURE"]
+                for modifier in arm_modifiers:
+                    if modifier.object == skeleton: 
+                        obj_skeleton[obj.name] = modifier.name, modifier.show_viewport
+                        modifier.show_viewport = False
+
+            # Get world space matrix of armature
+            self.rotation_x90   = Quaternion((1, 0, 0), pi / 2)
+            # Checks if the armature has an unapplied World Space x axis rotation, typical for TT n_roots
+            self.is_rotated     = skeleton.rotation_euler[0] != 0.0
+            # We need to update Blender's depsgraph per bone level or else child bones will not be given the proper local space rotation
+            bone_levels = self.get_bone_hierarchy_levels(skeleton)
+            for level in range(max(bone_levels.keys())):
+                level_bones = bone_levels[level]
+                for bone in level_bones:
+                    self.convert_rotation_space(skeleton, pose["Bones"], bone)
+                skeleton.update_tag(refresh={'DATA'})
+                context.evaluated_depsgraph_get().update()
+            
+            for obj_name, (modifer, modifier_state) in obj_skeleton.items():
+                bpy.data.objects[obj_name].modifiers[modifer].show_viewport = modifier_state
     
     def convert_rotation_space(self, skeleton:Object, source_bone_rotations:dict[str, str], bone:PoseBone) -> None:
         bone_name = bone.name
@@ -200,30 +230,42 @@ class PoseApply(Operator):
         rotation_str = source_bone_rotations[bone_name]["Rotation"]
         rotation = rotation_str.split(", ")
         # XYZW to WXYZ
-        rotation = Quaternion([float(rotation[3]), float(rotation[0]), float(rotation[1]), float(rotation[2])])
-        
-        rotation_matrix = rotation.to_matrix().to_4x4() 
+        rotation = Quaternion((float(rotation[3]), float(rotation[0]), float(rotation[1]), float(rotation[2])))
         
         if self.is_rotated:
-            final_rotation      = rotation_matrix
+            final_matrix        = rotation.to_matrix().to_4x4()
         else:
-            # Include skeleton transformation matrix, aligned with Blender's world space
-            world_rotation      = (rotation_matrix @ self.armature_world).to_quaternion()
-            
-            # Corrects world rotation to match devkit skeleton's
-            corrected_rotation  = self.rotation_x90 @ world_rotation
-            final_rotation      = corrected_rotation.to_matrix().to_4x4()
+            # Adjust global space of quaternion
+            corrected_rotation  = self.rotation_x90 @ rotation
+            final_matrix        = corrected_rotation.to_matrix().to_4x4()
         
         # Gives us local space rotation for the bone
         bone_rotation = skeleton.convert_space(
             pose_bone=bone,
-            matrix=final_rotation,
+            matrix=final_matrix,
             from_space='POSE',
             to_space='LOCAL'
         )
         
         bone.rotation_mode = 'QUATERNION'
         bone.rotation_quaternion = bone_rotation.to_quaternion()
+
+    def scale_bones(self, source_bone_scaling:dict[str, str], bone:PoseBone):
+        bone_name = bone.name
+        if bone_name not in source_bone_scaling:
+            if bone_name not in self.old_bone_map:
+                return
+            if self.old_bone_map[bone_name] not in source_bone_scaling:
+                return
+            bone_name = self.old_bone_map[bone.name]
+            
+        # Get scaling data for current bone
+        scaling_str = source_bone_scaling[bone_name]["Scale"]
+        scaling = scaling_str.split(", ")
+
+        bone.scale[0] = float(scaling[0])
+        bone.scale[1] = float(scaling[1])
+        bone.scale[2] = float(scaling[2])
 
     def get_bone_hierarchy_levels(self, skeleton: Object) -> dict[int, list]:
         bone_levels: dict[int, list] = {}
