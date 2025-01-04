@@ -100,7 +100,7 @@ class ShapeKeyTransfer(Operator):
                 value.type = "SCRIPTED"
                 value.expression = "1 if mute == 0 else 0"
                 value_var = value.variables.new()
-                value_var.name = "key_value"
+                value_var.name = "mute"
                 value_var.type = "SINGLE_PROP"
 
                 value_var.targets[0].id_type = "KEY"
