@@ -471,7 +471,13 @@ class Modpacker(Operator):
             if "Rue" in item.stem:
                 ranking[item] += 42
             if "Yiggle" in item.stem:
-                ranking[item] += 69
+                ranking[item] += 69*420
+            if "Long" in item.stem:
+                ranking[item] += 1
+            if "Ballerina" in item.stem:
+                ranking[item] += 2
+            if "Stabbies" in item.stem:
+                ranking[item] += 3
 
         sorted_rank = sorted(ranking.items(), key=lambda x: x[1])
         
