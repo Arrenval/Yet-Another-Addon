@@ -22,14 +22,11 @@ def get_object_from_mesh(mesh_name:str) -> Object | None:
     return None
 
 def scene_armatures() -> list[tuple[str, str, str]]:
-        armatures = []
+        armatures = [("None", "None", ""), None]
         
         for obj in bpy.context.scene.objects:
             if obj.type == 'ARMATURE':
                 armatures.append((obj.name, obj.name, "Armature"))
-        
-        if not armatures:
-            armatures.append(("None", "None", "No armature found"))
         
         return armatures
 
@@ -430,7 +427,7 @@ class YASVGroups(PropertyGroup):
             if group:
                 group.lock_weight = self.lock_weight
 
-class DeformModifiers(PropertyGroup):
+class ShapeModifiers(PropertyGroup):
     name: StringProperty() # type: ignore
     icon: StringProperty() # type: ignore
 
@@ -527,8 +524,9 @@ class OutfitProps(PropertyGroup):
         ("shapes",    "category",   False,   "Enables shape transfer menu"),
         ("mesh",      "category",   False,   "Enables mesh editing menu"),
         ("weights",   "category",   False,   "Enables weight editing menu"),
-        ("armature", "category",   False,    "Enables animation playback and pose/scaling menu"),
-        ("keep",      "modifier",   False,   "Keeps the modifier after applying"),
+        ("armature",  "category",   False,   "Enables animation playback and pose/scaling menu"),
+        ("scaling",   "armature",   False,   "Applies scaling to armature"),
+        ("keep",      "modifier",   False,   "Keeps the modifier after applying. Unable to keep Data Transfers"),
         ("filter",    "vgroups",    True,    "Switches between showing all vertex groups or just YAS groups"),
         ("adjust",    "overhang",   False,   "Tries to adjust for clothing that hangs off of the breasts"),
         ("add",       "shrinkwrap", False,   "Applies a shrinkwrap modifier when deforming the mesh. Remember to exclude parts of the mesh overlapping with the body"),
@@ -595,43 +593,42 @@ class OutfitProps(PropertyGroup):
             return [("None", "Select a mesh", "")]
 
     def scene_actions(self) -> list[tuple[str, str, str]]: 
-        armature_actions = []
+        armature_actions = [("None", "None", ""), None]
     
         for action in bpy.data.actions:
             if action.id_root == "OBJECT":
                 armature_actions.append((action.name , action.name, "Action"))
-        if not armature_actions:
-            armature_actions.append(("None", "None", "No actions found"))
-            
         return armature_actions
     
-    def get_deform_modifiers(self, context) -> list[tuple[str, str, str]]:
-        modifiers = context.scene.deform_modifiers
+    def get_deform_modifiers(self, context:Context) -> list[tuple[str, str, str]]:
+        modifiers = context.scene.shape_modifiers
         if not modifiers:
-            return [("None", "No Deform Modifiers", "")]
+            return [("None", "No Valid Modifiers", "")]
         return [(modifier.name, modifier.name, "", modifier.icon, index) for index, modifier in enumerate(modifiers)]
 
     def set_action(self, context:Context) -> None:
-        prop = context.scene.outfit_props
-        armature = prop.armatures
-        action = bpy.data.actions.get(prop.actions)
+        if self.armatures == "None":
+            return
+        if self.actions == "None":
+            bpy.data.objects[self.armatures].animation_data.action = None
+            return
+        
+        action = bpy.data.actions.get(self.actions)
 
-        if action and armature != "None":
+        bpy.data.objects[self.armatures].animation_data.action = action
+        context.scene.frame_end = int(action.frame_end)
 
-            bpy.data.objects[armature].animation_data.action = action
-            bpy.context.scene.frame_end = int(action.frame_end)
-
-            if hasattr(OutfitProps, "animation_frame"):
-                del OutfitProps.animation_frame
-            
-            prop = IntProperty(
-                name="Current Frame",
-                default=0,
-                max=int(action.frame_end),
-                min=0,
-                update=lambda self, context: self.animation_frames(context)
-                ) 
-            setattr(OutfitProps, "animation_frame", prop)
+        if hasattr(OutfitProps, "animation_frame"):
+            del OutfitProps.animation_frame
+        
+        prop = IntProperty(
+            name="Current Frame",
+            default=0,
+            max=int(action.frame_end),
+            min=0,
+            update=lambda self, context: self.animation_frames(context)
+            ) 
+        setattr(OutfitProps, "animation_frame", prop)
 
     def animation_frames(self, context:Context) -> None:
         if context.screen.is_animation_playing:
@@ -682,7 +679,7 @@ class OutfitProps(PropertyGroup):
         items=lambda self, context: self.get_vertex_groups(context)
         )  # type: ignore
     
-    deform_modifiers: EnumProperty(
+    shape_modifiers: EnumProperty(
         name= "",
         description= "Select a deform modifier",
         items=lambda self, context: self.get_deform_modifiers(context)
@@ -722,7 +719,7 @@ CLASSES = [
     FileProps,
     AnimationOptimise,
     YASVGroups,
-    DeformModifiers,
+    ShapeModifiers,
     OutfitProps
 ]
 
@@ -747,8 +744,8 @@ def set_addon_properties() -> None:
     bpy.types.Scene.fbx_subfolder = bpy.props.CollectionProperty(
         type=FBXSubfolders)
     
-    bpy.types.Scene.deform_modifiers = bpy.props.CollectionProperty(
-        type=DeformModifiers)
+    bpy.types.Scene.shape_modifiers = bpy.props.CollectionProperty(
+        type=ShapeModifiers)
     
     FileProps.ui_buttons()
     FileProps.extra_options()
@@ -763,4 +760,4 @@ def remove_addon_properties() -> None:
     del bpy.types.Scene.pmp_group_options
     del bpy.types.Scene.animation_optimise
     del bpy.types.Scene.fbx_subfolder
-    del bpy.types.Scene.deform_modifiers
+    del bpy.types.Scene.shape_modifiers

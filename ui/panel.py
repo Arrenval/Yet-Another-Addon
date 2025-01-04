@@ -342,28 +342,37 @@ class OutfitStudio(Panel):
         if button and obj is not None:
             row = box.row(align=True)
             if obj.modifiers and obj.data.shape_keys:
-                key = obj.data.shape_keys
-                row.template_list(
-                    "MESH_UL_shape", 
-                    "", 
-                    key, 
-                    "key_blocks", 
-                    obj, 
-                    "active_shape_key_index", 
-                    rows=5)
                 row = box.row(align=True)
                 split = row.split(factor=0.75, align=True)
-                split.prop(section_prop, "deform_modifiers")
+                split.prop(section_prop, "shape_modifiers")
                 split.operator("ya.apply_modifier", text="Apply")
                 icon = "PINNED" if section_prop.keep_modifier else "UNPINNED"
                 row.prop(section_prop, "keep_modifier", text="", icon=icon)
+                if section_prop.shape_modifiers == "None" or section_prop.shape_modifiers == "":
+                    pass
+                elif  obj.modifiers[section_prop.shape_modifiers].type == "DATA_TRANSFER":
+                    row = box.row(align=True)
+                    row.alignment = "CENTER"
+                    row.label(text="Will be applied to mix of current shape keys.", icon="INFO")
+                else:
+                    row = box.row(align=True)
+                    key = obj.data.shape_keys
+                    row.template_list(
+                        "MESH_UL_shape", 
+                        "", 
+                        key, 
+                        "key_blocks", 
+                        obj, 
+                        "active_shape_key_index", 
+                        rows=5)
+
             elif not obj.modifiers:
                 row.alignment = "CENTER"
                 row.label(text="Object has no modifiers.", icon="INFO")
             elif not obj.data.shape_keys:
                 row.alignment = "CENTER"
                 row.label(text="Object has no shape keys.", icon="INFO")
-            if obj.type == 'MESH' and section_prop.deform_modifiers == 'None':
+            if obj.type == 'MESH' and section_prop.shape_modifiers == 'None':
                 row = box.row(align=True)
                 row.operator("wm.call_menu", text="Add Modifier", icon="ADD").name = "OBJECT_MT_modifier_add"
         elif button:
@@ -411,41 +420,50 @@ class OutfitStudio(Panel):
         split.alignment = "RIGHT"
         split.label(text="Armature:")
         split.prop(section_prop, "armatures", text="", icon="ARMATURE_DATA")
-        row = box.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Animation:")
-        split.prop(section_prop, "actions", text="", icon="ACTION")
-        row = box.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Pose:")
-        split.label(text=bpy.context.scene.outfit_props.pose_display_directory)
-        buttonrow = split.row(align=True)
-        buttonrow.operator("ya.pose_apply", text="Apply")
-        buttonrow.operator("ya.pose_apply", text="", icon="FILE_REFRESH").reset = True
-        
-        if section_prop.armatures != "None" and section_prop.actions != "None":
+        box.separator(factor=0.5, type="LINE")
+        if section_prop.armatures == "None":
+            row = box.row()
+            row.alignment = "CENTER"
+            row.label(text="Please select an Armature.", icon="INFO")
+        else:
+            row = box.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Scaling:" if section_prop.scaling_armature else "Pose:" )
+            split.label(text=bpy.context.scene.outfit_props.pose_display_directory)
+            buttonrow = split.row(align=True)
+            buttonrow.operator("ya.pose_apply", text="Apply")
+            buttonrow.prop(section_prop, "scaling_armature", text="", icon="FIXED_SIZE")
+            buttonrow.operator("ya.pose_apply", text="", icon="FILE_REFRESH").reset = True
             box.separator(factor=0.5, type="LINE")
             row = box.row(align=True)
-            col = row.column(align=True)
-            row = col.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="Animation Frame:")
-            col.prop(section_prop, "animation_frame", text="")
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.operator("ya.frame_jump", text="", icon="FRAME_PREV").end = False
-            row.operator("ya.keyframe_jump", text="", icon="PREV_KEYFRAME").next = False
-            if bpy.context.screen.is_animation_playing:
-                row.scale_x = 2
-                row.operator("screen.animation_play", text="", icon="PAUSE")
-                row.scale_x = 1
-            else:
-                row.operator("screen.animation_play", text="", icon="PLAY_REVERSE").reverse = True
-                row.operator("screen.animation_play", text="", icon="PLAY")
-            row.operator("ya.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
-            row.operator("ya.frame_jump", text="", icon="FRAME_NEXT").end = True
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Animation:")
+            split.prop(section_prop, "actions", text="", icon="ACTION")
+
+            
+            if section_prop.armatures != "None" and section_prop.actions != "None":
+                # box.separator(factor=0.5, type="LINE")
+                row = box.row(align=True)
+                col = row.column(align=True)
+                row = col.row(align=True)
+                row.alignment = "CENTER"
+                row.label(text="Animation Frame:")
+                col.prop(section_prop, "animation_frame", text="")
+                row = box.row(align=True)
+                row.alignment = "CENTER"
+                row.operator("ya.frame_jump", text="", icon="FRAME_PREV").end = False
+                row.operator("ya.keyframe_jump", text="", icon="PREV_KEYFRAME").next = False
+                if bpy.context.screen.is_animation_playing:
+                    row.scale_x = 2
+                    row.operator("screen.animation_play", text="", icon="PAUSE")
+                    row.scale_x = 1
+                else:
+                    row.operator("screen.animation_play", text="", icon="PLAY_REVERSE").reverse = True
+                    row.operator("screen.animation_play", text="", icon="PLAY")
+                row.operator("ya.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
+                row.operator("ya.frame_jump", text="", icon="FRAME_NEXT").end = True
                      
     def dynamic_column_buttons(self, columns, layout:UILayout, section_prop, labels, slot, button_type):
         row = layout.row(align=True)
@@ -962,7 +980,8 @@ class FileManager(Panel):
                 
                 columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon)
             else:
-                print(f"{name} has no assigned property!")
+                # print(f"{name} has no assigned property!")
+                continue
         return box  
 
     def dropdown_header(self, button, section_prop, prop_str=str, label=str, extra_icon=""):
