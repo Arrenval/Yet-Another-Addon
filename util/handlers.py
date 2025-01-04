@@ -14,52 +14,54 @@ def get_mesh_props(dummy) -> None:
     mod_button    = props.button_modifiers_expand
     weight_button = props.filter_vgroups
     
-
-    if obj is None:
-        scene.deform_modifiers.clear()
+    if obj and obj.mode != 'OBJECT':
+        return None
+    
+    if not obj:
+        scene.shape_modifiers.clear()
         scene.yas_vgroups.clear()
         return None
 
     if getattr(props, "mesh_category") and mod_button and obj.modifiers:
-        deform = {
+        mod_types = {
                 'ARMATURE', 'DISPLACE', 'LATTICE', 'MESH_DEFORM', 'SIMPLE_DEFORM',
-                'WARP', 'SMOOTH', 'SHRINKWRAP', 'SURFACE_DEFORM', 'CORRECTIVE_SMOOTH'
+                'WARP', 'SMOOTH', 'SHRINKWRAP', 'SURFACE_DEFORM', 'CORRECTIVE_SMOOTH',
+                'DATA_TRANSFER'
             }
-        scene.deform_modifiers.clear()
-        deform_modifiers =  [modifier for modifier in obj.modifiers if any(modifier.type in type for type in deform) ]
-        for modifier in deform_modifiers:
-            new_modifier = scene.deform_modifiers.add()
-            new_modifier.name = modifier.name
-            if "SMOOTH" in modifier.type:
-                new_modifier.icon = "MOD_SMOOTH"
-            elif "DEFORM" in modifier.type:
-                new_modifier.icon = "MOD_MESHDEFORM"
-            else:
-                new_modifier.icon = f"MOD_{modifier.type.upper()}"
         
-        if props.deform_modifiers == "":
-            props.deform_modifiers = "None"
+        scene.shape_modifiers.clear()
+        for modifier in obj.modifiers:
+            if modifier.type in mod_types:
+                new_modifier = scene.shape_modifiers.add()
+                new_modifier.name = modifier.name
+                new_modifier.icon = "MOD_SMOOTH" if "SMOOTH" in modifier.type else \
+                                    "MOD_MESHDEFORM" if "DEFORM" in modifier.type else \
+                                    f"MOD_{modifier.type}"
+        
+        if scene.shape_modifiers and props.shape_modifiers == "":
+            props.shape_modifiers = scene.shape_modifiers[0].name
 
     else:
-        scene.deform_modifiers.clear()
+        scene.shape_modifiers.clear()
         
     if getattr(props, "weights_category") and weight_button and obj.vertex_groups:
-        prefixes = ("iv_", "ya_")
-        groups = [group for group in obj.vertex_groups if any(group.name.startswith(prefix) for prefix in prefixes)]
+        prefixes = {"iv_", "ya_"}
 
         scene.yas_vgroups.clear()
-        for group in groups:
-            new_group = scene.yas_vgroups.add()
-            new_group.name = group.name
-            new_group.lock_weight = obj.vertex_groups[group.name].lock_weight
-        if not groups:
+        has_groups = False
+        for group in obj.vertex_groups:
+            if any(group.name.startswith(prefix) for prefix in prefixes):
+                has_groups = True
+                new_group = scene.yas_vgroups.add()
+                new_group.name = group.name
+                new_group.lock_weight = obj.vertex_groups[group.name].lock_weight
+        if not has_groups:
             new_group = scene.yas_vgroups.add()
             new_group.name = "Mesh has no YAS Groups"
 
     else:
         scene.yas_vgroups.clear()
         
-
 DEVKIT_VER = (0, 0, 0)
 
 @persistent
