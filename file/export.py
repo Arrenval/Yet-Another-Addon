@@ -179,11 +179,13 @@ class MeshHandler:
                 continue
             if data_transfer and modifier.type == "DATA_TRANSFER":
                 bpy.ops.object.shape_key_add(from_mix=True)
+                obj.data.update()
                 try:
                     bpy.ops.object.modifier_apply(modifier=modifier.name)
                 except:
                     bpy.ops.object.modifier_remove(modifier=modifier.name)
                 bpy.ops.object.shape_key_remove()
+                pass
             elif not data_transfer:
                 try:
                     bpy.ops.object.modifier_apply(modifier=modifier.name)
@@ -256,12 +258,12 @@ class MeshHandler:
             bpy.ops.object.select_all(action="DESELECT")
 
     def create_backfaces(self) -> None:
-        
         visible = visible_meshobj()
         for obj in visible:
             if not obj.vertex_groups.get("BACKFACES"):
                 continue
             
+            print(obj.name)
             old_name = obj.name
             split    = old_name.split()
             split[0] = "Backfaces"
@@ -275,16 +277,15 @@ class MeshHandler:
             obj.hide_set(state=True)
             backfaces_mesh = bpy.context.view_layer.objects.active
             backfaces_mesh.name = new_name
-
-            if backfaces_mesh.data.shape_keys:
+            self.check_modifiers(backfaces_mesh, data_transfer=True)
+            
+            if backfaces_mesh.data.shape_keys and self.shapekeys:
                 xiv_key = [key for key in backfaces_mesh.data.shape_keys.key_blocks if key.name.startswith("shp")]
             
             if not xiv_key:
                 if backfaces_mesh.data.shape_keys:
                     bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
                 self.reset.append(obj)
-
-            self.check_modifiers(backfaces_mesh, data_transfer=True)
 
             backfaces_mesh.vertex_groups.active = backfaces_mesh.vertex_groups["BACKFACES"]
             bpy.ops.object.mode_set(mode='EDIT')
@@ -293,11 +294,10 @@ class MeshHandler:
             bpy.ops.mesh.flip_normals()
             self.delete.append(backfaces_mesh)
             bpy.ops.object.mode_set(mode='OBJECT')
-        if self.delete:
-            bpy.ops.object.mode_set(mode='OBJECT')
         
     def restore_meshes(self) -> None:
         for obj in self.delete:
+            print(f"Deleting: {obj.name}")
             bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
         
         for obj in self.reset:
@@ -813,7 +813,6 @@ class BatchQueue(Operator):
             body_slot = "Chest"
 
         for shape, (name, slot, category, description, body, key) in devkit_props.ALL_SHAPES.items():
-
             if shape == size and key != "":
                 obj[key].mute = False
 
