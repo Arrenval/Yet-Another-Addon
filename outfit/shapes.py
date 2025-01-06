@@ -149,11 +149,16 @@ class ShapeKeyTransfer(Operator):
         self.driver        : list[ShapeKey]             = []
         self.retry_relative: list[tuple[ShapeKey, str]] = []
 
-        if not target.data.shape_keys:
-                if self.source_input == "Chest" and self.chest_base != "Large":
-                    target.shape_key_add(name=self.chest_base.upper())
-                else:
-                    target.shape_key_add(name=source.data.shape_keys.key_blocks[0].name)
+        if self.source_input == "Chest" and self.chest_base != "Large":
+            try:
+                target.data.shape_keys.key_blocks[0].name = self.chest_base.upper()
+            except AttributeError:
+                target.shape_key_add(name=self.chest_base.upper())
+        else:
+            try:
+                target.data.shape_keys.key_blocks[0].name = source.data.shape_keys.key_blocks[0].name
+            except AttributeError:
+                target.shape_key_add(name=source.data.shape_keys.key_blocks[0].name)
 
         for shape_key in transfer:
             if self.source_input == "Chest" and self.chest_base != "Large" and shape_key.relative_key.name != self.chest_base.upper():
