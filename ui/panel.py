@@ -838,6 +838,17 @@ class FileManager(Panel):
         model_path = section_prop.game_model_path
         icon = "CHECKMARK" if model_path.startswith("chara") or model_path.endswith("mdl") else "X"
         row.label(icon=icon)
+
+        if section_prop.game_model_path.startswith("chara") and section_prop.game_model_path.endswith("mdl"):
+            row = layout.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="")
+            split.operator("ya.gamepath_category", text="Chest", depress=section_prop.chest_g_category).category = "top"
+            split.operator("ya.gamepath_category", text="Hands", depress=section_prop.hands_g_category).category = "glv"
+            split.operator("ya.gamepath_category", text="Legs", depress=section_prop.legs_g_category).category = "dwn"
+            split.operator("ya.gamepath_category", text="Feet", depress=section_prop.feet_g_category).category = "sho"
+        
         
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
@@ -854,11 +865,10 @@ class FileManager(Panel):
             split.prop(section_prop, "fbx_subfolder", text="") 
             row.label(icon="FOLDER_REDIRECT") 
 
-        if hasattr(bpy.context.scene, "devkit_props"):
-            row = layout.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            split.label(text="")
-            split.operator("ya.directory_copy", text="Copy from Export") 
+        row = layout.row(align=True)
+        split = row.split(factor=0.25, align=True)
+        split.label(text="")
+        split.operator("ya.directory_copy", text="Copy from Export") 
 
         box = layout.box()
         row = box.row(align=True)
