@@ -79,8 +79,10 @@ def force_yas(export="SIMPLE", body_slot="") -> None:
                 devkit.controller_yas_chest = True
                 devkit.controller_yas_legs = True
 
+    bpy.context.scene.update_tag()
+
 def ivcs_mune(yas=False) -> None:
-    chest_obj = []
+    chest_obj: list[Object] = []
     collection = bpy.data.collections.get("Chest")
     for obj in collection.all_objects:
         chest_obj.append(obj)
@@ -103,7 +105,7 @@ def ivcs_mune(yas=False) -> None:
 
 def armature_visibility(export=False) -> None:
     # Makes sure armatures are enabled in scene's space data
-    # W ill not affect armatures that are specifically hidden
+    # Will not affect armatures that are specifically hidden
     context = bpy.context
     if export:
         context.scene.animation_optimise.clear()
@@ -389,7 +391,7 @@ class SimpleExport(Operator):
         return {'RUNNING_MODAL'}
 
     def execute(self, context):
-        mesh_handler        = MeshHandler()
+        mesh_handler = MeshHandler()
         armature_visibility(export=True)
 
         if hasattr(context.scene, "devkit_props"):
@@ -471,11 +473,6 @@ class BatchQueue(Operator):
         else:
             self.actual_combinations = self.shape_combinations(self.body_slot)
             self.calculate_queue(self.body_slot)
-
-        if "Legs" in self.body_slot:
-            gen_options = len(self.actual_combinations.keys())
-        else:
-            gen_options = 0
 
         if self.queue == []:
             self.report({'ERROR'}, "No valid combinations!")
@@ -806,7 +803,7 @@ class BatchQueue(Operator):
 
         return file_name
 
-    def apply_model_state(options: tuple[str], size:str , gen: str, body_slot: str, obj: Object, saved_sizes: dict[str, dict[str, float]]) -> None:
+    def apply_model_state(options: tuple[str], size:str , gen: str, body_slot: str, obj, saved_sizes: dict[str, dict[str, float]]) -> None:
         Devkit = bpy.context.scene.devkit
         devkit_props = bpy.context.scene.devkit_props
         if body_slot == "Chest & Legs":
