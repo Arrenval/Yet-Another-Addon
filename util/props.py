@@ -105,6 +105,10 @@ class FileProps(PropertyGroup):
         ("update",   "material",   True,   "Changes material rendering and enables backface culling. Tries to normalise metallic and roughness values of TT materials"),
         ("keep",     "shapekeys",  True,   "Preserves vanilla clothing shape keys"),
         ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),
+        ("chest",    "g_category", False,  "Changes gamepath category"),
+        ("hands",    "g_category", False,  "Changes gamepath category"),
+        ("legs",     "g_category", False,  "Changes gamepath category"),
+        ("feet",     "g_category", False,  "Changes gamepath category"),
     ]
 
     @staticmethod
@@ -181,6 +185,32 @@ class FileProps(PropertyGroup):
         for group in groups:
             if selection == group[0]:
                     return [(str(group[1]), f"Pg: {group[1]:<3}", "")]
+    
+    def check_gamepath_category(self, context:Context) -> None:
+        self.game_model_path:str
+        if self.game_model_path.startswith("chara") and self.game_model_path.endswith("mdl"):
+            category = self.game_model_path.split("_")[-1].split(".")[0]
+            match category:
+                case "top":
+                    context.scene.file_props.chest_g_category = True
+                    context.scene.file_props.hands_g_category = False
+                    context.scene.file_props.legs_g_category  = False
+                    context.scene.file_props.feet_g_category  = False
+                case "glv":
+                    context.scene.file_props.chest_g_category = False
+                    context.scene.file_props.hands_g_category = True
+                    context.scene.file_props.legs_g_category  = False
+                    context.scene.file_props.feet_g_category  = False
+                case "dwn":
+                    context.scene.file_props.chest_g_category = False
+                    context.scene.file_props.hands_g_category = False
+                    context.scene.file_props.legs_g_category  = True
+                    context.scene.file_props.feet_g_category  = False
+                case "sho":
+                    context.scene.file_props.chest_g_category = False
+                    context.scene.file_props.hands_g_category = False
+                    context.scene.file_props.legs_g_category  = False
+                    context.scene.file_props.feet_g_category  = True
 
     armatures: EnumProperty(
         name="Armatures",
@@ -242,7 +272,8 @@ class FileProps(PropertyGroup):
         name="",
         description="Path to the model you want to replace",
         default="Paste path here",
-        maxlen=255
+        maxlen=255,
+        update=lambda self, context: self.check_gamepath_category(context)
 
         )  # type: ignore
     
@@ -398,6 +429,8 @@ class FileProps(PropertyGroup):
         subtype="DIR_PATH", 
         maxlen=255,
         )  # type: ignore
+
+  
 
 def selected_yas_vgroup() -> None:
     obj = bpy.context.active_object
