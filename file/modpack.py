@@ -199,7 +199,26 @@ class ConsoleTools(Operator):
         textools_folder = consoletools.parent
         
         return str(consoletools), str(textools_folder)
-    
+
+class GamepathCategory(Operator):
+    bl_idname = "ya.gamepath_category"
+    bl_label = "Modpacker"
+    bl_description = "Changes gamepath category"
+
+    category: StringProperty() # type: ignore
+
+    def __init__(self):
+        self.gamepath: str = bpy.context.scene.file_props.game_model_path
+
+    def execute(self, context):
+        gamepath_split      = self.gamepath.split("_")
+        category_split      = gamepath_split[-1].split(".")
+        category_split[0]   = self.category
+        gamepath_split[-1]  = ".".join(category_split)
+
+        context.scene.file_props.game_model_path = "_".join(gamepath_split)
+        return {'FINISHED'}
+
 @dataclass  
 class UserInput:
     selection      :str  = ""
@@ -382,14 +401,14 @@ class Modpacker(Operator):
             cmds_added += 1
         
         commands.append("ping 127.0.0.1 -n 2 >nul")
-        commands.append('start "" /min cmd /c "del \"%~f0\""')
+        commands.append('start "" /min cmd /c "timeout /t 2 /nobreak >nul & del "%~f0"')
         commands.append("exit")
 
         with open(cmd_path, 'w') as file:
             for cmd in commands:
                 file.write(f"{cmd}\n")
 
-        os.startfile(cmd_path)    
+        os.startfile(cmd_path, 'runas')    
 
     def create_modpack(context, user_input:UserInput, mod_data:Dict[str, ModGroups], mod_meta:ModMeta, preset:str) -> int | None:
         is_cmd = [file.name for file in user_input.fbx.glob(f'FBXtoMDL.cmd') if file.is_file()]
@@ -429,7 +448,11 @@ class Modpacker(Operator):
             current_option = int(context.scene.file_props.modpack_groups) + 1
         except:
             pass
-        modpack_data(context)
+
+        if (user_input.fbx / f"{user_input.pmp_name}.pmp").is_file():
+            context.scene.file_props.loadmodpack_directory = str(user_input.fbx / f"{user_input.pmp_name}.pmp")
+        else:
+            modpack_data(context)
         try:
             if current_option > len(context.scene.pmp_group_options):
                     context.scene.file_props.modpack_groups = "0"
@@ -627,7 +650,6 @@ class Modpacker(Operator):
 
             new_group = user_input.temp / file_name
 
-
             with open(new_group, "w") as file:
                 file.write(ModGroups(**group_data).to_json())
 
@@ -754,6 +776,7 @@ CLASSES = [
     ConsoleToolsDirectory,
     PMPSelector,
     CopyToFBX,
+    GamepathCategory,
     ConsoleTools,
     Modpacker
 ]
