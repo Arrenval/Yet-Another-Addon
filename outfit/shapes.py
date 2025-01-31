@@ -204,12 +204,12 @@ class ShapeKeyTransfer(Operator):
                 driver_source = self.devkit.get_object_from_mesh("Waist")
                 new_key = target.shape_key_add(name="Hip Dips (for YAB)", from_mix=False)
                 self.add_modifier(new_key.name, source, target)
-                self.add_driver(new_key, driver_source)
+                self.add_driver(new_key, driver_source, target)
 
                 if self.deform_target["Rue Legs"][0]:
                     new_key = target.shape_key_add(name="Less Hip Dips (for Rue)", from_mix=False)
                     self.add_modifier("Less Hip Dips (for Rue)", source, target)
-                    self.add_driver(new_key, driver_source)
+                    self.add_driver(new_key, driver_source, target)
                     new_key.relative_key = target.data.shape_keys.key_blocks["Rue"]
             else:
                 self.add_modifier(new_key.name, source, target)
