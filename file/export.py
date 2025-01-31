@@ -34,23 +34,27 @@ def add_driver(shape_key:ShapeKey, source:Object) -> None:
             mute_var.targets[0].id = source.data.shape_keys
             mute_var.targets[0].data_path = f'key_blocks["{shape_key.name}"].mute'
 
-def check_triangulation() -> tuple[bool, list[str]]:
+def check_triangulation() -> list[str]:
     visible = visible_meshobj()
     not_triangulated = []
 
     for obj in visible:
-        triangulated = False
+        tri_modifier = False
         for modifier in reversed(obj.modifiers):
             if modifier.type == "TRIANGULATE" and modifier.show_viewport:
-                triangulated = True
+                tri_modifier = True
                 break
-        if not triangulated:
-            not_triangulated.append(obj.name)
+        if not tri_modifier:
+            triangulated = True
+            for poly in obj.data.polygons:
+                verts = len(poly.vertices)
+                if verts > 3:
+                    triangulated = False
+                    break
+            if not triangulated:
+                not_triangulated.append(obj.name)
     
-    if not_triangulated:
-        return False, not_triangulated
-    else:
-        return True, not_triangulated
+    return not_triangulated
 
 def force_yas(export="SIMPLE", body_slot="") -> None:
     devkit = bpy.context.scene.devkit_props
@@ -80,13 +84,18 @@ def force_yas(export="SIMPLE", body_slot="") -> None:
                 devkit.controller_yas_legs = True
 
     bpy.context.scene.update_tag()
+    bpy.context.view_layer.update()
 
 def ivcs_mune(yas=False) -> None:
-    chest_obj: list[Object] = []
-    collection = bpy.data.collections.get("Chest")
-    for obj in collection.all_objects:
-        chest_obj.append(obj)
+    chest_obj: list[Object] = visible_meshobj()
 
+    for obj in chest_obj:
+        for modifier in obj.modifiers:
+            if modifier.type != 'DATA_TRANSFER':
+                continue
+            if modifier.object not in chest_obj:
+                chest_obj.append(modifier.object)
+            
     for obj in chest_obj:
         for group in obj.vertex_groups:
             try:
@@ -382,9 +391,9 @@ class SimpleExport(Operator):
             return {'CANCELLED'}
         
         if self.check_tris:
-            triangulated, obj = check_triangulation()
-            if not triangulated:
-                self.report({'ERROR'}, f"Not Triangulated: {', '.join(obj)}")
+            not_triangulated = check_triangulation()
+            if not_triangulated:
+                self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}")
                 return {'CANCELLED'} 
             
         bpy.context.window_manager.invoke_props_dialog(self, confirm_text="Export")
@@ -454,9 +463,9 @@ class BatchQueue(Operator):
         props = bpy.context.scene.file_props
         
         if self.check_tris:
-            triangulated, obj = check_triangulation()
-            if not triangulated:
-                self.report({'ERROR'}, f"Not Triangulated: {', '.join(obj)}")
+            not_triangulated= check_triangulation()
+            if not_triangulated:
+                self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}")
                 return {'CANCELLED'} 
         if self.subfolder:
             Path.mkdir(self.export_directory / self.body_slot, exist_ok=True)

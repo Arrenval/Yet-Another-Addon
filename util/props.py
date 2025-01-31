@@ -99,7 +99,7 @@ class FileProps(PropertyGroup):
     
     extra_buttons_list = [
         ("create",   "backfaces",  True,   "Creates backface meshes on export based on existing vertex groups"),
-        ("check",    "tris",       True,   "Verify that the meshes have an active triangulation modifier"),
+        ("check",    "tris",       True,   "Verify that the meshes are triangulated"),
         ("force",    "yas",        False,  "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
         ("remove",   "nonmesh",    True,   "Removes objects without any meshes. Cleans up unnecessary files from TT imports"),
         ("update",   "material",   True,   "Changes material rendering and enables backface culling. Tries to normalise metallic and roughness values of TT materials"),
@@ -431,7 +431,6 @@ class FileProps(PropertyGroup):
         )  # type: ignore
 
   
-
 def selected_yas_vgroup() -> None:
     obj = bpy.context.active_object
     if bpy.context.scene.yas_vgroups[0].name != "Mesh has no YAS Groups":
