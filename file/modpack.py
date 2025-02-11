@@ -14,6 +14,17 @@ from ..util.props       import get_modpack_groups, modpack_data, modpack_group_d
 from ..util.penumbra    import ModGroups, ModMeta
 from zipfile            import ZipFile, ZIP_DEFLATED
 
+def sanitise_path(path:str) -> str:
+        invalid = '<>:"/\|?*'
+
+        for char in invalid:
+            path = path.replace(char, '')
+        
+        if path[-1] == " ":
+            path = path[0:-1]
+            
+        return path
+
 class ModpackDirSelector(Operator):
     bl_idname = "ya.modpack_dir_selector"
     bl_label = "Select Folder"
@@ -542,10 +553,10 @@ class Modpacker(Operator):
         Modpacker.write_group_json(user_input, to_pack, create_group, user_input.group_new_name)
 
         for file in to_pack:
-            target_path = user_input.temp / user_input.group_new_name / file.stem   
+            target_path = user_input.temp / sanitise_path(user_input.group_new_name) / sanitise_path(file.stem)   
             Path.mkdir(target_path, parents=True, exist_ok=True)
         
-            shutil.copy(user_input.mdl_folder / file.name, target_path / file.name)
+            shutil.copy(user_input.mdl_folder / sanitise_path(file.name), target_path / sanitise_path(file.name))
 
     def update_mod (user_input:UserInput, mod_data:Dict[str, ModGroups], to_pack:list[Path], mod_meta:ModMeta) -> None:
         group_dir = user_input.group_new_name if user_input.group_new_name else user_input.group_old_name
@@ -575,10 +586,10 @@ class Modpacker(Operator):
                 file.write(mod_meta.to_json())
         
         for file in to_pack:
-            target_path = user_input.temp / group_dir / file.stem   
+            target_path = user_input.temp / sanitise_path(group_dir) / sanitise_path(file.stem)   
             Path.mkdir(target_path, parents=True, exist_ok=True)
         
-            shutil.copy(user_input.mdl_folder / file.name, target_path / file.name)
+            shutil.copy(user_input.mdl_folder / sanitise_path(file.name), target_path / sanitise_path(file.name))
 
     def get_group_data_template(user_input:UserInput, mod_data={}) -> dict:
         if mod_data and user_input.selection != "0":
@@ -639,7 +650,7 @@ class Modpacker(Operator):
                             new_option["Description"] = option.Description
                             new_option["Priority"] = to_replace.Priority
 
-                rel_path = f"{group_dir}\\{option_name}\\{file.name}"
+                rel_path = f"{sanitise_path(group_dir)}\\{sanitise_path(option_name)}\\{sanitise_path(file.name)}"
                 new_option["Files"] = {mdl_game: rel_path}
                 new_option["Name"] = option_name
                     
@@ -648,7 +659,8 @@ class Modpacker(Operator):
             group_data["Options"] = options
             group_data["Name"] = group_name
 
-            new_group = user_input.temp / file_name
+            new_group = user_input.temp / sanitise_path(file_name)
+            print(new_group)
 
             with open(new_group, "w") as file:
                 file.write(ModGroups(**group_data).to_json())
@@ -690,7 +702,7 @@ class Modpacker(Operator):
 
 
         if user_input.group_new_name:
-                file_name = f"group_{final_digits}_{user_input.group_new_name.lower()}.json"
+                file_name = f"group_{final_digits}_{sanitise_path(user_input.group_new_name).lower()}.json"
 
                 return file_name, user_input.group_new_name
         else:
@@ -769,7 +781,6 @@ class Modpacker(Operator):
         if retries == 0:
             return None
         return cleanup_attempt()
-
 
 CLASSES = [
     ModpackDirSelector,
