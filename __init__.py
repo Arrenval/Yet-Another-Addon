@@ -8,16 +8,16 @@ bl_info = {
     "name": "Yet Another Addon",
     "author": "Aleks",
     "description": "Several tools to speed up XIV modding workflows.",
-    "version": (0, 10, 3),
+    "version": (0, 12, 0),
     "blender": (4, 2, 1),
     "category": "",
     }
 
-import os
-import sys
+# import os
+# import sys
 import bpy
 
-sys.path.append(os.path.dirname(__file__))
+# sys.path.append(os.path.dirname(__file__))
 
 from .ui            import panel
 from .file          import export
