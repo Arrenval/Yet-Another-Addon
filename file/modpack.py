@@ -480,7 +480,11 @@ class Modpacker(Operator):
             ranking[item] = 0
             if "Small" in item.stem:
                 ranking[item] += 2
+            if "Cupcake" in item.stem:
+                ranking[item] += 2
             if "Medium" in item.stem:
+                ranking[item] += 3
+            if "Teardrop" in item.stem:
                 ranking[item] += 3
             if "Sayonara" in item.stem:
                 ranking[item] += 4
@@ -498,12 +502,18 @@ class Modpacker(Operator):
                 ranking[item] += 1
             if "Skull" in item.stem:
                 ranking[item] += 1
+            if "Lava" in item.stem:
+                ranking[item] += 2
             if "Soft" in item.stem:
                 ranking[item] += 4
             if "Buff" in item.stem:
                 ranking[item] += 20
             if "Rue" in item.stem:
                 ranking[item] += 42
+            if "Lava" in item.stem:
+                ranking[item] += 420
+            if "Lava" in item.stem:
+                ranking[item] += 1337
             if "Yiggle" in item.stem:
                 ranking[item] += 69*420
             if "Long" in item.stem:
