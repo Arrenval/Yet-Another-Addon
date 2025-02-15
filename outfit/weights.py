@@ -6,7 +6,7 @@ from bpy.types import Operator, Object, VertexGroup, Context
 class RemoveEmptyVGroups(Operator):                         
     bl_idname = "ya.remove_empty_vgroups"
     bl_label = "Weights"
-    bl_description = "Removes Vertex Groups with no weights. Ignores locked groups."
+    bl_description = "Removes Vertex Groups with no weights. Ignores locked groups"
     bl_options = {'UNDO'}
 
     preset: StringProperty() # type: ignore
@@ -23,19 +23,19 @@ class RemoveEmptyVGroups(Operator):
         prop = context.scene.outfit_props
         obj = context.active_object
         prefixes = ["ya_", "iv_"]
-        removed = []
         
-        for vg in obj.vertex_groups:
-            # Ignores yas and ivcs prefixed groups as they could be empty even if you need them later
-            # if vg.name.startswith(tuple(prefixes)):
-            #     continue
-            if vg.lock_weight:
-                continue
-            emptyvg = not any(g.weight > 0 for v in obj.data.vertices for g in v.groups if g.group == vg.index)
-
-            if emptyvg:
-                removed.append(vg.name)
-                obj.vertex_groups.remove(vg)
+        vgroups = {vg.index: False for vg in obj.vertex_groups if not vg.lock_weight}
+    
+        for v in obj.data.vertices:
+            for g in v.groups:
+                if g.group in vgroups and g.weight > 0:
+                    vgroups[g.group] = True
+        
+        removed = []
+        for i, used in sorted(vgroups.items(), reverse=True):
+            if not used:
+                removed.append(obj.vertex_groups[i].name)
+                obj.vertex_groups.remove(obj.vertex_groups[i])
                 
 
         self.report({'INFO'}, f"Removed {', '.join(removed)}.")
