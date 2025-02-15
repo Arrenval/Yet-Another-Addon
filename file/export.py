@@ -132,33 +132,54 @@ def armature_visibility(export=False) -> None:
             pass
 
 def save_sizes() -> dict[str, dict[str, float]]:
-        obj    = get_object_from_mesh("Torso")
-        saved_sizes = {
-            "Large" : {},
-            "Medium": {},
-            "Small" : {}
-        }
+        devkit_props = bpy.context.scene.devkit_props
+        obj          = get_object_from_mesh("Torso").data.shape_keys.key_blocks
+        saved_sizes  = [{"Large":  {}, "Medium": {}, "Small":  {}, "Masc": {}} for i in range(2)]
+       
+        if obj["Lavabod"].mute:
+            index  = 0
+            saved_sizes[1] = devkit_props.torso_floats[1]
+            saved_sizes[1].setdefault("Masc", {})
+        else:
+            index  = 1
+            saved_sizes[0] = devkit_props.torso_floats[0]
+            saved_sizes[0].setdefault("Masc", {})
 
-        for key in obj.data.shape_keys.key_blocks:
+        for key in obj:
             if key.name.startswith("- "):
                 name = key.name[2:]
-                saved_sizes["Large"][name] = round(key.value, 2)
+                saved_sizes[index]["Large"][name] = round(key.value, 2)
             if key.name.startswith("-- "):
                 name = key.name[3:]
-                saved_sizes["Medium"][name] = round(key.value, 2)
+                saved_sizes[index]["Medium"][name] = round(key.value, 2)
             if key.name.startswith("--- "):
                 name = name = key.name[4:]
-                saved_sizes["Small"][name] = round(key.value, 2)
+                saved_sizes[index]["Small"][name] = round(key.value, 2)
+            if key.name.startswith("---- "):
+                name = name = key.name[4:]
+                saved_sizes[0]["Masc"][name] = round(key.value, 2)
+                saved_sizes[1]["Masc"][name] = round(key.value, 2)
+        
         return saved_sizes
 
 def reset_chest_values(saved_sizes) -> None:
     devkit       = bpy.context.scene.devkit
     devkit_props = bpy.context.scene.devkit_props
-    base_size    = ["Large", "Medium", "Small"]
+    obj          = get_object_from_mesh("Torso").data.shape_keys.key_blocks
+    base_size    = ["Large", "Medium", "Small", "Masc"]
+
+    if obj["Lavabod"].mute:
+            index  = 0
+            saved_sizes[1] = devkit_props.torso_floats[1]
+    else:
+        index  = 1
+        saved_sizes[0] = devkit_props.torso_floats[0]
 
     for size in base_size:
-        preset      = saved_sizes[size]
-        category = devkit_props.ALL_SHAPES[size][2]
+        preset      = saved_sizes[index][size]
+        if size == "Masc":
+            size = "Flat"
+        category    = devkit_props.ALL_SHAPES[size][2]
         devkit.ApplyShapes.apply_shape_values("torso", category, preset)
     
     bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
@@ -560,55 +581,113 @@ class BatchQueue(Operator):
         return options
 
     def calculate_queue(self, body_slot) -> None:
+
+        def get_body_key(body, body_slot):
+            if body == "Masc" and body_slot == "Chest":
+                body = "Flat"
+            if body_slot == "Chest":
+                body_key = body
+            else:
+                body_key = f"{body} {body_slot}"
+
+            return body_key
+
+        devkit = bpy.context.scene.devkit_props
         mesh = self.ob_mesh_dict[body_slot]
+        rue_export = bpy.context.scene.file_props.rue_export
         target = get_object_from_mesh(mesh).data.shape_keys.key_blocks
+        all_bodies = ["YAB", "Rue", "Lava", "Masc"]
+        lava_sizes = ["Large", "Medium", "Small", "Sugar"]
+        masc_sizes = ["Flat", "Pecs"]
+        enabled_bodies = []
+
+        for shape, (name, slot, category, description, body, key) in devkit.ALL_SHAPES.items():
+            if body and slot == body_slot and self.size_options[shape]:
+                enabled_bodies.append(shape)
 
         leg_sizes = [key for key in self.leg_sizes.keys() if self.leg_sizes[key]]
 
         if body_slot != "Legs":
-            for size, options_groups in self.actual_combinations.items(): 
-                for options in options_groups:
-                    name = BatchQueue.name_generator(options, size, "", 0, body_slot)
-                    self.queue.append((name, options, size, "", target))
-        else:
-            # Legs need different handling due to genitalia combos     
-            for size in leg_sizes:
-                gen_options = len(self.actual_combinations.keys())
-                for gen, options_groups in self.actual_combinations.items(): 
+            for body in all_bodies:
+                body_key = get_body_key(body, body_slot)
+
+                if body_key in self.size_options and not self.size_options[body_key]:
+                    continue
+                if not rue_export and body == "Rue":
+                    continue
+
+                for size, options_groups in self.actual_combinations.items():
+                    if body_key == "Lava" and size not in lava_sizes:
+                        continue 
+                    if body_key != "Lava" and size == "Sugar":
+                        continue 
+                    if body_key != "Flat" and size in masc_sizes:
+                        continue
+                    if body_key == "Flat" and size not in masc_sizes:
+                        continue 
                     for options in options_groups:
-                        if size == "Mini Legs" and any("Hip Dips" in option for option in options):
+                        if body == "YAB" and any("Rue" in option for option in options):
                             continue
-                        name = BatchQueue.name_generator(options, size, gen, gen_options, body_slot) 
-                        
-                        if self.body_slot == "Chest & Legs":
-                            self.leg_queue.append((name, options, size, gen, target))
-                        else:
-                            self.queue.append((name, options, size, gen, target))
-        
-    def shape_combinations(self, body_slot) -> dict[str, tuple]:
+                        if body_slot == "Chest" and body == "Rue" and "Rue" not in options:
+                                continue
+                        if body == "Lava":
+                            options = tuple(list(options) + [body_key])
+                        name = self.name_generator(options, size, body, len(enabled_bodies), "", 0, body_slot)
+                        if body_slot == "Feet" and any(name in entry[0] for entry in self.queue):
+                            continue
+                        self.queue.append((name, options, size, "", target))
+                    
+        else:
+            # Legs need different handling due to genitalia/leg combos
+            for body in all_bodies:
+                body_key = get_body_key(body, body_slot)
+
+                if body_key in self.size_options and not self.size_options[body_key]:
+                    continue
+                if not rue_export and body == "Rue":
+                    continue
+                print(body)
+                for size in leg_sizes:
+                    if (body == "Lava" or body == "Masc") and (size == "Skull" or size == "Mini Legs"):
+                        continue
+                    gen_options = len(self.actual_combinations.keys())
+
+                    for gen, options_groups in self.actual_combinations.items(): 
+                        for options in options_groups:
+                            if (size == "Mini Legs" or body == "Lava") and any("Hip Dips" in option for option in options):
+                                continue
+                            if "YAB" in body_key and any("Rue Legs" in option for option in options):
+                                continue
+                            if "Rue" in body_key and "Rue Legs" not in options:
+                                continue
+                            if body == "Lava Legs":
+                                options = tuple(list(options) + [body_key])
+                            name = self.name_generator(options, size, body, len(enabled_bodies), gen, gen_options, body_slot) 
+                            
+                            if self.body_slot == "Chest & Legs":
+                                self.leg_queue.append((name, options, size, gen, target))
+                            else:
+                                self.queue.append((name, options, size, gen, target))
+
+                          
+    def shape_combinations(self, body_slot) -> dict[str, set[tuple]]:
         devkit = bpy.context.scene.devkit_props
-        possible_parts  = [
-            "Rue Legs", "Small Butt", "Soft Butt", "Hip Dips",
-            "Buff", "Rue", 
-            "Rue Hands", "YAB Hands", 
+        possible_parts  = [ 
+            "Small Butt", "Soft Butt", "Hip Dips", "Rue Legs",
+            "Buff", "Rue",
             "Clawsies"
             ]
         actual_parts = []
         all_combinations = set()
         actual_combinations = {}
 
-        
         #Excludes possible parts based on which body slot they belong to
         for shape, (name, slot, category, description, body, key) in devkit.ALL_SHAPES.items():
             if any(shape in possible_parts for parts in possible_parts) and body_slot == slot and self.size_options[shape]:
                 actual_parts.append(shape)  
 
         for r in range(0, len(actual_parts) + 1):
-            if body_slot == "Hands":
-                r = 1
             all_combinations.update(combinations(actual_parts, r))
-
-        all_combinations = tuple(all_combinations)  
 
         for shape, (name, slot, category, description, body, key) in devkit.ALL_SHAPES.items():
             if body_slot == "Legs":
@@ -629,19 +708,24 @@ class BatchQueue(Operator):
 
         return actual_combinations
                        
-    def name_generator(options, size, gen, gen_options, body_slot) -> str:
+    def name_generator(self, options, size, body, bodies, gen, gen_options, body_slot) -> str:
         devkit = bpy.context.scene.devkit_props
         yiggle = bpy.context.scene.file_props.force_yas
+        body_names = bpy.context.scene.file_props.body_names
 
-        if body_slot == "Chest & Legs":
-            body_slot = "Chest"
-        file_names = []
-        
+        if body_names or (bodies > 1 and "YAB" != body and body_slot != "Feet"):
+            file_names = [body]
+        else:
+            file_names = []
         gen_name = None
 
         #Loops over the options and applies the shapes name to file_names
-        for shape, (name, slot, category, description, body, key) in devkit.ALL_SHAPES.items():
-            if any(shape in options for option in options) and not shape.startswith("Gen") and name != "YAB":
+        for shape, (name, slot, category, description, body_bool, key) in devkit.ALL_SHAPES.items():
+            if any(shape in options for option in options) and not shape.startswith("Gen"):
+                if body_bool == True and not("Rue" not in body and "Rue" == name):
+                    continue
+                if name in file_names:
+                    continue
                 if name == "Hip Dips":
                     name = "Alt Hip"
                 if name.endswith("Butt"):
@@ -662,14 +746,22 @@ class BatchQueue(Operator):
         if size == "Short" or size == "Long":
             size_name = size + " Nails"
 
-        file_names.append(size_name)
+        if body == "Lava":
+            if size_name == "Large":
+                size_name = "Omoi"
+            if size_name == "Medium":
+                size_name = "Teardrop"
+            if size_name == "Small":
+                size_name = "Cupcake"
+        if not (body_slot == "Legs" and (body == "Lava" or body == "Masc")):
+            file_names.append(size_name)
 
         if body_slot == "Feet":
             file_names = reversed(file_names)
 
         if gen_name != None:
             file_names.append(gen_name)
-        
+
         if yiggle:
             return "Yiggle - " + " - ".join(list(file_names))
         
@@ -828,12 +920,14 @@ class BatchQueue(Operator):
 
         # Adds the shape value presets alongside size toggles
         if body_slot == "Chest":
-            keys_to_filter = ["Nip Nops"]
-            preset = {}
+            print(options)
+            keys_to_filter  = ["Nip Nops"]
+            preset          = {}
             filtered_preset = {}
+            index           = 1 if any(option == "Lava" for option in options) else 0
 
             try:
-                preset = saved_sizes[size]
+                preset = saved_sizes[index][size]
             except:
                 preset = Devkit.get_shape_presets(size)
             

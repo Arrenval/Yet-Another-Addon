@@ -622,23 +622,36 @@ class FileManager(Panel):
 
                 category = "Chest"
 
-                labels = {"Buff": "Buff", "Rue": "Rue", "Piercings": "Piercings"}
+                labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Flat": ("Masc", [])}
         
-                self.dynamic_column_buttons(3, layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, self.devkit_props, labels, category, button_type)
 
+                yab = self.devkit_props.export_yab_chest_bool
+                rue = self.devkit_props.export_rue_chest_bool
+                lava = self.devkit_props.export_lava_chest_bool
+                masc = self.devkit_props.export_flat_chest_bool
+
+                layout.separator(factor=0.5, type="LINE")
+
+                labels = {"Buff": ("Buff", [yab, rue, lava, masc]), "Piercings": ("Piercings", [yab, rue, lava, masc])}
+        
+                self.dynamic_column_buttons(len(labels), layout, self.devkit_props, labels, category, button_type)
 
                 layout.separator(factor=0.5, type="LINE")
                 
                 labels = {
-                    "Large":      "Large",    
-                    "Medium":     "Medium",   
-                    "Small":      "Small",    
-                    "Omoi":       "Omoi",     
-                    "Sayonara":   "Sayonara", 
-                    "Mini":       "Mini",     
-                    "Sugoi Omoi": "Sugoi Omoi", 
-                    "Tsukareta":  "Tsukareta", 
-                    "Tsukareta+": "Tsukareta+"
+                    "Large":      ("Large", [yab, rue, lava]),    
+                    "Medium":     ("Medium", [yab, rue, lava]),   
+                    "Small":      ("Small", [yab, rue, lava]),    
+                    "Omoi":       ("Omoi", [yab, rue]),     
+                    "Sayonara":   ("Sayonara", [yab, rue]), 
+                    "Mini":       ("Mini", [yab, rue]),     
+                    "Sugoi Omoi": ("Sugoi Omoi", [yab, rue]),
+                    "Tsukareta":  ("Tsukareta", [yab, rue]),
+                    "Tsukareta+": ("Tsukareta+", [yab, rue]),
+                    "Uranus":     ("Uranus", [yab, rue]),
+                    "Sugar":      ("Sugar", [lava]),
+                    "Pecs":       ("Pecs", [masc]),
                 }
         
                 self.dynamic_column_buttons(3, layout, self.devkit_props, labels, category, button_type)
@@ -646,6 +659,7 @@ class FileManager(Panel):
             # LEG EXPORT  
             
             if section_prop.export_body_slot == "Legs" or section_prop.export_body_slot == "Chest & Legs":
+                
                 category = "Legs"
 
                 if section_prop.export_body_slot == "Chest & Legs":
@@ -653,15 +667,26 @@ class FileManager(Panel):
                     row = layout.row(align=True)
                     row.label(text=f"Body Part: Legs")
 
+                labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Masc": ("Masc", [])}
+        
+                self.dynamic_column_buttons(len(labels), layout, self.devkit_props, labels, category, button_type)
+
+                yab = self.devkit_props.export_yab_legs_bool
+                rue = self.devkit_props.export_rue_legs_bool
+                lava = self.devkit_props.export_lava_legs_bool
+                masc = self.devkit_props.export_masc_legs_bool
+
+                layout.separator(factor=0.5, type="LINE")
+
                 labels = {
-                    "Gen A":  "Gen A",
-                    "Gen B":  "Gen B", 
-                    "Gen C":  "Gen C",
-                    "Gen SFW":  "Gen SFW",
-                    "Melon": "Melon",
-                    "Skull": "Skull",  
-                    "Mini": "Mini",
-                    "Pubes":  "Pubes"
+                    "Gen A":  ("Gen A", [yab, rue, lava, masc]),
+                    "Gen B":  ("Gen B", [yab, rue, lava, masc]), 
+                    "Gen C":  ("Gen C", [yab, rue, lava, masc]),
+                    "Gen SFW":  ("Gen SFW", [yab, rue, lava, masc]),
+                    "Melon": ("Melon", [yab, rue, lava, masc]),
+                    "Skull": ("Skull", [yab, rue]),  
+                    "Mini": ("Mini", [yab, rue]),
+                    "Pubes":  ("Pubes", [yab, rue, lava, masc])
                 }
                 
                 self.dynamic_column_buttons(4, layout, self.devkit_props, labels, category, button_type)
@@ -669,13 +694,12 @@ class FileManager(Panel):
                 layout.separator(factor=0.5, type="LINE")
 
                 labels = {
-                    "Small Butt": "Small Butt",
-                    "Rue": "Rue",
-                    "Soft Butt": "Soft Butt", 
-                    "Hip Dips":  "Hip Dips",
+                    "Small Butt": ("Small Butt", [yab, rue, lava, masc]),
+                    "Soft Butt": ("Soft Butt", [yab, rue, lava, masc]), 
+                    "Hip Dips":  ("Hip Dips", [yab, rue]),
                 }
         
-                self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type) 
+                self.dynamic_column_buttons(3, layout, self.devkit_props, labels, category, button_type) 
 
             # HAND EXPORT  
             
@@ -683,29 +707,34 @@ class FileManager(Panel):
                 
                 category = "Hands"
                 labels = {
-                    "YAB": "YAB", 
-                    "Rue": "Rue"
+                    "YAB": ("YAB", []), 
+                    "Rue": ("Rue", []),
+                    "Lava": ("Lava", []),
                     }
         
-                self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(3, layout, self.devkit_props, labels, category, button_type)
                 
+                yab = self.devkit_props.export_yab_hands_bool
+                rue = self.devkit_props.export_rue_hands_bool
+                lava = self.devkit_props.export_lava_hands_bool
+
                 layout.separator(factor=0.5, type="LINE")
 
                 labels = {
-                    "Long": "Long", 
-                    "Short": "Short", 
-                    "Ballerina": "Ballerina", 
-                    "Stabbies": "Stabbies" 
+                    "Long": ("Long", [yab, rue, lava]), 
+                    "Short": ("Short", [yab, rue, lava]),  
+                    "Ballerina": ("Ballerina", [yab, rue, lava]), 
+                    "Stabbies": ("Stabbies", [yab, rue, lava]), 
                     }
 
                 self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type)
-
+                
                 row = layout.row(align=True)
                 row.label(text="Clawsies:")
 
                 labels = { 
-                    "Straight": "Straight", 
-                    "Curved": "Curved"
+                    "Straight": ("Straight", [yab, rue, lava]),
+                    "Curved": ("Curved", [yab, rue, lava]),
                     }
 
                 self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type)
@@ -718,16 +747,19 @@ class FileManager(Panel):
                 
                 category = "Feet"
                 labels = {
-                    "YAB": "YAB", 
-                    "Rue": "Rue", 
+                    "YAB": ("YAB", []), 
+                    "Rue": ("Rue", []), 
                     }
         
                 self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type)
 
+                yab = self.devkit_props.export_yab_feet_bool
+                rue = self.devkit_props.export_rue_feet_bool
+
                 layout.separator(factor=0.5, type="LINE")
 
                 labels = { 
-                    "Clawsies": "Clawsies"
+                    "Clawsies": ("Clawsies", [yab, rue])
                     }
 
                 self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type)
@@ -747,6 +779,8 @@ class FileManager(Panel):
         col.alignment = "RIGHT"
         if hasattr(context.scene, "devkit_props"):
             col.label(text="Force YAS:")
+            col.label(text="Body Names:")
+            col.label(text="Rue Export:")
         col.label(text="Check Tris:")
         col.label(text="Shape Keys:")
         col.label(text="Backfaces:")
@@ -759,6 +793,12 @@ class FileManager(Panel):
             icon = 'CHECKMARK' if section_prop.force_yas else 'PANEL_CLOSE'
             text = 'Enabled' if section_prop.force_yas else 'Disabled'
             col2.prop(section_prop, "force_yas", text=text, icon=icon)
+            icon = 'CHECKMARK' if section_prop.body_names else 'PANEL_CLOSE'
+            text = 'Always' if section_prop.body_names else 'Conditional'
+            col2.prop(section_prop, "body_names", text=text, icon=icon)
+            icon = 'CHECKMARK' if section_prop.rue_export else 'PANEL_CLOSE'
+            text = 'Standalone' if section_prop.rue_export else 'Variant'
+            col2.prop(section_prop, "rue_export", text=text, icon=icon)
         icon = 'CHECKMARK' if section_prop.check_tris else 'PANEL_CLOSE'
         text = 'Enabled' if section_prop.check_tris else 'Disabled'
         col2.prop(section_prop, "check_tris", text=text, icon=icon)
@@ -973,25 +1013,43 @@ class FileManager(Panel):
         box.separator(factor=0.1)
 
     def dynamic_column_buttons(self, columns, box:UILayout, section_prop, labels, category, button_type):
+        if category == "Chest":
+            yab = self.devkit_props.export_yab_chest_bool
+            rue = self.devkit_props.export_rue_chest_bool
+            lava = self.devkit_props.export_lava_chest_bool
+
         row = box.row(align=True)
 
         columns_list = [row.column(align=True) for _ in range(columns)]
 
-        for index, (size, name) in enumerate(labels.items()):
+        for index, (size, (name, bodies)) in enumerate(labels.items()):
             size_lower = size.lower().replace(' ', "_")
             category_lower = category.lower()
+            emboss = True if not bodies or any(body is True for body in bodies) else False
 
             prop_name = f"{button_type}_{size_lower}_{category_lower}_bool"
 
             if hasattr(section_prop, prop_name):
-                icon = 'CHECKMARK' if getattr(section_prop, prop_name) else 'PANEL_CLOSE'
+                icon = 'CHECKMARK' if getattr(section_prop, prop_name) and emboss else 'PANEL_CLOSE'
                 
-                col_index = index % columns 
-                
-                columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon)
+                col_index = index % columns
+
+                if category == "Chest" and lava and (not yab and not rue):
+                    match name:
+                        case "Large":
+                            name = "Omoi"
+                        case "Medium":
+                            name = "Teardrop"
+                        case "Small":
+                            name = "Cupcake"
+                        case "Omoi":
+                            name = "---"
+
+                columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon, emboss=emboss)
             else:
-                # print(f"{name} has no assigned property!")
-                continue
+                col_index = index % columns 
+        
+                columns_list[col_index].label(text=name, icon="PANEL_CLOSE")
         return box  
 
     def dropdown_header(self, button, section_prop, prop_str=str, label=str, extra_icon=""):

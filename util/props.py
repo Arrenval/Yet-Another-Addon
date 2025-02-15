@@ -105,6 +105,8 @@ class FileProps(PropertyGroup):
         ("update",   "material",   True,   "Changes material rendering and enables backface culling. Tries to normalise metallic and roughness values of TT materials"),
         ("keep",     "shapekeys",  True,   "Preserves vanilla clothing shape keys"),
         ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),
+        ("rue",      "export",     True,   "Controls whether Rue is exported as a standalone body and variant, or only as a variant for Lava/Masc"),
+        ("body",     "names",      False,  "Alwyays add body names on exported files or depending on how many bodies you export"),
         ("chest",    "g_category", False,  "Changes gamepath category"),
         ("hands",    "g_category", False,  "Changes gamepath category"),
         ("legs",     "g_category", False,  "Changes gamepath category"),
@@ -366,7 +368,7 @@ class FileProps(PropertyGroup):
             ("MODPACK", "Modpack", "Package mods"),
         ]
         )  # type: ignore
-    
+
     export_body_slot: EnumProperty(
         name= "",
         description= "Select a body slot",
