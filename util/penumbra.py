@@ -1,11 +1,11 @@
 import json
 
-from typing      import List, Dict, Union
+from typing      import List, Dict
 from dataclasses import dataclass, asdict, field
 
 @dataclass
 class TypeManip:
-    Entry               :Union[int, float, dict] | None = None
+    Entry               :int | float | dict | None = None
     #EQDP, EQP, Est
     Gender              :str | None = None
     Race                :str | None = None
@@ -40,7 +40,18 @@ class ModManipulations:
     
     def __post_init__(self):
         self.Manipulation = TypeManip(self.Manipulation)
-        
+
+@dataclass
+class CombinedContainers:
+    Name            :str
+    Files           :Dict[str, str] | None = None
+    FileSwaps       :Dict[str, str] | None = None
+    Manipulations   :List[ModManipulations] | None = None
+
+    def __post_init__(self):
+        if self.Manipulations != None:
+            self.Manipulations = [ModManipulations(**manip) for manip in self.Manipulations]
+
 @dataclass
 class GroupOptions:
     Files           :Dict[str, str] | None = None
@@ -57,29 +68,33 @@ class GroupOptions:
             self.Manipulations = [ModManipulations(**manip) for manip in self.Manipulations]
                  
 @dataclass
-class ModGroups:
-    Version         :int       | None              = None
-    DefaultEntry    :TypeManip | None              = None
-    Identifier      :TypeManip | None              = None
-    AllVariants     :bool      | None              = None
-    OnlyAttributes  :bool      | None              = None
-    Name            :str                           = ""
-    Description     :str                           = ""
-    Priority        :int                           = 0
-    Image           :str                           = ""
-    Page            :int                           = 0
-    Type            :str       | None              = None
-    DefaultSettings :int                           = 0
-    Options         :List[GroupOptions]     | None = None
-    Manipulations   :List[ModManipulations] | None = None
+class ModGroups:    
+    Version         :int       | None                = None
+    DefaultEntry    :TypeManip | None                = None
+    Identifier      :TypeManip | None                = None
+    AllVariants     :bool      | None                = None
+    OnlyAttributes  :bool      | None                = None
+    Name            :str                             = ""
+    Description     :str                             = ""
+    Priority        :int                             = 0
+    Image           :str                             = ""
+    Page            :int                             = 0
+    Type            :str       | None                = None
+    DefaultSettings :int                             = 0
+    Options         :List[GroupOptions]       | None = None
+    Manipulations   :List[ModManipulations]   | None = None
+    Containers      :List[CombinedContainers] | None = None
+
 
     def __post_init__(self):
         if self.Options != None:
-            self.Options        = [GroupOptions(**option) for option in self.Options]
+            self.Options         = [GroupOptions(**option) for option in self.Options]
+            if self.Containers  != None:
+                self.Containers  = [CombinedContainers(**container) for container in self.Containers]
         elif self.Manipulations != None:
-            self.Manipulations  = [ModManipulations(**manip) for manip in self.Manipulations]
-            self.Identifier     = TypeManip(self.Identifier)
-            self.DefaultEntry   = TypeManip(self.DefaultEntry)
+            self.Manipulations   = [ModManipulations(**manip) for manip in self.Manipulations]
+            self.Identifier      = TypeManip(self.Identifier)
+            self.DefaultEntry    = TypeManip(self.DefaultEntry)
 
     def to_json(self):
         return json.dumps(self.remove_none(asdict(self)), indent=4)
