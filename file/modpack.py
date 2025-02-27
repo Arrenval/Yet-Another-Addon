@@ -312,7 +312,6 @@ class Modpacker(Operator):
         self.author         = props.author_name
         self.console        = props.consoletools_status
         
-
     def execute(self, context):
         
         if not self.pmp.is_file() and self.update:
@@ -385,27 +384,19 @@ class Modpacker(Operator):
         return current_mod_data, current_mod_meta  
  
     def fbx_to_mdl(self, context, user_input:UserInput) -> None:
-        textools = Path(context.scene.file_props.textools_directory)
+        textools   = Path(context.scene.file_props.textools_directory)
         to_convert = [file for file in (user_input.fbx / user_input.subfolder).glob(f'*.fbx') if file.is_file()]
 
         cmd_name = "FBXtoMDL.cmd"
-        sys_drive = textools.drive
-        commands = ["@echo off", f"cd /d {sys_drive}", f"cd {textools}", "echo Please don't close this window..."]
+        commands = ["@echo off", f"cd /d {textools.drive}", f"cd {textools}", "echo Please don't close this window..."]
 
         cmd_path = user_input.fbx / cmd_name
         Path.mkdir(user_input.fbx / user_input.subfolder / "MDL", exist_ok=True)
 
-        cmds_added = 0
+        cmds_added  = 0
         total_files = len(to_convert)
-        for file in to_convert:
-            files_left = total_files - cmds_added    
+        for file in to_convert:   
             fbx_to_mdl = f'"{user_input.fbx / user_input.subfolder / file.name}" "{user_input.mdl_folder / file.stem}.mdl" "{user_input.mdl_game}"'
-            
-            # if cmds_added % 5 == 0 and cmds_added == 0:
-            #     commands.append(f"echo {files_left} files to convert...")
-            
-            # elif cmds_added % 5 == 0:
-            #     commands.append(f"echo {files_left} files left...")
             
             commands.append(f"echo ({cmds_added + 1}/{total_files}) Converting: {file.stem}")
             commands.append(f"ConsoleTools.exe /wrap {fbx_to_mdl} >nul")
@@ -500,6 +491,8 @@ class Modpacker(Operator):
                 ranking[item] += 10
             if "Sugoi" in item.stem:
                 ranking[item] += 1
+            if "Uranus" in item.stem:
+                ranking[item] += 12
             if "Skull" in item.stem:
                 ranking[item] += 1
             if "Lava" in item.stem:
@@ -512,7 +505,7 @@ class Modpacker(Operator):
                 ranking[item] += 42
             if "Lava" in item.stem:
                 ranking[item] += 420
-            if "Lava" in item.stem:
+            if "Masc" in item.stem:
                 ranking[item] += 1337
             if "Yiggle" in item.stem:
                 ranking[item] += 69*420

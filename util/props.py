@@ -71,20 +71,20 @@ def modpack_data(context) -> None:
                 scene.file_props.loadmodpack_version = mod_meta.Version
                 scene.file_props.loadmodpack_author = mod_meta.Author
     
-def modpack_group_data(file_name:str, pmp:ZipFile, data:str) -> str | tuple[str,int]:
+def modpack_group_data(file_name:str, pmp:ZipFile, data:str) -> str | tuple[str,int] | ModGroups:
     try:
         with pmp.open(file_name) as file:
             file_contents = json.load(file)
-                      
+                     
             group_data = ModGroups(**file_contents)
-
+     
             if data == "name":
                 return str(group_data.Name), int(group_data.Page)
             if data == "all":
                 return group_data
 
     except Exception as e:
-        return f"ERROR: {file_name[10:-4]}"    
+        return f"ERROR: {file_name[10:-4]}" if data == "all" else f"ERROR: {file_name[10:-4]}", 0   
   
 def get_modpack_groups() -> list[tuple[str, str, str]]:
         modpack = bpy.context.scene.pmp_group_options
@@ -432,7 +432,7 @@ class FileProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-  
+
 def selected_yas_vgroup() -> None:
     obj = bpy.context.active_object
     if bpy.context.scene.yas_vgroups[0].name != "Mesh has no YAS Groups":
@@ -575,6 +575,7 @@ class OutfitProps(PropertyGroup):
     ui_buttons_list = [
     ("backfaces",   "expand",     "Opens the category"),
     ("modifiers",   "expand",     "Opens the category"),
+    ("transp",      "expand",     "Opens the category"),
     
     ]
     

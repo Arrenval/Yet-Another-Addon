@@ -43,7 +43,7 @@ class ModManipulations:
 
 @dataclass
 class CombinedContainers:
-    Name            :str
+    Name            :str | None            = None
     Files           :Dict[str, str] | None = None
     FileSwaps       :Dict[str, str] | None = None
     Manipulations   :List[ModManipulations] | None = None
