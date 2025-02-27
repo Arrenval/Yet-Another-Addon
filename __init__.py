@@ -8,16 +8,12 @@ bl_info = {
     "name": "Yet Another Addon",
     "author": "Aleks",
     "description": "Several tools to speed up XIV modding workflows.",
-    "version": (0, 12, 0),
+    "version": (0, 12, 5),
     "blender": (4, 2, 1),
     "category": "",
     }
 
-# import os
-# import sys
 import bpy
-
-# sys.path.append(os.path.dirname(__file__))
 
 from .ui            import panel
 from .file          import export
@@ -31,8 +27,7 @@ from .outfit        import shapes
 from .outfit        import weights  
 from .outfit        import armature
 from importlib      import reload
-    
-      
+       
 modules = [
     props,
     ya_import,
