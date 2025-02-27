@@ -1,6 +1,6 @@
 import bpy   
 
-from bpy.types     import Operator, ShapeKey, Object
+from bpy.types     import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
     
     
 class ShapeKeyTransfer(Operator):
@@ -53,7 +53,7 @@ class ShapeKeyTransfer(Operator):
                 self.deform_target = self.get_shape_keys()
             case "Legs":
                 source = self.devkit.get_object_from_mesh("Waist")
-                ignore = ["gen ", "rue/mini", "less hip dips (", "hip dips (", "bodies:", "corrections:", "other:"]
+                ignore = ["gen ", "rue/mini", "rue/lava", "less hip dips (", "hip dips (", "bodies:", "corrections:", "other:"]
                 for sub in ignore:
                     self.key_filter.append(sub)
                 self.deform_target = self.get_shape_keys()
@@ -217,16 +217,14 @@ class ShapeKeyTransfer(Operator):
     def add_modifier(self, key_name:str, source:Object, target:Object) -> None:
         source_keys = source.data.shape_keys.key_blocks
         self.controller_state(source)
-        if target.modifiers.get("SurfaceDeform"):
-                target.modifiers["SurfaceDeform"].name = "SurfaceDeformBak"
-        modifier = "SurfaceDeform"
         bpy.ops.object.modifier_add(type='SURFACE_DEFORM')
-        target.modifiers[modifier].target = source
-        bpy.ops.object.surfacedeform_bind(modifier=modifier)
+        modifier: SurfaceDeformModifier = target.modifiers[-1]
+        modifier.target = source
+        bpy.ops.object.surfacedeform_bind(modifier=modifier.name)
 
         if self.vertex_pin != "None":
-            target.modifiers[modifier].vertex_group = self.vertex_pin
-            target.modifiers[modifier].invert_vertex_group = True
+            modifier.vertex_group = self.vertex_pin
+            modifier.invert_vertex_group = True
         if key_name == "Less Hip Dips (for Rue)":
             source_keys["Rue"].mute = False
         if "Hip Dips" in key_name:
@@ -238,7 +236,7 @@ class ShapeKeyTransfer(Operator):
             else:
                 source_keys[key_name].mute = False
 
-        self.apply_modifier(key_name, target, modifier)
+        self.apply_modifier(key_name, target, modifier.name)
         if self.source_input == "Chest":
             if any(key_name == deform for deform in self.chest_deforms) and key_name != self.chest_base.upper():
                 target.data.shape_keys.key_blocks[key_name].value = 1
@@ -266,34 +264,30 @@ class ShapeKeyTransfer(Operator):
             iterations = 5
 
         if self.shrinkwrap:
-            if target.modifiers.get("Shrinkwrap"):
-                target.modifiers["Shrinkwrap"].name = "ShrinkwrapBak"
-            modifier = "Shrinkwrap"
             bpy.ops.object.modifier_add(type='SHRINKWRAP')
-            target.modifiers[modifier].target = source
-            target.modifiers[modifier].wrap_mode = 'OUTSIDE'
-            target.modifiers[modifier].offset = 0.001
+            modifier: ShrinkwrapModifier = target.modifiers[-1]
+            modifier.target = source
+            modifier.wrap_mode = 'OUTSIDE'
+            modifier.offset = 0.001
 
             self.shrinkwrap_exclude(target, modifier)
-            self.apply_modifier(key_name, target, modifier)
+            self.apply_modifier(key_name, target, modifier.name)
 
             if self.exclude_wrap != "None" and self.vertex_pin != "None":
                 bpy.ops.object.vertex_group_remove(all=False)
 
-        if target.modifiers.get("CorrectiveSmooth"):
-            target.modifiers["CorrectiveSmooth"].name = "CorrectiveSmoothBak"
-        modifier = "CorrectiveSmooth"
         bpy.ops.object.modifier_add(type='CORRECTIVE_SMOOTH')
-        target.modifiers[modifier].factor = factor
-        target.modifiers[modifier].iterations = iterations
-        target.modifiers[modifier].use_pin_boundary = True
+        modifier: CorrectiveSmoothModifier = target.modifiers[-1]
+        modifier.factor = factor
+        modifier.iterations = iterations
+        modifier.use_pin_boundary = True
         if self.vertex_pin != "None":
-            target.modifiers[modifier].vertex_group = self.vertex_pin
-            target.modifiers[modifier].invert_vertex_group = True
+            modifier.vertex_group = self.vertex_pin
+            modifier.invert_vertex_group = True
 
-        self.apply_modifier(key_name, target, modifier)
+        self.apply_modifier(key_name, target, modifier.name)
 
-    def shrinkwrap_exclude(self, target:Object, modifier:str) -> None:
+    def shrinkwrap_exclude(self, target:Object, modifier) -> None:
         if self.exclude_wrap != "None":
             if self.vertex_pin != "None":
                 target.vertex_groups.active = target.vertex_groups[self.vertex_pin]
@@ -303,14 +297,14 @@ class ShapeKeyTransfer(Operator):
                 bpy.ops.object.vertex_group_select()
                 bpy.ops.object.vertex_group_assign_new()
                 bpy.ops.object.mode_set(mode='OBJECT')
-                target.modifiers[modifier].vertex_group = target.vertex_groups[-1].name
+                modifier.vertex_group = target.vertex_groups[-1].name
 
             else:
-                target.modifiers[modifier].vertex_group = self.exclude_wrap
+                modifier.vertex_group = self.exclude_wrap
 
         elif self.vertex_pin != "None":
-            target.modifiers[modifier].vertex_group = self.vertex_pin
-        target.modifiers[modifier].invert_vertex_group = True
+            modifier.vertex_group = self.vertex_pin
+        modifier.invert_vertex_group = True
 
     def apply_modifier(self, key_name:str, target:Object, modifier:str) -> None:
         bpy.ops.object.modifier_apply_as_shapekey(keep_modifier=False, modifier=modifier)
