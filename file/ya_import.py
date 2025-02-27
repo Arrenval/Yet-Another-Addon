@@ -56,10 +56,11 @@ class SimpleCleanUp(Operator):
             bpy.context.view_layer.objects.active = obj
             if obj.type == "MESH":
                 material = obj.active_material
-                material.surface_render_method = "DITHERED"
+                material.surface_render_method = "BLENDED"
                 material.use_backface_culling = True
                 material.roughness = 0.5
                 material.metallic = 0.0
+                material.use_transparency_overlap = False
                 for node in material.node_tree.nodes:
                     if node.inputs:
                         try:
