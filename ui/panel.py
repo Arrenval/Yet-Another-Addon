@@ -279,7 +279,7 @@ class OutfitStudio(Panel):
                     }
                 
                 del labels[section_prop.shape_key_base]
-                # row = col.row(align=True)
+                row = col.row(align=True)
                 col.prop(devkit_prop, "key_pushup_large_ctrl", text="Push-Up Adjustment:")
                 col.prop(devkit_prop, "key_squeeze_large_ctrl", text="Squeeze Adjustment:")
 
@@ -293,6 +293,8 @@ class OutfitStudio(Panel):
                 labels = {    
                         "Skull":      "Skull Crushers",                   
                         "Mini":       "Mini",                 
+                        "Lava":       "Lavabod",                 
+                        "Masc":       "Masc",                 
                         "Rue":        "Rue",           
                         "Alt Hips":   "Alt Hips",
                         "Small Butt": "Small Butt",         
@@ -379,7 +381,31 @@ class OutfitStudio(Panel):
             row = box.row(align=True)
             row.alignment = "CENTER"
             row.label(text="No Object Selected.", icon="INFO")
- 
+        
+        row = box.row(align=True)
+        button = section_prop.button_transp_expand
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        row.prop(section_prop, "button_transp_expand", text="", icon=icon, emboss=False)
+        row.label(text="Transparency (Experimental)")
+        if button:
+            obj = bpy.context.active_object
+            if obj != None:
+                icon = 'CHECKBOX_HLT' if "xiv_transparency" in obj and obj["xiv_transparency"] == True else 'CHECKBOX_DEHLT'
+                row = box.row(align=True)
+                row.label(text="Transparent Mesh", icon=icon)
+                text = "Tag" if "xiv_transparency" not in obj else 'Toggle'
+                row.operator("ya.transparency", text=text).render = "TAG"
+                row = box.row(align=True)
+                if obj.active_material:
+                    material = obj.active_material
+                    row.operator("ya.transparency", text="BLENDED", depress=material.surface_render_method == 'BLENDED').render = 'BLENDED'
+                    row.operator("ya.transparency", text="DITHERED", depress=material.surface_render_method == 'DITHERED').render = 'DITHERED'
+                # row.operator("ya.tris", text="Apply")
+            else:
+                row = box.row(align=True)
+                row.alignment = "CENTER"
+                row.label(text="No Object Selected.", icon="INFO")
+            
     def draw_weights(self, layout:UILayout, section_prop):
         box = layout.box()
         row = box.row()
@@ -483,7 +509,8 @@ class OutfitStudio(Panel):
                 
                 columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon)
             else:
-                print(f"{name} has no assigned property!")
+                # print(f"{name} has no assigned property!")
+                pass
         return layout  
 
     def ui_category_buttons(self, layout:UILayout, section_prop, options):
@@ -1096,4 +1123,4 @@ CLASSES = [
     OutfitCategory,
     OutfitStudio,
     FileManager
-]
+]   

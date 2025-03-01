@@ -1,7 +1,10 @@
 import bpy
+import bmesh
 
-from bpy.types import Operator, Context, Object
-from bpy.props import StringProperty
+from bmesh.types import BMFace
+from bpy.types   import Operator, Context, Object, DataTransferModifier
+from bpy.props   import StringProperty
+from collections import defaultdict
 
 class TagBackfaces(Operator):
     bl_idname = "ya.tag_backfaces"
@@ -219,8 +222,127 @@ class ModifierShape(Operator):
         bpy.ops.object.shape_key_remove()
         target.active_shape_key_index = old_shape
 
+class TransparencyOverview(Operator):
+    bl_idname = "ya.transparency"
+    bl_label = "Transparency"
+    bl_options = {'UNDO'}
+    bl_description ="Tag mesh as being transparent ingame for extra handling on export. Adjust rendering in Blender when using 'BLENDED'"
+
+    render: StringProperty(default="") # type: ignore
+
+    @classmethod
+    def description(cls, context, properties):
+        if properties.render == 'BLENDED':
+            return "Simpler Blender render method, less accurate transparency"
+        elif properties.render == "DITHERED":
+            return "More accurate Blender rendering of transparency. More performance heavy"
+        
+    def execute(self, context:Context):
+        obj = context.active_object
+        if obj.active_material:
+            material = obj.active_material
+
+        if self.render == 'BLENDED':
+            material.surface_render_method = 'BLENDED'
+        elif self.render == 'DITHERED':
+            material.surface_render_method = 'DITHERED'
+        else:
+            if "xiv_transparency" not in obj:
+                obj["xiv_transparency"] = True
+                if obj.active_material:
+                    obj.active_material.use_transparency_overlap = True
+            elif obj["xiv_transparency"]:
+                obj["xiv_transparency"] = False
+                if obj.active_material:
+                    obj.active_material.use_transparency_overlap = False
+            elif not obj["xiv_transparency"]:
+                obj["xiv_transparency"] = True
+                if obj.active_material:
+                    obj.active_material.use_transparency_overlap = True
+        return {"FINISHED"}
+
+class TriangulationOrder(Operator):
+    bl_idname = "ya.tris"
+    bl_label = "Triangulation"
+    bl_options = {'UNDO'}
+
+    def execute(self, context):
+        self.transparency_adjustment(context)
+        return {"FINISHED"}
+    
+    def transparency_adjustment(self, context:Context) -> None:
+        obj = context.active_object
+        bpy.ops.object.duplicate()
+        obj.hide_set(True)
+        dupe = context.active_object
+
+        split    = obj.name.split()
+        split[0] = "Transparency"
+        dupe.name = " ".join(split) 
+
+        self.sequential_faces(dupe)
+        
+    def sequential_faces(self, obj:Object) -> None:
+        mesh = obj.data
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        
+        original_faces = []
+        for face in bm.faces:
+            # ignores n-gons
+            if len(face.verts) > 4:
+                continue
+            original_faces.append({
+                "verts": [v.index for v in face.verts],
+                "triangle": False if len(face.verts) == 4 else True
+            })
+        
+        bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method='BEAUTY', ngon_method='BEAUTY')
+
+        vert_to_faces: dict[int, list] = {}
+        for tri in bm.faces:
+            for vert in tri.verts:
+                vert_to_faces.setdefault(vert.index, [])
+                vert_to_faces[vert.index].append(tri)
+      
+        ordered_faces = {}
+        new_index = 0
+        for face in original_faces:
+            face_verts = set(face["verts"])
+            face_count = 0
+
+            adjacent_faces:set[BMFace] = set()
+            for vert in face_verts:
+                if vert in vert_to_faces:
+                    adjacent_faces.update(vert_to_faces[vert])
+            
+            for tri in adjacent_faces:
+                tri_verts = set(vert.index for vert in tri.verts)
+                if tri not in ordered_faces and tri_verts.issubset(face_verts):
+                    ordered_faces[tri] = new_index
+                    new_index += 1
+                    face_count += 1
+                
+                if face_count == 2 or face["triangle"]:
+                    break
+        
+        for face in bm.faces:
+            if face not in ordered_faces:
+                ordered_faces[face] = new_index
+                new_index += 1
+        
+        bm.faces.sort(key=lambda face:ordered_faces.get(face))
+        bm.faces.index_update()
+
+        bm.to_mesh(mesh)
+        bm.free()
+        mesh.update()
+
+
 CLASSES = [
     TagBackfaces,
     CreateBackfaces,
-    ModifierShape
+    ModifierShape,
+    TransparencyOverview,
+    TriangulationOrder
 ]
