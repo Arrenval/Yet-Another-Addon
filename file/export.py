@@ -322,14 +322,20 @@ class MeshHandler:
             face_verts = set(face["verts"])
             face_count = 0
 
-            adjacent_faces:set[BMFace] = set()
-            for vert in face_verts:
-                if vert in vert_to_faces:
+            if face["triangles"] > 2:
+                adjacent_faces:set[BMFace] = set()
+                for vert in face_verts:
                     adjacent_faces.update(vert_to_faces[vert])
+            else:
+                face_shared_verts: dict[BMFace, int] = {}
+                for vert in face_verts:
+                    for tri in vert_to_faces[vert]:
+                        face_shared_verts[tri] = face_shared_verts.get(tri, 0) + 1
+
+                adjacent_faces = [tri for tri, count in face_shared_verts.items() if count >= 2]
             
             for tri in adjacent_faces:
-                tri_verts = set(vert.index for vert in tri.verts)
-                if tri not in ordered_faces and tri_verts.issubset(face_verts):
+                if tri not in ordered_faces and set(vert.index for vert in tri.verts).issubset(face_verts):
                     ordered_faces[tri] = new_index
                     new_index += 1
                     face_count += 1
