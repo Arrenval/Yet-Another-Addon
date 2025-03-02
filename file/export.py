@@ -7,7 +7,7 @@ from pathlib        import Path
 from functools      import partial
 from itertools      import combinations
 from bpy.props      import StringProperty
-from bpy.types      import Operator, Object, Context, ShapeKey, TriangulateModifier, DataTransferModifier
+from bpy.types      import Operator, Object, Context, ShapeKey, TriangulateModifier, LayerCollection
 from bmesh.types    import BMFace
 from ..util.props   import get_object_from_mesh, visible_meshobj
 
@@ -488,6 +488,9 @@ class SimpleExport(Operator):
         if hasattr(context.scene, "devkit_props"):
             if self.force_yas:
                 force_yas(export="SIMPLE")
+            collection_state = bpy.context.scene.devkit_props.collection_state
+            self.save_current_state(context, collection_state)
+            bpy.ops.yakit.collection_manager(preset="Export")
             obj = get_object_from_mesh("Controller")
             yas = obj.modifiers["YAS Chest"].show_viewport
             ivcs_mune(yas)
@@ -498,8 +501,22 @@ class SimpleExport(Operator):
 
         if hasattr(context.scene, "devkit_props"):
             ivcs_mune()
+            bpy.ops.yakit.collection_manager(preset="Restore")
         armature_visibility()
         return {'FINISHED'}
+
+    def save_current_state(self, context:Context, collection_state):
+
+        def save_current_state_recursive(layer_collection:LayerCollection):
+            if not layer_collection.exclude:
+                    state = collection_state.add()
+                    state.name = layer_collection.name
+            for child in layer_collection.children:
+                save_current_state_recursive(child)
+
+        collection_state.clear()
+        for layer_collection in context.view_layer.layer_collection.children:
+            save_current_state_recursive(layer_collection)
 
     def draw(self, context):
         layout = self.layout
