@@ -1,6 +1,7 @@
 import bpy
 
-from .props               import get_object_from_mesh
+from .props               import get_object_from_mesh, visible_meshobj, OutfitProps
+from bpy.types            import Object
 from bpy.app.handlers     import persistent
 
 def frame_ui(dummy):
@@ -8,7 +9,7 @@ def frame_ui(dummy):
 
 @persistent
 def get_mesh_props(dummy) -> None:
-    obj           = bpy.context.active_object
+    obj: Object   = bpy.context.active_object
     scene         = bpy.context.scene
     props         = bpy.context.scene.outfit_props
     mod_button    = props.button_modifiers_expand
@@ -21,6 +22,7 @@ def get_mesh_props(dummy) -> None:
         scene.shape_modifiers.clear()
         scene.yas_vgroups.clear()
         return None
+
 
     if getattr(props, "mesh_category") and mod_button and obj.modifiers:
         mod_types = {
