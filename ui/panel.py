@@ -4,8 +4,8 @@ import platform
 
 from pathlib       import Path
 from bpy.props     import StringProperty, BoolProperty
-from ..util.props  import get_object_from_mesh
-from bpy.types     import Panel, Operator, UIList, UILayout, Context, VertexGroup
+from ..util.props  import get_object_from_mesh, visible_meshobj, OutfitProps
+from bpy.types     import Panel, Operator, UIList, UILayout, Context, VertexGroup, Object
 
 class MESH_UL_yas(UIList):
     bl_idname = "MESH_UL_yas"
@@ -203,8 +203,9 @@ class OutfitStudio(Panel):
         col = row.column()
         
         if section_prop.overview_category:
-            box = col.box()
-            box.label(icon="INFO", text="Work in progress...")
+            columns = ["OBJECT", "GROUP", "PART", "ATTR", "MATERIAL"]
+
+            self.draw_overview(col, section_prop, columns)
             
         if section_prop.shapes_category:
             self.draw_shapes(col, section_prop)
@@ -217,7 +218,139 @@ class OutfitStudio(Panel):
 
         if section_prop.armature_category:
             self.draw_armature(col, section_prop)
-              
+
+    def draw_overview(self, layout:UILayout, section_prop, columns):
+
+        def get_entries(visible:list[Object]) -> dict[Object, dict[str, tuple[str | int, int | None]]]:
+            data_entries = {}
+            for obj in visible:
+                obj_props = []
+                try:
+                    name_parts = obj.name.split(" ")
+                    group = name_parts[-1].split(".")[0]
+                    part  = name_parts[-1].split(".")[1]
+                    group = int(group)
+                    part  = int(part)
+                    if name_parts[-2] == "Part":
+                        name_parts.pop()
+                except:
+                    continue
+
+                material  = obj.data.materials[0].name.split("_")[-1][:-5] if obj.data.materials[0].name.endswith(".mtrl") else ""
+                triangles: int = len(obj.data.loop_triangle_polygons)
+
+                for key, value in obj.items():
+                    if key.startswith("atr") and value:
+                        obj_props.append(key)
+                
+                data_entries[obj] = ({"name": ((" ".join(name_parts[:-1])), 0), 
+                                      "group": (group, 1), 
+                                      "part": (part, 2), 
+                                      "props": (obj_props, 3), 
+                                      "material": (material, 4), 
+                                      "triangles": (triangles, None)})
+            
+            return data_entries
+        
+        visible = visible_meshobj()
+        data_entries = get_entries(visible)
+        triangles: int = 0
+        selected_tris: int = 0
+        if len(bpy.context.selected_objects) > 0:
+            selected_tris = sum([len(obj.data.loop_triangle_polygons) for obj in bpy.context.selected_objects if obj.type == "MESH"])
+        row = layout.box().row(align=False).split(factor=0.3)
+        row_list = [row for _ in range(len(columns))]
+        
+        for index, text in enumerate(columns):
+            header = row_list[index].row(align=True)
+            header.alignment = "CENTER"
+            header.label(text=text if text == "OBJECT" else text)
+
+        layout.separator(type="SPACE", factor=0.2)
+
+        row = layout.row(align=True).box().split(factor=0.3)
+        columns_list = [row.column(align=True) for _ in range(len(columns))]
+        
+        for obj, values in sorted(data_entries.items(), key=lambda item: (item[1]["group"], item[1]["part"])):
+            col = columns_list[0].row(align=True)
+            col.alignment = "CENTER"
+            op = col.operator("ya.overview_name", text=values["name"][0], emboss=False)
+            op.type = "NAME"
+            op.obj = obj.name
+        
+            for key, (value, column) in values.items():
+                if column is None or key == "name":
+                    continue
+                col = columns_list[column].row(align=True)
+                col.alignment = "CENTER"
+                if key == "props":
+                    for attr in value:
+                        op = col.operator("ya.attributes", text=section_prop.attr_dict[attr] if attr in section_prop.attr_dict else attr)
+                        op.attr = attr
+                        op.obj = obj.name
+                    op = col.operator("ya.attributes", icon="ADD", text="")
+                    op.attr = "NEW"
+                    op.obj = obj.name
+                elif key == "group":
+                    op = col.operator("ya.overview_group", 
+                                        text="", 
+                                        emboss=False, 
+                                        icon= "TRIA_LEFT")
+                    op.type = "DEC_GROUP"
+                    op.obj = obj.name
+
+                    op = col.operator("ya.overview_group", text=str(value), emboss=False)
+                    op.type = "GROUP"
+                    op.obj = obj.name
+
+                    op = col.operator("ya.overview_group", 
+                                        text="", 
+                                        emboss=False, 
+                                        icon= "TRIA_RIGHT")
+                    op.type = "INC_GROUP"
+                    op.obj = obj.name
+
+                elif key == "part":
+                    conflict = False
+                    for con_obj, con_values in data_entries.items():
+                        if con_obj == obj:
+                            continue
+                        if con_values["group"] == values["group"] and con_values["part"] == values["part"]:
+                            conflict = True
+                    op = col.operator("ya.overview_group", 
+                                        text="", 
+                                        emboss=False, 
+                                        icon= "TRIA_LEFT")
+                    op.type = "DEC_PART"
+                    op.obj = obj.name
+
+                    op = col.operator("ya.overview_group", 
+                                        text=str(value), 
+                                        emboss=False, 
+                                        icon= "ERROR" if conflict else "NONE")
+                    op.type = "PART"
+                    op.obj = obj.name
+
+                    op = col.operator("ya.overview_group", 
+                                        text="", 
+                                        emboss=False, 
+                                        icon= "TRIA_RIGHT")
+                    op.type = "INC_PART"
+                    op.obj = obj.name
+
+                elif key == "material":
+                    op = col.operator("ya.overview_material", text=str(value), emboss=False)
+                    op.obj = obj.name
+            
+            triangles += values["triangles"][0]
+        
+        layout.separator(type="SPACE", factor=0.2)
+
+        count = f"{triangles:,}" if len(bpy.context.selected_objects) == 0 else f"{selected_tris:,} / {triangles:,}"
+        row = layout.box()
+        row.alignment = "RIGHT"
+        row.label(text=f"Triangles: {count}    ")
+
     def draw_shapes(self, layout:UILayout, section_prop):
         if hasattr(bpy.context.scene, "devkit_props"):
             devkit_prop = bpy.context.scene.devkit_props
@@ -309,7 +442,7 @@ class OutfitStudio(Panel):
             col = row.column(align=True)
             row = col.row(align=True)
             col.operator("ya.transfer_shape_keys", text="Transfer")
-
+          
     def draw_mesh(self, layout:UILayout, section_prop):
         box = layout.box()
         row = box.row(align=True)
@@ -651,10 +784,10 @@ class FileManager(Panel):
 
                 labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Flat": ("Masc", [])}
         
-                self.dynamic_column_buttons(len(labels), layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, section_prop, labels, category, button_type)
 
                 yab = self.devkit_props.export_yab_chest_bool
-                rue = self.devkit_props.export_rue_chest_bool
+                rue = self.devkit_props.export_rue_chest_bool and section_prop.rue_export
                 lava = self.devkit_props.export_lava_chest_bool
                 masc = self.devkit_props.export_flat_chest_bool
 
@@ -662,7 +795,7 @@ class FileManager(Panel):
 
                 labels = {"Buff": ("Buff", [yab, rue, lava, masc]), "Piercings": ("Piercings", [yab, rue, lava, masc])}
         
-                self.dynamic_column_buttons(len(labels), layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, section_prop, labels, category, button_type)
 
                 layout.separator(factor=0.5, type="LINE")
                 
@@ -681,7 +814,7 @@ class FileManager(Panel):
                     "Pecs":       ("Pecs", [masc]),
                 }
         
-                self.dynamic_column_buttons(3, layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)
                 
             # LEG EXPORT  
             
@@ -696,7 +829,7 @@ class FileManager(Panel):
 
                 labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Masc": ("Masc", [])}
         
-                self.dynamic_column_buttons(len(labels), layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, section_prop, labels, category, button_type)
 
                 yab = self.devkit_props.export_yab_legs_bool
                 rue = self.devkit_props.export_rue_legs_bool
@@ -716,7 +849,7 @@ class FileManager(Panel):
                     "Pubes":  ("Pubes", [yab, rue, lava, masc])
                 }
                 
-                self.dynamic_column_buttons(4, layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(4, layout, section_prop, labels, category, button_type)
 
                 layout.separator(factor=0.5, type="LINE")
 
@@ -726,7 +859,7 @@ class FileManager(Panel):
                     "Hip Dips":  ("Hip Dips", [yab, rue]),
                 }
         
-                self.dynamic_column_buttons(3, layout, self.devkit_props, labels, category, button_type) 
+                self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type) 
 
             # HAND EXPORT  
             
@@ -739,7 +872,7 @@ class FileManager(Panel):
                     "Lava": ("Lava", []),
                     }
         
-                self.dynamic_column_buttons(3, layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)
                 
                 yab = self.devkit_props.export_yab_hands_bool
                 rue = self.devkit_props.export_rue_hands_bool
@@ -754,7 +887,7 @@ class FileManager(Panel):
                     "Stabbies": ("Stabbies", [yab, rue, lava]), 
                     }
 
-                self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
                 
                 row = layout.row(align=True)
                 row.label(text="Clawsies:")
@@ -764,7 +897,7 @@ class FileManager(Panel):
                     "Curved": ("Curved", [yab, rue, lava]),
                     }
 
-                self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
 
                 row = layout.row(align=True)
 
@@ -778,7 +911,7 @@ class FileManager(Panel):
                     "Rue": ("Rue", []), 
                     }
         
-                self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
 
                 yab = self.devkit_props.export_yab_feet_bool
                 rue = self.devkit_props.export_rue_feet_bool
@@ -789,7 +922,7 @@ class FileManager(Panel):
                     "Clawsies": ("Clawsies", [yab, rue])
                     }
 
-                self.dynamic_column_buttons(2, layout, self.devkit_props, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
         
             layout.separator(factor=0.5, type="LINE")
 
@@ -1042,7 +1175,7 @@ class FileManager(Panel):
     def dynamic_column_buttons(self, columns, box:UILayout, section_prop, labels, category, button_type):
         if category == "Chest":
             yab = self.devkit_props.export_yab_chest_bool
-            rue = self.devkit_props.export_rue_chest_bool
+            rue = self.devkit_props.export_rue_chest_bool and section_prop.rue_export
             lava = self.devkit_props.export_lava_chest_bool
 
         row = box.row(align=True)
@@ -1056,8 +1189,8 @@ class FileManager(Panel):
 
             prop_name = f"{button_type}_{size_lower}_{category_lower}_bool"
 
-            if hasattr(section_prop, prop_name):
-                icon = 'CHECKMARK' if getattr(section_prop, prop_name) and emboss else 'PANEL_CLOSE'
+            if hasattr(self.devkit_props, prop_name):
+                icon = 'CHECKMARK' if getattr(self.devkit_props, prop_name) and emboss else 'PANEL_CLOSE'
                 
                 col_index = index % columns
 
@@ -1072,7 +1205,7 @@ class FileManager(Panel):
                         case "Omoi":
                             name = "---"
 
-                columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon, emboss=emboss)
+                columns_list[col_index].prop(self.devkit_props, prop_name, text=name, icon=icon, emboss=emboss)
             else:
                 col_index = index % columns 
         
