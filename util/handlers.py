@@ -1,6 +1,6 @@
 import bpy
 
-from .props               import get_object_from_mesh, visible_meshobj, OutfitProps
+from .props               import get_object_from_mesh
 from bpy.types            import Object
 from bpy.app.handlers     import persistent
 
@@ -22,7 +22,6 @@ def get_mesh_props(dummy) -> None:
         scene.shape_modifiers.clear()
         scene.yas_vgroups.clear()
         return None
-
 
     if getattr(props, "mesh_category") and mod_button and obj.modifiers:
         mod_types = {
