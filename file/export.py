@@ -90,10 +90,11 @@ def force_yas(export="SIMPLE", body_slot="") -> None:
 def ivcs_mune(yas=False) -> None:
     chest_obj: list[Object] = visible_meshobj()
     for obj in chest_obj:
+        
         for modifier in obj.modifiers:
             if modifier.type != 'DATA_TRANSFER':
                 continue
-            if modifier.object != None and modifier.object not in chest_obj:
+            if modifier.object is not None and modifier.object not in chest_obj:
                 chest_obj.append(modifier.object)
 
     for obj in chest_obj:
@@ -198,10 +199,10 @@ class MeshHandler:
     def pre_export(self) -> None:
         
         def verify_target(obj:Object) -> None:
-            bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.select_all(action="DESELECT")
             bpy.context.view_layer.objects.active = obj
             obj.select_set(state=True)
+            bpy.ops.object.mode_set(mode='OBJECT')
             self.check_modifiers(obj, data_transfer=True)
 
         def triangulation_check(obj:Object)-> bool:
@@ -355,7 +356,10 @@ class MeshHandler:
         to_join     :list[Object] = []
 
         for key in xiv_key:
+            bpy.context.view_layer.objects.active = obj
+            obj.select_set(state=True)
             bpy.ops.object.duplicate()
+            bpy.ops.object.mode_set(mode='OBJECT')
             shapekey_dupe = bpy.context.selected_objects[0]
             shapekey_dupe.data.shape_keys.key_blocks[key.name].mute  = False
             shapekey_dupe.data.shape_keys.key_blocks[key.name].value = 1.0
@@ -367,6 +371,7 @@ class MeshHandler:
         if to_join:
             bpy.context.view_layer.objects.active = obj
             obj.select_set(state=True)
+            bpy.ops.object.mode_set(mode='OBJECT')
             self.check_modifiers(obj)
             for dupe in to_join:
                 dupe.select_set(state=True)
