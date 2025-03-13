@@ -67,7 +67,7 @@ def modpack_data(context) -> None:
             with pmp.open("meta.json") as meta:
                 meta_contents = json.load(meta)
 
-                mod_meta = ModMeta(**meta_contents)
+                mod_meta = ModMeta.from_dict(meta_contents)
                 scene.file_props.loadmodpack_version = mod_meta.Version
                 scene.file_props.loadmodpack_author = mod_meta.Author
     
@@ -76,7 +76,7 @@ def modpack_group_data(file_name:str, pmp:ZipFile, data:str) -> str | tuple[str,
         with pmp.open(file_name) as file:
             file_contents = json.load(file)
                      
-            group_data = ModGroups(**file_contents)
+            group_data = ModGroups.from_dict(file_contents)
      
             if data == "name":
                 return str(group_data.Name), int(group_data.Page)
@@ -432,7 +432,6 @@ class FileProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-
 def selected_yas_vgroup() -> None:
     obj = bpy.context.active_object
     if bpy.context.scene.yas_vgroups[0].name != "Mesh has no YAS Groups":
@@ -579,6 +578,18 @@ class OutfitProps(PropertyGroup):
     
     ]
     
+    attr_dict = {
+           "atr_nek": "Neck",
+           "atr_ude": "Elbow",
+           "atr_hij": "Wrist",
+           "atr_arm": "Glove",
+           "atr_kod": "Waist",
+           "atr_hiz": "Knee",
+           "atr_sne": "Shin",
+           "atr_leg": "Boot",
+           "atr_lpd": "Knee Pad",
+        }
+
     @staticmethod
     def extra_options() -> None:
         for (name, category, default, description) in OutfitProps.outfit_buttons:

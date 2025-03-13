@@ -1,7 +1,7 @@
 import json
 
 from typing      import List, Dict
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, fields
 
 @dataclass
 class TypeManip:
@@ -33,10 +33,26 @@ class TypeManip:
     AttributeMask       :int | None = None
     SoundId             :int | None = None
 
+    @classmethod
+    def from_dict(cls, data:dict):
+        field_names = {field.name for field in fields(cls)}
+        
+        filtered_data = {key: value for key, value in data.items() if key in field_names}
+        
+        return cls(**filtered_data)
+    
 @dataclass
 class ModManipulations:
     Type         :str = ""
-    Manipulation :List[TypeManip] = None
+    Manipulation :list[TypeManip] = None
+    
+    @classmethod
+    def from_dict(cls, data:dict):
+        field_names = {field.name for field in fields(cls)}
+        
+        filtered_data = {key: value for key, value in data.items() if key in field_names}
+        
+        return cls(**filtered_data)
     
     def __post_init__(self):
         self.Manipulation = TypeManip(self.Manipulation)
@@ -46,11 +62,19 @@ class CombinedContainers:
     Name            :str | None            = None
     Files           :Dict[str, str] | None = None
     FileSwaps       :Dict[str, str] | None = None
-    Manipulations   :List[ModManipulations] | None = None
+    Manipulations   :list[ModManipulations] | None = None
 
+    @classmethod
+    def from_dict(cls, data:dict):
+        field_names = {field.name for field in fields(cls)}
+        
+        filtered_data = {key: value for key, value in data.items() if key in field_names}
+        
+        return cls(**filtered_data)
+    
     def __post_init__(self):
         if self.Manipulations != None:
-            self.Manipulations = [ModManipulations(**manip) for manip in self.Manipulations]
+            self.Manipulations = [ModManipulations.from_dict(manip) for manip in self.Manipulations]
 
 @dataclass
 class GroupOptions:
@@ -63,9 +87,17 @@ class GroupOptions:
     Description     :str = ""
     Image           :str = ""
 
+    @classmethod
+    def from_dict(cls, data:dict):
+        field_names = {field.name for field in fields(cls)}
+        
+        filtered_data = {key: value for key, value in data.items() if key in field_names}
+        
+        return cls(**filtered_data)
+
     def __post_init__(self):
         if self.Manipulations != None:
-            self.Manipulations = [ModManipulations(**manip) for manip in self.Manipulations]
+            self.Manipulations = [ModManipulations.from_dict(manip) for manip in self.Manipulations]
                  
 @dataclass
 class ModGroups:    
@@ -85,12 +117,19 @@ class ModGroups:
     Manipulations   :List[ModManipulations]   | None = None
     Containers      :List[CombinedContainers] | None = None
 
+    @classmethod
+    def from_dict(cls, data:dict):
+        field_names = {field.name for field in fields(cls)}
+        
+        filtered_data = {key: value for key, value in data.items() if key in field_names}
+        
+        return cls(**filtered_data)
 
     def __post_init__(self):
         if self.Options != None:
-            self.Options         = [GroupOptions(**option) for option in self.Options]
+            self.Options         = [GroupOptions.from_dict(option) for option in self.Options]
             if self.Containers  != None:
-                self.Containers  = [CombinedContainers(**container) for container in self.Containers]
+                self.Containers  = [CombinedContainers.from_dict(container) for container in self.Containers]
         elif self.Manipulations != None:
             self.Manipulations   = [ModManipulations(**manip) for manip in self.Manipulations]
             self.Identifier      = TypeManip(self.Identifier)
@@ -101,10 +140,10 @@ class ModGroups:
     
     def remove_none(self, obj):
         if isinstance(obj, dict):
-            return {k: self.remove_none(v) for k, v in obj.items() if v is not None}
+            return {key: self.remove_none(value) for key, value in obj.items() if value is not None}
         
         elif isinstance(obj, list):
-            return [self.remove_none(i) for i in obj if i is not None]
+            return [self.remove_none(index) for index in obj if index is not None]
         
         return obj         
 
@@ -118,7 +157,17 @@ class ModMeta:
     Version     :str  = ""
     Website     :str  = ""
     ModTags     :list = field(default_factory=list)
+    DefaultPreferredItems:list | None = None
+
+    @classmethod
+    def from_dict(cls, data:dict):
+        field_names = {field.name for field in fields(cls)}
+        
+        filtered_data = {key: value for key, value in data.items() if key in field_names}
+        
+        return cls(**filtered_data)
 
     def to_json(self):
         return json.dumps(asdict(self), indent=4)
+    
 

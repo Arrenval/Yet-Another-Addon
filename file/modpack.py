@@ -378,7 +378,7 @@ class Modpacker(Operator):
             with archive.open("meta.json") as meta:
                 meta_contents = json.load(meta)
 
-                current_mod_meta = ModMeta(**meta_contents)
+                current_mod_meta = ModMeta.from_dict(meta_contents)
             
         
         return current_mod_data, current_mod_meta  
@@ -666,7 +666,7 @@ class Modpacker(Operator):
             print(new_group)
 
             with open(new_group, "w") as file:
-                file.write(ModGroups(**group_data).to_json())
+                file.write(ModGroups.from_dict(group_data).to_json())
 
     def update_file_name(user_input:UserInput, mod_data:Dict[str, ModGroups], update_page) -> tuple[str, str]:
         final_digits:str = ""
