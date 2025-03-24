@@ -101,7 +101,7 @@ class ChangeObjectName(Operator):
     
 class ChangeGroupPart(Operator):
     bl_idname = "ya.overview_group"
-    bl_label = "Group"
+    bl_label = "Group/Part"
     bl_description = "Change group/part of the object"
     bl_options = {'UNDO'}
 
@@ -109,6 +109,15 @@ class ChangeGroupPart(Operator):
     type: StringProperty() # type: ignore
     user_input: IntProperty(name="", default=0, min=0, max=99) # type: ignore
 
+    @classmethod
+    def description(cls, context, properties):
+        if "GROUP" in properties.type:
+            return "Change group of the object"
+        if "PART" in properties.type:
+            return "Change part of the object"
+        else:
+            return "Change group/part of the object"
+        
     def invoke(self, context, event):
         obj: Object = bpy.data.objects[self.obj]
         name_parts = obj.name.split(" ")

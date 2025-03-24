@@ -203,7 +203,7 @@ class OutfitStudio(Panel):
         col = row.column()
         
         if section_prop.overview_category:
-            columns = ["OBJECT", "GROUP", "PART", "ATTR", "MATERIAL"]
+            columns = ["OBJECT", "PART", "ATTR"]
 
             self.draw_overview(col, section_prop, columns)
             
@@ -221,40 +221,37 @@ class OutfitStudio(Panel):
 
     def draw_overview(self, layout:UILayout, section_prop, columns):
 
-        def get_entries(visible:list[Object]) -> dict[Object, dict[str, tuple[str | int, int | None]]]:
+        def get_entries(visible:list[Object]) -> dict[int, dict[Object, dict[str, tuple[str | int, int | None]]]]:
             data_entries = {}
             for obj in visible:
                 obj_props = []
                 try:
                     name_parts = obj.name.split(" ")
-                    group = name_parts[-1].split(".")[0]
-                    part  = name_parts[-1].split(".")[1]
-                    group = int(group)
-                    part  = int(part)
+                    group = int(name_parts[-1].split(".")[0])
+                    part  = int(name_parts[-1].split(".")[1])
                     if name_parts[-2] == "Part":
                         name_parts.pop()
                 except:
                     continue
 
-                material  = obj.data.materials[0].name.split("_")[-1][:-5] if obj.data.materials[0].name.endswith(".mtrl") else ""
+                material  = obj.data.materials[0].name[1:-5] if obj.data.materials[0].name.endswith(".mtrl") else obj.data.materials[0].name
                 triangles: int = len(obj.data.loop_triangle_polygons)
 
                 for key, value in obj.items():
                     if key.startswith("atr") and value:
                         obj_props.append(key)
-                
-                data_entries[obj] = ({"name": ((" ".join(name_parts[:-1])), 0), 
-                                      "group": (group, 1), 
-                                      "part": (part, 2), 
-                                      "props": (obj_props, 3), 
-                                      "material": (material, 4), 
-                                      "triangles": (triangles, None)})
+                data_entries.setdefault(group, {})
+                data_entries[group][obj] = ({"name": ((" ".join(name_parts[:-1])), None), 
+                                            "part": (part, 1), 
+                                            "props": (obj_props, 2), 
+                                            "material": (material, None), 
+                                            "triangles": (triangles, None)})
             
             return data_entries
         
-        visible = visible_meshobj()
-        data_entries = get_entries(visible)
-        triangles: int = 0
+        visible            = visible_meshobj()
+        data_entries       = get_entries(visible)
+        triangles:     int = 0
         selected_tris: int = 0
         if len(bpy.context.selected_objects) > 0:
             selected_tris = sum([len(obj.data.loop_triangle_polygons) for obj in bpy.context.selected_objects if obj.type == "MESH"])
@@ -267,84 +264,101 @@ class OutfitStudio(Panel):
             header.label(text=text if text == "OBJECT" else text)
 
         layout.separator(type="SPACE", factor=0.2)
-
-        row = layout.row(align=True).box().split(factor=0.3)
-        columns_list = [row.column(align=True) for _ in range(len(columns))]
         
-        for obj, values in sorted(data_entries.items(), key=lambda item: (item[1]["group"], item[1]["part"])):
-            col = columns_list[0].row(align=True)
-            col.alignment = "CENTER"
-            op = col.operator("ya.overview_name", text=values["name"][0], emboss=False)
-            op.type = "NAME"
-            op.obj = obj.name
+        # row = layout.row(align=True).box()
         
-            for key, (value, column) in values.items():
-                if column is None or key == "name":
-                    continue
-                col = columns_list[column].row(align=True)
-                col.alignment = "CENTER"
-                if key == "props":
-                    for attr in value:
-                        op = col.operator("ya.attributes", text=section_prop.attr_dict[attr] if attr in section_prop.attr_dict else attr)
-                        op.attr = attr
-                        op.obj = obj.name
-                    op = col.operator("ya.attributes", icon="ADD", text="")
-                    op.attr = "NEW"
-                    op.obj = obj.name
-                elif key == "group":
-                    op = col.operator("ya.overview_group", 
-                                        text="", 
-                                        emboss=False, 
-                                        icon= "TRIA_LEFT")
-                    op.type = "DEC_GROUP"
-                    op.obj = obj.name
-
-                    op = col.operator("ya.overview_group", text=str(value), emboss=False)
-                    op.type = "GROUP"
-                    op.obj = obj.name
-
-                    op = col.operator("ya.overview_group", 
-                                        text="", 
-                                        emboss=False, 
-                                        icon= "TRIA_RIGHT")
-                    op.type = "INC_GROUP"
-                    op.obj = obj.name
-
-                elif key == "part":
-                    conflict = False
-                    for con_obj, con_values in data_entries.items():
-                        if con_obj == obj:
-                            continue
-                        if con_values["group"] == values["group"] and con_values["part"] == values["part"]:
-                            conflict = True
-                    op = col.operator("ya.overview_group", 
-                                        text="", 
-                                        emboss=False, 
-                                        icon= "TRIA_LEFT")
-                    op.type = "DEC_PART"
-                    op.obj = obj.name
-
-                    op = col.operator("ya.overview_group", 
-                                        text=str(value), 
-                                        emboss=False, 
-                                        icon= "ERROR" if conflict else "NONE")
-                    op.type = "PART"
-                    op.obj = obj.name
-
-                    op = col.operator("ya.overview_group", 
-                                        text="", 
-                                        emboss=False, 
-                                        icon= "TRIA_RIGHT")
-                    op.type = "INC_PART"
-                    op.obj = obj.name
-
-                elif key == "material":
-                    op = col.operator("ya.overview_material", text=str(value), emboss=False)
-                    op.obj = obj.name
+        for group, obj_data in sorted(data_entries.items(), key=lambda item: item[0]):
+            obj_data = sorted(obj_data.items(), key=lambda item: item[1]["part"][0])
             
-            triangles += values["triangles"][0]
-        
-        layout.separator(type="SPACE", factor=0.2)
+            box = layout.box().row().split(factor=0.3)
+            col = box.column().row()
+            col.alignment = "CENTER"
+            col.label(text=f"Mesh #{group}:")
+            col2 = box.column()
+            matr_text = obj_data[0][1]["material"][0]
+            matr_obj  = obj_data[0][0]
+            op = col2.operator("ya.overview_material", text=str(matr_text), emboss=True)
+            op.obj = matr_obj.name
+            
+            col_box = layout.box().split(factor=0.3)
+            columns_list = [col_box.column(align=True) for _ in range(len(columns))]
+            for obj, values in obj_data:
+                col = columns_list[0]
+                col.alignment = "CENTER"
+                op = col.operator("ya.overview_group", text=values["name"][0], emboss=False)
+                op.type = "GROUP"
+                op.obj = obj.name
+                # op = col.operator("ya.overview_name", text=values["name"][0], emboss=False)
+                # op.type = "NAME"
+                # op.obj = obj.name
+            
+                for key, (value, column) in values.items():
+                    if column is None:
+                        continue
+                    col = columns_list[column].row(align=True)
+                    col.alignment = "CENTER"
+                    if key == "props":
+                        if len(values["props"][0]) > 0:
+                            col.alignment = "EXPAND"
+                        else:
+                            col.alignment = "RIGHT"
+                        for attr in value:
+                            text = section_prop.attr_dict[attr] if attr in section_prop.attr_dict else attr
+                            op = col.operator("ya.attributes", text=f"{text}")
+                            op.attr = attr
+                            op.obj = obj.name
+                        op = col.operator("ya.attributes", icon="ADD", text="")
+                        op.attr = "NEW"
+                        op.obj = obj.name
+                    # elif key == "group":
+                    #     op = col.operator("ya.overview_group", 
+                    #                         text="", 
+                    #                         emboss=False, 
+                    #                         icon= "TRIA_LEFT")
+                    #     op.type = "DEC_GROUP"
+                    #     op.obj = obj.name
+
+                    #     op = col.operator("ya.overview_group", text=str(value), emboss=False)
+                    #     op.type = "GROUP"
+                    #     op.obj = obj.name
+
+                    #     op = col.operator("ya.overview_group", 
+                    #                         text="", 
+                    #                         emboss=False, 
+                    #                         icon= "TRIA_RIGHT")
+                    #     op.type = "INC_GROUP"
+                    #     op.obj = obj.name
+
+                    elif key == "part":
+                        col.alignment = "EXPAND"
+                        conflict = False
+                        for con_obj, con_values in obj_data:
+                            if con_obj == obj:
+                                continue
+                            if con_values["part"] == values["part"]:
+                                conflict = True
+                        op = col.operator("ya.overview_group", 
+                                            text="", 
+                                            emboss=False, 
+                                            icon= "TRIA_LEFT")
+                        op.type = "DEC_PART"
+                        op.obj = obj.name
+
+                        op = col.operator("ya.overview_group", 
+                                            text=str(value), 
+                                            emboss=False, 
+                                            icon= "ERROR" if conflict else "NONE")
+                        op.type = "PART"
+                        op.obj = obj.name
+
+                        op = col.operator("ya.overview_group", 
+                                            text="", 
+                                            emboss=False, 
+                                            icon= "TRIA_RIGHT")
+                        op.type = "INC_PART"
+                        op.obj = obj.name
+            
+                triangles += values["triangles"][0]
 
         count = f"{triangles:,}" if len(bpy.context.selected_objects) == 0 else f"{selected_tris:,} / {triangles:,}"
         row = layout.box()
