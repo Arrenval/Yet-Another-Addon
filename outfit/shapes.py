@@ -265,27 +265,27 @@ class ShapeKeyTransfer(Operator):
 
         if self.shrinkwrap:
             bpy.ops.object.modifier_add(type='SHRINKWRAP')
-            modifier: ShrinkwrapModifier = target.modifiers[-1]
-            modifier.target = source
-            modifier.wrap_mode = 'OUTSIDE'
-            modifier.offset = 0.001
+            shr_modifier: ShrinkwrapModifier = target.modifiers[-1]
+            shr_modifier.target = source
+            shr_modifier.wrap_mode = 'OUTSIDE'
+            shr_modifier.offset = 0.001
 
-            self.shrinkwrap_exclude(target, modifier)
-            self.apply_modifier(key_name, target, modifier.name)
+            self.shrinkwrap_exclude(target, shr_modifier)
+            self.apply_modifier(key_name, target, shr_modifier.name)
 
             if self.exclude_wrap != "None" and self.vertex_pin != "None":
                 bpy.ops.object.vertex_group_remove(all=False)
 
         bpy.ops.object.modifier_add(type='CORRECTIVE_SMOOTH')
-        modifier: CorrectiveSmoothModifier = target.modifiers[-1]
-        modifier.factor = factor
-        modifier.iterations = iterations
-        modifier.use_pin_boundary = True
+        cor_modifier: CorrectiveSmoothModifier = target.modifiers[-1]
+        cor_modifier.factor = factor
+        cor_modifier.iterations = iterations
+        cor_modifier.use_pin_boundary = True
         if self.vertex_pin != "None":
-            modifier.vertex_group = self.vertex_pin
-            modifier.invert_vertex_group = True
+            cor_modifier.vertex_group = self.vertex_pin
+            cor_modifier.invert_vertex_group = True
 
-        self.apply_modifier(key_name, target, modifier.name)
+        self.apply_modifier(key_name, target, cor_modifier.name)
 
     def shrinkwrap_exclude(self, target:Object, modifier) -> None:
         if self.exclude_wrap != "None":

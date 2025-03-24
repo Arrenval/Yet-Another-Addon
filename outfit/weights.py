@@ -1,7 +1,7 @@
 import bpy
 
 from bpy.props import StringProperty
-from bpy.types import Operator, Object, VertexGroup, Context
+from bpy.types import Operator, Object, VertexGroup, Context, ArmatureModifier
 
 class RemoveEmptyVGroups(Operator):                         
     bl_idname = "ya.remove_empty_vgroups"
@@ -60,7 +60,7 @@ class RemoveSelectedVGroups(Operator):
         if old_mode == 'PAINT_WEIGHT':
             old_mode = 'WEIGHT_PAINT'
         bpy.ops.object.mode_set(mode='OBJECT')
-        obj = context.active_object
+        obj: Object = context.active_object
         old_weight = {}
         if self.preset != "menu" and context.scene.outfit_props.filter_vgroups:
             yas_vgroups  = context.scene.yas_vgroups
@@ -95,13 +95,14 @@ class RemoveSelectedVGroups(Operator):
         return {"FINISHED"}
 
     def get_parent_group(self, obj:Object, vertex_group:VertexGroup) -> str:
-        if obj.parent.type == "ARMATURE":
+        if obj.parent != None and obj.parent.type == "ARMATURE":
             bone = obj.parent.data.bones.get(vertex_group.name)
             if bone:
                 return bone.parent.name
             
         for modifier in obj.modifiers:
             if modifier.type == "ARMATURE":
+                modifier: ArmatureModifier
                 armature = modifier.object
                 if armature == None:
                     return ""

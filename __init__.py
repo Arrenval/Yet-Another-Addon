@@ -8,7 +8,7 @@ bl_info = {
     "name": "Yet Another Addon",
     "author": "Aleks",
     "description": "Several tools to speed up XIV modding workflows.",
-    "version": (0, 13, 0),
+    "version": (0, 13, 1),
     "blender": (4, 2, 1),
     "category": "",
     }
@@ -22,6 +22,7 @@ from .file          import ya_import
 from .util          import props
 from .util          import handlers
 from .util          import penumbra
+from .outfit        import overview 
 from .outfit        import mesh 
 from .outfit        import shapes   
 from .outfit        import weights  
@@ -36,6 +37,7 @@ modules = [
     weights,
     armature,
     shapes,
+    overview,
     mesh,
     panel
 ]

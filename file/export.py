@@ -422,7 +422,7 @@ class FileExport:
             export_path = self.selected_directory / file_name
         export_settings = self.get_export_settings()
 
-        self.write_mesh_props(export_path)
+        # self.write_mesh_props(export_path)
         
         if self.gltf:
             bpy.ops.export_scene.gltf(filepath=str(export_path) + ".gltf", **export_settings)
