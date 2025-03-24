@@ -2,6 +2,8 @@ import os
 import bpy
 import json
 import shutil
+import sqlite3
+import subprocess
 
 from typing             import Dict
 from pathlib            import Path
@@ -70,6 +72,9 @@ class ConsoleToolsDirectory(Operator):
     bl_description = "Use this to manually find the TexTools directory and select ConsoleTools.exe. Hold Alt to open the TexTools folder if already found"
     
     filepath: StringProperty() # type: ignore
+    filter_glob: bpy.props.StringProperty(
+        default='*.exe',
+        options={'HIDDEN'}) # type: ignore
 
     def invoke(self, context, event):
         textools = context.scene.file_props.textools_directory
@@ -348,7 +353,7 @@ class Modpacker(Operator):
                 self.report({'ERROR'}, "Verify that ConsoleTools is ready.")
                 return {'CANCELLED'} 
             context.scene.file_props.modpack_progress = "Converting FBX to MDL..."
-            self.fbx_to_mdl(context, user_input) 
+            mdl_status = self.mdl_converter(context, user_input) 
 
         if self.update and self.preset != "convert":
             if user_input.selection == "0" and not self.group_new_name:
@@ -359,7 +364,7 @@ class Modpacker(Operator):
         else:
             mod_data, mod_meta = {}, {}
         
-        callback = partial(Modpacker.create_modpack, context, user_input, mod_data, mod_meta, self.preset)
+        callback = partial(Modpacker.create_modpack, context, user_input, mod_data, mod_meta, self.preset, mdl_status)
         bpy.app.timers.register(callback, first_interval=0.5)
 
         return {"FINISHED"}
@@ -383,44 +388,70 @@ class Modpacker(Operator):
         
         return current_mod_data, current_mod_meta  
  
-    def fbx_to_mdl(self, context, user_input:UserInput) -> None:
-        textools   = Path(context.scene.file_props.textools_directory)
-        to_convert = [file for file in (user_input.fbx / user_input.subfolder).glob(f'*.fbx') if file.is_file()]
+    def mdl_converter(self, context, user_input:UserInput) -> subprocess.Popen:
+        blender_dir  = Path(bpy.app.binary_path).parent
+        python_dir   = str([file for file in (blender_dir).glob("*/python/bin/python*")][0])
+        script_dir   = Path(__file__).parent / "database.py"
+        props_json   = user_input.fbx / user_input.subfolder / "MeshProperties.json"
+        textools     = Path(context.scene.file_props.textools_directory)
+        game_path    = str(user_input.mdl_game)
+        to_convert   = [file for file in (user_input.fbx / user_input.subfolder).glob("*.fbx") if file.is_file()]
 
-        cmd_name = "FBXtoMDL.cmd"
+        if props_json.is_file:
+            with open(props_json, "r") as file:
+                model_props = json.load(file)
+
+        cmd_name = "MDL.cmd"
         commands = ["@echo off", f"cd /d {textools.drive}", f"cd {textools}", "echo Please don't close this window..."]
 
-        cmd_path = user_input.fbx / cmd_name
         Path.mkdir(user_input.fbx / user_input.subfolder / "MDL", exist_ok=True)
+        cmd_path = user_input.mdl_folder / cmd_name
 
         cmds_added  = 0
         total_files = len(to_convert)
-        for file in to_convert:   
-            fbx_to_mdl = f'"{user_input.fbx / user_input.subfolder / file.name}" "{user_input.mdl_folder / file.stem}.mdl" "{user_input.mdl_game}"'
-            
+        for file in to_convert:
             commands.append(f"echo ({cmds_added + 1}/{total_files}) Converting: {file.stem}")
-            commands.append(f"ConsoleTools.exe /wrap {fbx_to_mdl} >nul")
+            source = str(user_input.fbx / user_input.subfolder / file.name)
+            dest = str(user_input.mdl_folder / file.stem)
+            
+            if file.stem in model_props:
+                commands.append("echo Writing model to database...")
+                commands.append(rf"cd {textools}\converters\fbx")
+                commands.append(f'converter.exe "{source}" >nul')
+                commands.append("echo Updating model database tables...")
+                commands.append(f'"{python_dir}" "{script_dir.resolve()}" "{textools}" "{file.stem}" "{props_json}" >nul')
+                commands.append(f"cd {textools}")
+                
+                # Places all dbs in your export folder, uncomment for debugging and verifying output
+                # source = str(user_input.fbx / user_input.subfolder / f"{file.stem}.db")
+                # commands.append(rf'copy /y "{textools}\converters\fbx\result.db" "{source}" >nul')
+                source = str(textools / "converters" / "fbx" / "result.db")
+
+            commands.append("echo Finalising .mdl...")
+            commands.append(f'ConsoleTools.exe /wrap "{source}" "{dest}.mdl" "{game_path}" >nul')
+
             cmds_added += 1
         
-        commands.append("ping 127.0.0.1 -n 2 >nul")
-        commands.append('start "" /min cmd /c "timeout /t 2 /nobreak >nul & del "%~f0"')
-        commands.append("exit")
+        commands.append("pause")
 
         with open(cmd_path, 'w') as file:
             for cmd in commands:
                 file.write(f"{cmd}\n")
 
-        os.startfile(cmd_path, 'runas')    
+        mdl_status = subprocess.Popen([str(cmd_path)], 
+                       creationflags=subprocess.CREATE_NEW_CONSOLE)
+        
+        return mdl_status
 
-    def create_modpack(context, user_input:UserInput, mod_data:Dict[str, ModGroups], mod_meta:ModMeta, preset:str) -> int | None:
-        is_cmd = [file.name for file in user_input.fbx.glob(f'FBXtoMDL.cmd') if file.is_file()]
-       
-       #checks for the .cmd to see if the conversion process is over
-        if is_cmd:
-            return 0.5 
-        if not is_cmd and preset == "convert":
+    def create_modpack(context, user_input:UserInput, mod_data:Dict[str, ModGroups], mod_meta:ModMeta, preset:str, mdl_status:subprocess.Popen) -> int | None:
+        if mdl_status.poll() != 0:
+            return 0.5
+        
+        Path.unlink(user_input.mdl_folder / "MDL.cmd", missing_ok=True)
+        if mdl_status.poll() == 0 and preset == "convert":
             context.scene.file_props.modpack_progress = "Complete!"
             return None
+        
         context.scene.file_props.modpack_progress = "Creating modpack..." 
 
         to_pack = [file for file in user_input.mdl_folder.glob(f'*.mdl') if file.is_file()]
@@ -446,6 +477,7 @@ class Modpacker(Operator):
                     pmp.write(file_path, os.path.relpath(file_path, user_input.temp))
 
         bpy.app.timers.register(partial(Modpacker.schedule_cleanup, user_input.temp), first_interval=0.1)
+
         try:
             current_option = int(context.scene.file_props.modpack_groups) + 1
         except:
@@ -663,7 +695,6 @@ class Modpacker(Operator):
             group_data["Name"] = group_name
 
             new_group = user_input.temp / sanitise_path(file_name)
-            print(new_group)
 
             with open(new_group, "w") as file:
                 file.write(ModGroups.from_dict(group_data).to_json())

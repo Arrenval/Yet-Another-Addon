@@ -1,7 +1,9 @@
 import bpy
 import time
+import json
 import bmesh
 import random
+import numpy as np
 
 from pathlib        import Path
 from functools      import partial
@@ -245,6 +247,10 @@ class MeshHandler:
                     'backfaces'   : backfaces})
                 self.reset.append(obj)
                 self.delete.append(dupe)
+            
+            if shape_key:
+                for key in dupe.data.shape_keys.key_blocks:
+                    key.lock_shape = False
   
         for entry in handler_list:
             obj = entry['dupe']
@@ -400,7 +406,7 @@ class MeshHandler:
                 obj.hide_set(state=False)
             except:
                 pass
-
+ 
 class FileExport:
 
     def __init__(self):
@@ -411,15 +417,17 @@ class FileExport:
 
     def export_template(self, file_name:str, body_slot:str):
         if self.subfolder:
-            export_path = str(self.selected_directory / body_slot / file_name)
+            export_path = self.selected_directory / body_slot / file_name
         else:
-            export_path = str(self.selected_directory / file_name)
+            export_path = self.selected_directory / file_name
         export_settings = self.get_export_settings()
+
+        self.write_mesh_props(export_path)
         
         if self.gltf:
-            bpy.ops.export_scene.gltf(filepath=export_path + ".gltf", **export_settings)
+            bpy.ops.export_scene.gltf(filepath=str(export_path) + ".gltf", **export_settings)
         else:
-            bpy.ops.export_scene.fbx(filepath=export_path + ".fbx", **export_settings)
+            bpy.ops.export_scene.fbx(filepath=str(export_path) + ".fbx", **export_settings)
         
     def get_export_settings(self) -> dict[str, str | int | bool]:
         if self.gltf:
@@ -433,8 +441,10 @@ class FileExport:
                 "export_leaf_bone": False,
                 "export_apply": True,
                 "use_visible": True,
+                "export_morph_normal": False,
                 "export_try_sparse_sk": False,
                 "export_attributes": True,
+                "export_normals": True,
                 "export_tangents": True,
                 "export_influence_nb": 8,
                 "export_active_vertex_color_when_no_material": True,
@@ -453,6 +463,42 @@ class FileExport:
                 "use_mesh_modifiers": True,
                 "use_visible": True,
             }
+
+    def write_mesh_props(self, export_path:Path):
+        print(Path(__file__).resolve())
+        prop_json = export_path.parent / "MeshProperties.json"
+        visible = visible_meshobj()
+        attributes = {}
+        materials  = {}
+
+        if prop_json.is_file():
+            with open(prop_json, "r") as file:
+                props = json.load(file)
+        else:
+            props = {}
+
+        for obj in visible:
+            obj_attr = []
+            name_parts = obj.name.split(" ")
+            group = int(name_parts[-1].split(".")[0])
+            part  = int(name_parts[-1].split(".")[1])
+            for attr in obj.keys():
+                attr:str
+                if attr.startswith("atr_") and obj[attr]:
+                    obj_attr.append(attr)
+            attributes[obj.name] = ",".join(obj_attr)
+
+            if part == 0:
+                materials[group] = obj.material_slots[0].name
+
+        if export_path.stem in props:
+            del props[export_path.stem]
+        props.setdefault(export_path.stem, {})
+        props[export_path.stem]["attributes"] = attributes 
+        props[export_path.stem]["materials"]  = materials
+
+        with open(prop_json, "w") as file:
+                file.write(json.dumps(props, indent=4))
 
 class SimpleExport(Operator):
     bl_idname = "ya.simple_export"
@@ -1043,6 +1089,11 @@ class BatchQueue(Operator):
         props.export_step = 0
         props.export_time = 0
         props.export_file_name = ""
+
+class DatabaseExport:
+    
+    def __init__(self):
+        pass
 
 
 CLASSES = [
