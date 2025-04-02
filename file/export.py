@@ -1168,11 +1168,11 @@ class DatabaseExport:
         mesh = obj.data
         bm = bmesh.new()
         bm.from_mesh(mesh)
-        indices_table = np.zeros((len(bm.verts), 4), dtype=np.uint32)
+        indices_table = np.zeros((len(bm.verts), 4), dtype=np.uint16)
         indices_table[:, 0] = mesh_id
         indices_table[:, 1] = part_id
         index = 0
-        
+
         for face in bm.faces:
             for vert in face:
                 indices_table[index] = [mesh_id, part_id, index, vert]
