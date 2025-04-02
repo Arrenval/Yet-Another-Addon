@@ -2,11 +2,11 @@ import os
 import bpy
 import json
 
-from pathlib              import Path
-from zipfile              import ZipFile
-from .penumbra            import ModGroups, ModMeta
-from bpy.types            import PropertyGroup, Object, Context
-from bpy.props            import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
+from pathlib   import Path
+from zipfile   import ZipFile
+from .penumbra import ModGroups, ModMeta
+from bpy.types import PropertyGroup, Object, Context
+from bpy.props import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
 
 
 def visible_meshobj() -> list[Object]:
@@ -658,10 +658,12 @@ class OutfitProps(PropertyGroup):
         if self.actions == "None":
             bpy.data.objects[self.armatures].animation_data.action = None
             return
-        
+    
         action = bpy.data.actions.get(self.actions)
 
         bpy.data.objects[self.armatures].animation_data.action = action
+        if bpy.app.version >= (4, 4, 0):
+            bpy.data.objects[self.armatures].animation_data.action_slot = action.slots[0]
         context.scene.frame_end = int(action.frame_end)
 
         if hasattr(OutfitProps, "animation_frame"):

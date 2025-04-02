@@ -395,9 +395,10 @@ class Modpacker(Operator):
         props_json   = user_input.fbx / user_input.subfolder / "MeshProperties.json"
         textools     = Path(context.scene.file_props.textools_directory)
         game_path    = str(user_input.mdl_game)
+        model_props  = {}
         to_convert   = [file for file in (user_input.fbx / user_input.subfolder).glob("*.fbx") if file.is_file()]
 
-        if props_json.is_file:
+        if props_json.is_file():
             with open(props_json, "r") as file:
                 model_props = json.load(file)
 

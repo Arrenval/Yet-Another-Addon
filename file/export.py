@@ -9,7 +9,7 @@ from pathlib        import Path
 from functools      import partial
 from itertools      import combinations
 from bpy.props      import StringProperty
-from bpy.types      import Operator, Object, Context, ShapeKey, TriangulateModifier, LayerCollection
+from bpy.types      import Operator, Object, Context, ShapeKey, TriangulateModifier, LayerCollection, Armature
 from bmesh.types    import BMFace
 from ..util.props   import get_object_from_mesh, visible_meshobj
 
@@ -191,15 +191,43 @@ def reset_chest_values(saved_sizes) -> None:
 class MeshHandler:
 
     def __init__(self):
-        props                            = bpy.context.scene.file_props
-        self.shapekeys  :bool            = props.keep_shapekeys
-        self.backfaces  :bool            = props.create_backfaces
-        self.reset      :list[Object]    = []
-        self.delete     :list[Object]    = []
-        self.tri_method :tuple[str, str] = ('BEAUTY', 'BEAUTY')
+        props                              = bpy.context.scene.file_props
+        self.shapekeys   : bool            = props.keep_shapekeys
+        self.backfaces   : bool            = props.create_backfaces
+        self.reset       : list[Object]    = []
+        self.delete      : list[Object]    = []
+        self.tri_method  : tuple[str, str] = ('BEAUTY', 'BEAUTY')
+        self.handler_list: list[dict[str, Object | list | bool]] = []
     
-    def pre_export(self) -> None:
+    def prepare_meshes(self) -> None:
+        visible_obj = visible_meshobj()
         
+        for obj in visible_obj:
+            shape_key    = [key for key in obj.data.shape_keys.key_blocks if key.name.startswith("shp")] if self.shapekeys and obj.data.shape_keys else []
+            transparency = True if "xiv_transparency" in obj and obj["xiv_transparency"] else False
+            backfaces    = True if self.backfaces and obj.vertex_groups.get("BACKFACES") else False
+            if any((shape_key, transparency, backfaces)):
+                bpy.ops.object.select_all(action="DESELECT")
+                bpy.context.view_layer.objects.active = obj
+                obj.select_set(state=True)
+                bpy.ops.object.duplicate()
+                dupe = bpy.context.active_object
+                dupe.name = "ExportMesh " + obj.name
+                self.handler_list.append({
+                    'dupe'        : dupe, 
+                    'original'    : obj, 
+                    'shape'       : shape_key, 
+                    'transparency': transparency, 
+                    'backfaces'   : backfaces})
+                self.reset.append(obj)
+                self.delete.append(dupe)
+            
+            if shape_key:
+                    for key in dupe.data.shape_keys.key_blocks:
+                        key.lock_shape = False
+                     
+    def process_meshes(self):
+                
         def verify_target(obj:Object) -> None:
             bpy.ops.object.select_all(action="DESELECT")
             bpy.context.view_layer.objects.active = obj
@@ -225,34 +253,7 @@ class MeshHandler:
             
             return triangulated
 
-        visible_obj = visible_meshobj()
-        handler_list: list[dict[str, Object | list | bool]] = []
-        for obj in visible_obj:
-            shape_key    = [key for key in obj.data.shape_keys.key_blocks if key.name.startswith("shp")] if self.shapekeys and obj.data.shape_keys else []
-            transparency = True if "xiv_transparency" in obj and obj["xiv_transparency"] else False
-            backfaces    = True if self.backfaces and obj.vertex_groups.get("BACKFACES") else False
-            
-            if any((shape_key, transparency, backfaces)):
-                bpy.ops.object.select_all(action="DESELECT")
-                bpy.context.view_layer.objects.active = obj
-                obj.select_set(state=True)
-                bpy.ops.object.duplicate()
-                dupe = bpy.context.active_object
-                dupe.name = "ExportMesh " + obj.name
-                handler_list.append({
-                    'dupe'        : dupe, 
-                    'original'    : obj, 
-                    'shape'       : shape_key, 
-                    'transparency': transparency, 
-                    'backfaces'   : backfaces})
-                self.reset.append(obj)
-                self.delete.append(dupe)
-            
-            if shape_key:
-                for key in dupe.data.shape_keys.key_blocks:
-                    key.lock_shape = False
-  
-        for entry in handler_list:
+        for entry in self.handler_list:
             obj = entry['dupe']
             if entry['transparency']:
                 if not triangulation_check(obj):
@@ -308,38 +309,29 @@ class MeshHandler:
         bm = bmesh.new()
         bm.from_mesh(mesh)
         
-        original_faces = []
-        for face in bm.faces:
-            original_faces.append({
-                "verts": [v.index for v in face.verts],
-                "triangles": len(face.verts) - 2
-            })
+        original_faces: list[tuple[list[int], int]] = [(tuple(v.index for v in face.verts), len(face.verts) - 2) for face in bm.faces]
         
         bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method=self.tri_method[0], ngon_method=self.tri_method[1])
 
-        vert_to_faces: dict[int, list] = {}
+        vert_to_faces: list[set[int]] = [set() for _ in range(len(bm.verts))]
         for tri in bm.faces:
             for vert in tri.verts:
-                vert_to_faces.setdefault(vert.index, [])
-                vert_to_faces[vert.index].append(tri)
+                vert_to_faces[vert.index].add(tri)
       
         ordered_faces = {}
         new_index = 0
-        for face in original_faces:
-            face_verts = set(face["verts"])
+        for face_verts, tri_count in original_faces:
             face_count = 0
 
-            if face["triangles"] > 2:
-                adjacent_faces:set[BMFace] = set()
-                for vert in face_verts:
-                    adjacent_faces.update(vert_to_faces[vert])
+            if tri_count > 2:
+                adjacent_faces:set[BMFace] = {vert for vert in face_verts}
             else:
                 face_shared_verts: dict[BMFace, int] = {}
                 for vert in face_verts:
                     for tri in vert_to_faces[vert]:
                         face_shared_verts[tri] = face_shared_verts.get(tri, 0) + 1
 
-                adjacent_faces = [tri for tri, count in face_shared_verts.items() if count >= 2]
+                adjacent_faces = {tri for tri, count in face_shared_verts.items() if count >= 2}
             
             for tri in adjacent_faces:
                 if tri not in ordered_faces and set(vert.index for vert in tri.verts).issubset(face_verts):
@@ -347,10 +339,10 @@ class MeshHandler:
                     new_index += 1
                     face_count += 1
                 
-                if face_count == face["triangles"]:
+                if face_count == tri_count:
                     break
         
-        bm.faces.sort(key=lambda face:ordered_faces.get(face))
+        bm.faces.sort(key=lambda face:ordered_faces.get(face, float('inf')))
         bm.faces.index_update()
 
         bm.to_mesh(mesh)
@@ -465,7 +457,6 @@ class FileExport:
             }
 
     def write_mesh_props(self, export_path:Path):
-        print(Path(__file__).resolve())
         prop_json = export_path.parent / "MeshProperties.json"
         visible = visible_meshobj()
         attributes = {}
@@ -546,7 +537,12 @@ class SimpleExport(Operator):
             yas = obj.modifiers["YAS Chest"].show_viewport
             ivcs_mune(yas)
 
-        mesh_handler.pre_export()
+        mesh_handler.prepare_meshes()
+        try:
+            mesh_handler.process_meshes()
+        except Exception as e:
+            mesh_handler.restore_meshes()
+            raise e
         FileExport().export_template(self.user_input, "")
         mesh_handler.restore_meshes()
 
@@ -987,6 +983,15 @@ class BatchQueue(Operator):
             for key in reset_shape_keys:   
                 key_block[key].mute = True
 
+        def queue_exit() -> None:
+            if body_slot == "Chest" or body_slot == "Chest & Legs":
+                ivcs_mune()
+                reset_chest_values(saved_sizes)
+            
+            bpy.ops.yakit.collection_manager(preset="Restore")
+            BatchQueue.progress_reset(props)
+            armature_visibility()
+
         props        = context.scene.file_props
         devkit_props = context.scene.devkit_props
         collection   = context.view_layer.layer_collection.children
@@ -1037,11 +1042,26 @@ class BatchQueue(Operator):
                     final_name = clean_file_name(combined_name)
                     if not any(final_name in name for name in exported):
                         exported.append(final_name)
-                        mesh_handler.pre_export()
+                        mesh_handler.prepare_meshes()
+                        try:
+                            mesh_handler.process_meshes()
+                        except Exception as e:
+                            mesh_handler.restore_meshes()
+                            queue_exit()
+                            BatchQueue.ErrorMessage(message="MeshHandler has failed.")
+                            raise e
                         FileExport().export_template(final_name, "Chest & Legs")
         
         else:
-            mesh_handler.pre_export()
+            mesh_handler.prepare_meshes()
+            try:
+                mesh_handler.process_meshes()
+            except Exception as e:
+                mesh_handler.restore_meshes()
+                queue_exit()
+                BatchQueue.ErrorMessage(message="MeshHandler has failed.")
+                raise e
+
             FileExport().export_template(main_name, body_slot)
 
         setattr(devkit_props, "is_exporting", False)
@@ -1054,13 +1074,7 @@ class BatchQueue(Operator):
             BatchQueue.progress_tracker(queue)
             return 0.1
         else:
-            if body_slot == "Chest" or body_slot == "Chest & Legs":
-                ivcs_mune()
-                reset_chest_values(saved_sizes)
-            
-            bpy.ops.yakit.collection_manager(preset="Restore")
-            BatchQueue.progress_reset(props)
-            armature_visibility()
+            queue_exit()
             return None
 
     # These functions are responsible for applying the correct model state and appropriate file name.
@@ -1090,11 +1104,87 @@ class BatchQueue(Operator):
         props.export_time = 0
         props.export_file_name = ""
 
+    def ErrorMessage(message = "", title = "ERROR"):
+
+        def draw(self, context):
+            self.layout.label(text=message)
+
+        bpy.context.window_manager.popup_menu(draw, title = title, icon = "ERROR")
+
 class DatabaseExport:
     
     def __init__(self):
         pass
 
+    def prepare_meshes(context, object):
+        export_objects = visible_meshobj()
+
+        parts_table = []
+        pass
+    
+    def sort_tables():
+        pass
+
+    def vertex_table(obj: Object):
+        mesh = obj.data
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        pass
+    
+    def bone_table(meshes: list[Object], mesh_id: int, skeleton: Armature) -> set[tuple[int, int, str]]:
+
+        def clean_vgroups(obj: Object):
+            for vgroup in obj.vertex_groups:
+                if not skeleton.bones.get(vgroup.name, False):
+                    obj.vertex_groups.remove(vgroup)
+
+            vgroups = {vg.index: False for vg in obj.vertex_groups if not vg.lock_weight}
+    
+            for v in obj.data.vertices:
+                for g in v.groups:
+                    if g.group in vgroups and g.weight > 0:
+                        vgroups[g.group] = True
+            
+            for idx, used in sorted(vgroups.items(), reverse=True):
+                if not used:
+                    obj.vertex_groups.remove(obj.vertex_groups[idx])
+                else:
+                    used_vgroups.add(obj.vertex_groups[idx].name)
+
+        bone_table: set[tuple[int, int, str]] = []
+        used_vgroups = set()
+        for obj in meshes:
+            clean_vgroups(obj)
+
+        index = 0
+        for bone in skeleton.bones:
+            if bone.name in used_vgroups:
+                bone_table.add((mesh_id, index, bone.name))
+                index += 1
+        
+        return bone_table
+    
+    def indices_table(obj: Object, mesh_id: int, part_id: int):
+        mesh = obj.data
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        indices_table = np.zeros((len(bm.verts), 4), dtype=np.uint32)
+        indices_table[:, 0] = mesh_id
+        indices_table[:, 1] = part_id
+        index = 0
+        
+        for face in bm.faces:
+            for vert in face:
+                indices_table[index] = [mesh_id, part_id, index, vert]
+                index += 1
+            
+        pass
+
+    def delete_loose(obj : Object) -> None:
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.delete_loose()
+        bpy.ops.object.mode_set(mode="OBJECT")
 
 CLASSES = [
     SimpleExport,
