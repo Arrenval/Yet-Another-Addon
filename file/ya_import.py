@@ -1,6 +1,6 @@
 import bpy
 
-from bpy.types import Operator
+from bpy.types import Operator, ArmatureModifier
 from bpy.props import StringProperty
 
 class SimpleImport(Operator):
@@ -38,21 +38,23 @@ class SimpleCleanUp(Operator):
     
     def execute(self, context):
         props = context.scene.file_props
+        self.selected = bpy.context.selected_objects
         armature = props.armatures
         if armature != "None":
             self.fix_parent(armature)
         if props.remove_nonmesh:
             self.remove()
+            self.selected = bpy.context.selected_objects
         if props.update_material:
             self.update_material()
         if props.rename_import != "":
             self.rename_import()
         
+        
         return {"FINISHED"}
 
     def update_material(self) -> None:
-        selected = bpy.context.selected_objects
-        for obj in selected:
+        for obj in self.selected:
             bpy.context.view_layer.objects.active = obj
             if obj.type == "MESH":
                 material = obj.active_material
@@ -70,30 +72,31 @@ class SimpleCleanUp(Operator):
                             pass
 
     def fix_parent(self, armature) -> None:
-        selected = bpy.context.selected_objects
-        for obj in selected:
+        for obj in self.selected:
             if obj.type != "MESH":
                 continue
+            bpy.ops.object.select_all(action="DESELECT")
             bpy.context.view_layer.objects.active = obj
-            old_transform = obj.matrix_world.copy()
+            obj.select_set(state=True)
+            bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
             obj.parent = bpy.data.objects[armature]
-            obj.matrix_world = old_transform
             bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
+            
+
             for modifier in obj.modifiers:
                 if modifier.type == "ARMATURE":
+                    modifier: ArmatureModifier
                     modifier.object = bpy.data.objects[armature]
                     modifier.name = "Armature"
 
     def remove(self):
-        selected = bpy.context.selected_objects
-        for obj in selected:
+        for obj in self.selected:
             if obj.type == "MESH":
                 continue
             bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
 
     def rename_import(self) -> None:
-        selected = bpy.context.selected_objects
-        for obj  in selected:
+        for obj  in self.selected:
             bpy.context.view_layer.objects.active = obj
             if obj.type == "MESH":
                 split = obj.name.split()
