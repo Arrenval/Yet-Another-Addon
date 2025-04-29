@@ -8,7 +8,7 @@ bl_info = {
     "name": "Yet Another Addon",
     "author": "Aleks",
     "description": "Several tools to speed up XIV modding workflows.",
-    "version": (0, 13, 2),
+    "version": (0, 13, 3),
     "blender": (4, 2, 1),
     "category": "",
     }

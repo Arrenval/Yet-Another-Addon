@@ -19,8 +19,8 @@ class ShapeKeyTransfer(Operator):
     def poll(cls, context):
         obj = bpy.context.active_object
         return obj is not None and obj.type == 'MESH' and context.mode == "OBJECT"
-    
-    def __init__(self):
+
+    def execute(self, context):
         props                           = bpy.context.scene.outfit_props
         self.key_filter                 = [".ignore"]
         self.deform_target              = {}
@@ -38,7 +38,6 @@ class ShapeKeyTransfer(Operator):
             self.vertex_pin     :str    = props.obj_vertex_groups
             self.exclude_wrap   :str    = props.exclude_vertex_groups
 
-    def execute(self, context):
         match self.source_input:
             case "Chest":
                 source = self.devkit.get_object_from_mesh("Torso")

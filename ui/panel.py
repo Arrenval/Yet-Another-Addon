@@ -4,7 +4,7 @@ import platform
 
 from pathlib       import Path
 from bpy.props     import StringProperty, BoolProperty
-from ..util.props  import get_object_from_mesh, visible_meshobj, OutfitProps
+from ..util.props  import get_object_from_mesh, visible_meshobj
 from bpy.types     import Panel, Operator, UIList, UILayout, Context, VertexGroup, Object
 
 class MESH_UL_yas(UIList):

@@ -20,8 +20,46 @@ class PoseApply(Operator):
         default='*.pose',
         options={'HIDDEN'}) # type: ignore
     reset: BoolProperty(default=False, options={'HIDDEN'}) # type: ignore
+   
+    @classmethod
+    def description(cls, context, properties):
+        if properties.reset:
+            if bpy.context.scene.outfit_props.scaling_armature:
+                return "Reset scaling"
+            else:
+                return "Reset pose"
+        else:
+            if bpy.context.scene.outfit_props.scaling_armature:
+                return """Select and apply scaling to armature:
+            *Hold Shift to reapply.
+            *Hold Alt to open folder"""
+            else:
+                return """Select and apply pose to armature:
+                *Hold Shift to reapply.
+                *Hold Alt to open folder"""
+        
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.scene.outfit_props.armatures != "None" or bpy.context.scene.outfit_props.armatures != ""
+    
+    def invoke(self, context, event):
+        self.actual_file = Path(self.filepath) 
 
-    def __init__(self):
+        if self.reset:
+            self.execute(context)
+        elif event.alt and event.type == "LEFTMOUSE" and self.actual_file.is_file():
+            actual_dir = self.actual_file.parent
+            os.startfile(str(actual_dir))
+        elif event.shift and event.type == "LEFTMOUSE" and self.actual_file.is_file():
+            self.execute(context)
+        elif event.type == "LEFTMOUSE":
+            context.window_manager.fileselect_add(self)
+        else:
+             self.report({"ERROR"}, "Not a valid pose file!")
+    
+        return {"RUNNING_MODAL"}
+    
+    def execute(self, context):
         self.scaling      = bpy.context.scene.outfit_props.scaling_armature
         self.old_bone_map = {
             "j_asi_e_l": "ToesLeft",
@@ -112,47 +150,8 @@ class PoseApply(Operator):
             "n_ear_b_r": "EarringBRight"
             }
     
-    @classmethod
-    def description(cls, context, properties):
-        if properties.reset:
-            if bpy.context.scene.outfit_props.scaling_armature:
-                return "Reset scaling"
-            else:
-                return "Reset pose"
-        else:
-            if bpy.context.scene.outfit_props.scaling_armature:
-                return """Select and apply scaling to armature:
-            *Hold Shift to reapply.
-            *Hold Alt to open folder"""
-            else:
-                return """Select and apply pose to armature:
-                *Hold Shift to reapply.
-                *Hold Alt to open folder"""
-        
-    @classmethod
-    def poll(cls, context):
-        return bpy.context.scene.outfit_props.armatures != "None" or bpy.context.scene.outfit_props.armatures != ""
-    
-    def invoke(self, context, event):
-        self.actual_file = Path(self.filepath) 
-
-        if self.reset:
-            self.execute(context)
-        elif event.alt and event.type == "LEFTMOUSE" and self.actual_file.is_file():
-            actual_dir = self.actual_file.parent
-            os.startfile(str(actual_dir))
-        elif event.shift and event.type == "LEFTMOUSE" and self.actual_file.is_file():
-            self.execute(context)
-        elif event.type == "LEFTMOUSE":
-            context.window_manager.fileselect_add(self)
-        else:
-             self.report({"ERROR"}, "Not a valid pose file!")
-    
-        return {"RUNNING_MODAL"}
-    
-    def execute(self, context):
-        pose_file        = Path(self.filepath)
-        skeleton: Object = bpy.data.objects[context.scene.outfit_props.armatures]
+        pose_file         = Path(self.filepath)
+        skeleton: Object  = bpy.data.objects[context.scene.outfit_props.armatures]
         visibility = skeleton.hide_get()
         skeleton.hide_set(state=False)
         if self.reset:

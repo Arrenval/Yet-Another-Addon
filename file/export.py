@@ -502,14 +502,13 @@ class SimpleExport(Operator):
     @classmethod
     def poll(cls, context):
         return context.mode == "OBJECT"
-    
-    def __init__(self):
+
+    def invoke(self, context, event):
         self.props              = bpy.context.scene.file_props
         self.check_tris         = self.props.check_tris
         self.force_yas          = self.props.force_yas
         self.directory          = Path(self.props.export_directory)
 
-    def invoke(self, context, event):
         if not self.directory.is_dir():
             self.report({'ERROR'}, "No export directory selected.")
             return {'CANCELLED'}
@@ -586,7 +585,7 @@ class BatchQueue(Operator):
     def poll(cls, context):
         return context.mode == "OBJECT"
 
-    def __init__(self):
+    def execute(self, context):
         props                        = bpy.context.scene.file_props
         self.check_tris:bool         = props.check_tris
         self.force_yas:bool          = props.force_yas
@@ -603,9 +602,6 @@ class BatchQueue(Operator):
 
         self.queue = []
         self.leg_queue = []
-        
-    def execute(self, context):
-        props = bpy.context.scene.file_props
         
         if self.check_tris:
             not_triangulated= check_triangulation()

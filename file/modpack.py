@@ -223,11 +223,9 @@ class GamepathCategory(Operator):
 
     category: StringProperty() # type: ignore
 
-    def __init__(self):
-        self.gamepath: str = bpy.context.scene.file_props.game_model_path
-
     def execute(self, context):
-        gamepath_split      = self.gamepath.split("_")
+        gamepath: str = bpy.context.scene.file_props.game_model_path
+        gamepath_split      = gamepath.split("_")
         category_split      = gamepath_split[-1].split(".")
         category_split[0]   = self.category
         gamepath_split[-1]  = ".".join(category_split)
@@ -306,18 +304,16 @@ class Modpacker(Operator):
         else:
             return "Packages MDLs into a Penumbra Modpack"
 
-    def __init__(self):
-        props               = bpy.context.scene.file_props
-        self.pmp            = Path(props.loadmodpack_directory)
-        self.update         = props.button_modpack_replace
-        self.mdl_game       = props.game_model_path
-        self.fbx            = Path(props.savemodpack_directory)
-        self.pmp_name       = props.new_mod_name
-        self.group_new_name = props.modpack_rename_group
-        self.author         = props.author_name
-        self.console        = props.consoletools_status
-        
     def execute(self, context):
+        props                    = context.scene.file_props
+        self.pmp                 = Path(props.loadmodpack_directory)
+        self.update: bool        = props.button_modpack_replace
+        self.mdl_game: str       = props.game_model_path
+        self.fbx                 = Path(props.savemodpack_directory)
+        self.pmp_name: str       = props.new_mod_name
+        self.group_new_name: str = props.modpack_rename_group
+        self.author: str         = props.author_name
+        self.console: str        = props.consoletools_status
         
         if not self.pmp.is_file() and self.update:
             self.report({'ERROR'}, "Please select a modpack.")
@@ -348,6 +344,7 @@ class Modpacker(Operator):
             
         user_input = UserInput()
         
+        mdl_status = None
         if self.preset != "pack":
             if self.console != "ConsoleTools Ready!":
                 self.report({'ERROR'}, "Verify that ConsoleTools is ready.")
@@ -445,11 +442,11 @@ class Modpacker(Operator):
         return mdl_status
 
     def create_modpack(context, user_input:UserInput, mod_data:Dict[str, ModGroups], mod_meta:ModMeta, preset:str, mdl_status:subprocess.Popen) -> int | None:
-        if mdl_status.poll() != 0:
+        if mdl_status is not None and mdl_status.poll() != 0:
             return 0.5
         
         Path.unlink(user_input.mdl_folder / "MDL.cmd", missing_ok=True)
-        if mdl_status.poll() == 0 and preset == "convert":
+        if preset == "convert" and mdl_status.poll() == 0:
             context.scene.file_props.modpack_progress = "Complete!"
             return None
         
