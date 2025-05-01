@@ -221,13 +221,13 @@ class MeshHandler:
                     'backfaces'   : backfaces})
                 self.reset.append(obj)
                 self.delete.append(dupe)
-            
+                
             if shape_key:
-                    for key in dupe.data.shape_keys.key_blocks:
-                        key.lock_shape = False
+                for key in dupe.data.shape_keys.key_blocks:
+                    key.lock_shape = False
                      
     def process_meshes(self):
-                
+
         def verify_target(obj:Object) -> None:
             bpy.ops.object.select_all(action="DESELECT")
             bpy.context.view_layer.objects.active = obj
@@ -236,6 +236,11 @@ class MeshHandler:
             self.check_modifiers(obj, data_transfer=True)
 
         def triangulation_check(obj:Object)-> bool:
+            bpy.ops.object.select_all(action="DESELECT")
+            bpy.context.view_layer.objects.active = obj
+            obj.select_set(state=True)
+            bpy.ops.object.mode_set(mode='OBJECT')
+
             triangulated    = True
             self.tri_method = ('BEAUTY', 'BEAUTY')
             for modifier in reversed(obj.modifiers):
@@ -255,6 +260,7 @@ class MeshHandler:
 
         for entry in self.handler_list:
             obj = entry['dupe']
+            print(obj.name, [modifier.name for modifier in obj.modifiers])
             if entry['transparency']:
                 if not triangulation_check(obj):
                     verify_target(obj)
