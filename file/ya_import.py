@@ -42,15 +42,12 @@ class SimpleCleanUp(Operator):
         armature = props.armatures
         if armature != "None":
             self.fix_parent(armature)
-        if props.remove_nonmesh:
-            self.remove()
-            self.selected = bpy.context.selected_objects
         if props.update_material:
             self.update_material()
         if props.rename_import != "":
             self.rename_import()
-        
-        
+        if props.remove_nonmesh:
+            self.remove()
         return {"FINISHED"}
 
     def update_material(self) -> None:
@@ -82,7 +79,6 @@ class SimpleCleanUp(Operator):
             obj.parent = bpy.data.objects[armature]
             bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
             
-
             for modifier in obj.modifiers:
                 if modifier.type == "ARMATURE":
                     modifier: ArmatureModifier
