@@ -1,6 +1,8 @@
 import os
 import bpy
 import json
+import gzip
+import base64
 
 from math          import pi
 from pathlib       import Path
@@ -15,19 +17,23 @@ class PoseApply(Operator):
     bl_label = ""
     bl_options = {'UNDO'}
 
-    filepath: StringProperty() # type: ignore
-    filter_glob: bpy.props.StringProperty(
+    filepath:       StringProperty() # type: ignore
+    filter_glob:    StringProperty(
         default='*.pose',
         options={'HIDDEN'}) # type: ignore
-    reset: BoolProperty(default=False, options={'HIDDEN'}) # type: ignore
+    
+    reset:          BoolProperty(default=False, options={'HIDDEN'}) # type: ignore
+    use_clipboard:  BoolProperty(default=False, options={'HIDDEN'}) # type: ignore
    
     @classmethod
     def description(cls, context, properties):
         if properties.reset:
             if bpy.context.scene.outfit_props.scaling_armature:
-                return "Reset scaling"
+                return "Reset scaling. Toggle scaling to reset pose"
             else:
-                return "Reset pose"
+                return "Reset pose. Toggle scaling to reset scale"
+        if properties.use_clipboard:
+            return "Apply C+ scaling from clipboard"
         else:
             if bpy.context.scene.outfit_props.scaling_armature:
                 return """Select and apply scaling to armature:
@@ -43,10 +49,10 @@ class PoseApply(Operator):
         return bpy.context.scene.outfit_props.armatures != "None" or bpy.context.scene.outfit_props.armatures != ""
     
     def invoke(self, context, event):
-        self.actual_file = Path(self.filepath) 
+        self.actual_file = Path(self.filepath)
 
-        if self.reset:
-            self.execute(context)
+        if self.reset or self.use_clipboard:
+            return self.execute(context)
         elif event.alt and event.type == "LEFTMOUSE" and self.actual_file.is_file():
             actual_dir = self.actual_file.parent
             os.startfile(str(actual_dir))
@@ -156,9 +162,12 @@ class PoseApply(Operator):
         skeleton.hide_set(state=False)
         if self.reset:
             self.reset_armature(context, skeleton)
-        elif pose_file.exists() and pose_file.suffix == ".pose": 
-            context.scene.outfit_props.pose_display_directory = pose_file.stem
-            self.apply(context, skeleton, pose_file)
+        elif self.use_clipboard or (pose_file.exists() and pose_file.suffix == ".pose"):
+            if not self.use_clipboard:
+                context.scene.outfit_props.pose_display_directory = pose_file.stem
+            apply_status = self.apply(context, skeleton, pose_file)
+            if apply_status == "JSON":
+                self.report({"ERROR"}, "Not a valid C+ preset.")
             self.report({'INFO'}, f"{pose_file.stem} selected!")  
         else:
             self.report({'ERROR'}, "Not a valid pose file!")
@@ -178,15 +187,23 @@ class PoseApply(Operator):
         bpy.ops.pose.select_all(action='DESELECT')
         bpy.ops.object.mode_set(mode='OBJECT')
 
-    def apply(self, context:Context, skeleton:Object, pose_file:Path) -> None:
-        with open(pose_file, "r") as file:
-            pose = json.load(file)
+    def apply(self, context:Context, skeleton:Object, pose_file:Path) -> str:
+        if self.use_clipboard:
+            try:
+                clipboard = bpy.context.window_manager.clipboard
+                clip_result= gzip.decompress(base64.b64decode(clipboard))
+                pose = json.loads(clip_result[1:].decode('utf-8'))
+            except:
+                return "JSON"
+        else:
+            with open(pose_file, "r") as file:
+                pose = json.load(file)
  
-        if self.scaling:
+        if self.scaling or self.use_clipboard:
             for bone in skeleton.data.bones:
                 bone.inherit_scale = 'NONE'
             for bone in skeleton.pose.bones:
-                self.scale_bones(pose["Bones"], bone )
+                self.scale_bones(pose["Bones"], bone)
 
         else:
             visible_mesh = visible_meshobj()
@@ -215,6 +232,8 @@ class PoseApply(Operator):
             
             for obj_name, (modifer, modifier_state) in obj_skeleton.items():
                 bpy.data.objects[obj_name].modifiers[modifer].show_viewport = modifier_state
+            
+            return ""
     
     def convert_rotation_space(self, skeleton:Object, source_bone_rotations:dict[str, str], bone:PoseBone) -> None:
         bone_name = bone.name
@@ -259,12 +278,17 @@ class PoseApply(Operator):
             bone_name = self.old_bone_map[bone.name]
             
         # Get scaling data for current bone
-        scaling_str = source_bone_scaling[bone_name]["Scale"]
-        scaling = scaling_str.split(", ")
-
-        bone.scale[0] = float(scaling[0])
-        bone.scale[1] = float(scaling[1])
-        bone.scale[2] = float(scaling[2])
+        try:
+            scaling_str = source_bone_scaling[bone_name]["Scale"]
+            scaling = scaling_str.split(", ")
+            bone.scale[0] = float(scaling[0])
+            bone.scale[1] = float(scaling[1])
+            bone.scale[2] = float(scaling[2])
+        except:
+            scaling_dict = source_bone_scaling[bone_name]["Scaling"]
+            bone.scale[0] = float(scaling_dict["X"])
+            bone.scale[1] = float(scaling_dict["Y"])
+            bone.scale[2] = float(scaling_dict["Z"])     
 
     def get_bone_hierarchy_levels(self, skeleton: Object) -> dict[int, list]:
         bone_levels: dict[int, list] = {}

@@ -533,7 +533,7 @@ class OutfitStudio(Panel):
         button = section_prop.button_transp_expand
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
         row.prop(section_prop, "button_transp_expand", text="", icon=icon, emboss=False)
-        row.label(text="Transparency (Experimental)")
+        row.label(text="Transparency")
         if button:
             obj = bpy.context.active_object
             if obj != None:
@@ -602,12 +602,19 @@ class OutfitStudio(Panel):
             row = box.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
-            split.label(text="Scaling:" if section_prop.scaling_armature else "Pose:" )
+            split.label(text="Scaling:" if section_prop.scaling_armature else "Pose:")
             split.label(text=bpy.context.scene.outfit_props.pose_display_directory)
             buttonrow = split.row(align=True)
             buttonrow.operator("ya.pose_apply", text="Apply")
             buttonrow.prop(section_prop, "scaling_armature", text="", icon="FIXED_SIZE")
             buttonrow.operator("ya.pose_apply", text="", icon="FILE_REFRESH").reset = True
+
+            row = box.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="" if section_prop.scaling_armature else "Scaling:")
+            split.operator("ya.pose_apply", text="Import from Clipboard").use_clipboard = True
+
             box.separator(factor=0.5, type="LINE")
             row = box.row(align=True)
             split = row.split(factor=0.25, align=True)
