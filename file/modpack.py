@@ -447,7 +447,7 @@ class Modpacker(Operator):
         
         Path.unlink(user_input.mdl_folder / "MDL.cmd", missing_ok=True)
         if preset == "convert" and mdl_status.poll() == 0:
-            context.scene.file_props.modpack_progress = "Complete!"
+            context.scene.file_props.modpack_progress = f"Complete! ({datetime.now().strftime('%H:%M:%S')})"
             return None
         
         context.scene.file_props.modpack_progress = "Creating modpack..." 
@@ -490,7 +490,7 @@ class Modpacker(Operator):
                     context.scene.file_props.modpack_groups = "0"
         except:
             pass
-        context.scene.file_props.modpack_progress = "Complete!"
+        context.scene.file_props.modpack_progress = f"Complete! ({datetime.now().strftime('%H:%M:%S')})"
         return None
 
     def yet_another_sort(items:list[Path]) -> list:
