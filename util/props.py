@@ -102,7 +102,7 @@ class FileProps(PropertyGroup):
         ("check",    "tris",       True,   "Verify that the meshes are triangulated"),
         ("force",    "yas",        False,  "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
         ("remove",   "nonmesh",    True,   "Removes objects without any meshes. Cleans up unnecessary files from TT imports"),
-        ("reorder",  "mesh_id",    True,   "Moves mesh identifier to the fron of the object name"),
+        ("reorder",  "mesh_id",    True,   "Moves mesh identifier to the front of the object name"),
         ("update",   "material",   True,   "Changes material rendering and enables backface culling. Tries to normalise metallic and roughness values of TT materials"),
         ("keep",     "shapekeys",  True,   "Preserves vanilla clothing shape keys"),
         ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),

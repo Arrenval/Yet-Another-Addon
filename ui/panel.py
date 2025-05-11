@@ -230,9 +230,11 @@ class OutfitStudio(Panel):
                 if re.search(r"^\d+.\d+\s", obj.name):
                     id_index = 0
                     name = name_parts[1:]
-                else:
+                elif re.search(r"\s\d+.\d+$", obj.name):
                     id_index = -1
                     name = name_parts[:-1]
+                else:
+                    continue
                 try:
                     group = int(name_parts[id_index].split(".")[0])
                     part  = int(name_parts[id_index].split(".")[1])
