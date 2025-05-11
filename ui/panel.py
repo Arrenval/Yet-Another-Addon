@@ -1,4 +1,5 @@
 import os
+import re
 import bpy
 import platform
 
@@ -225,28 +226,34 @@ class OutfitStudio(Panel):
             data_entries = {}
             for obj in visible:
                 obj_props = []
+                name_parts = obj.name.split(" ")
+                if re.search(r"^\d+.\d+\s", obj.name):
+                    id_index = 0
+                    name = name_parts[1:]
+                else:
+                    id_index = -1
+                    name = name_parts[:-1]
                 try:
-                    name_parts = obj.name.split(" ")
-                    group = int(name_parts[-1].split(".")[0])
-                    part  = int(name_parts[-1].split(".")[1])
+                    group = int(name_parts[id_index].split(".")[0])
+                    part  = int(name_parts[id_index].split(".")[1])
                     if name_parts[-2] == "Part":
                         name_parts.pop()
                 except:
                     continue
 
                 material  = obj.data.materials[0].name[1:-5] if obj.data.materials[0].name.endswith(".mtrl") else obj.data.materials[0].name
-                triangles: int = len(obj.data.loop_triangle_polygons)
+                triangles = len(obj.data.loop_triangle_polygons)
 
                 for key, value in obj.items():
                     if key.startswith("atr") and value:
                         obj_props.append(key)
                 data_entries.setdefault(group, {})
-                data_entries[group][obj] = ({"name": ((" ".join(name_parts[:-1])), None), 
+                data_entries[group][obj] = ({"name": ((" ".join(name)), None), 
                                             "part": (part, 1), 
                                             "props": (obj_props, 2), 
                                             "material": (material, None), 
                                             "triangles": (triangles, None)})
-            
+    
             return data_entries
         
         visible            = visible_meshobj()
@@ -264,9 +271,7 @@ class OutfitStudio(Panel):
             header.label(text=text if text == "OBJECT" else text)
 
         layout.separator(type="SPACE", factor=0.2)
-        
-        # row = layout.row(align=True).box()
-        
+
         for group, obj_data in sorted(data_entries.items(), key=lambda item: item[0]):
             obj_data = sorted(obj_data.items(), key=lambda item: item[1]["part"][0])
             
@@ -288,9 +293,6 @@ class OutfitStudio(Panel):
                 op = col.operator("ya.overview_group", text=values["name"][0], emboss=False)
                 op.type = "GROUP"
                 op.obj = obj.name
-                # op = col.operator("ya.overview_name", text=values["name"][0], emboss=False)
-                # op.type = "NAME"
-                # op.obj = obj.name
             
                 for key, (value, column) in values.items():
                     if column is None:
@@ -310,24 +312,6 @@ class OutfitStudio(Panel):
                         op = col.operator("ya.attributes", icon="ADD", text="")
                         op.attr = "NEW"
                         op.obj = obj.name
-                    # elif key == "group":
-                    #     op = col.operator("ya.overview_group", 
-                    #                         text="", 
-                    #                         emboss=False, 
-                    #                         icon= "TRIA_LEFT")
-                    #     op.type = "DEC_GROUP"
-                    #     op.obj = obj.name
-
-                    #     op = col.operator("ya.overview_group", text=str(value), emboss=False)
-                    #     op.type = "GROUP"
-                    #     op.obj = obj.name
-
-                    #     op = col.operator("ya.overview_group", 
-                    #                         text="", 
-                    #                         emboss=False, 
-                    #                         icon= "TRIA_RIGHT")
-                    #     op.type = "INC_GROUP"
-                    #     op.obj = obj.name
 
                     elif key == "part":
                         col.alignment = "EXPAND"
@@ -1025,6 +1009,7 @@ class FileManager(Panel):
         col.label(text="Armature:")
         col.label(text="Non-Mesh:")
         col.label(text="Update Material:")
+        col.label(text="Reorder Mesh ID:")
         col.label(text="Rename:")
         
         col2 = split.column(align=True)
@@ -1036,6 +1021,9 @@ class FileManager(Panel):
         icon = 'CHECKMARK' if section_prop.update_material else 'PANEL_CLOSE'
         text = 'Enabled' if section_prop.update_material else 'Disabled'
         col2.prop(section_prop, "update_material", text=text, icon=icon)
+        icon = 'CHECKMARK' if section_prop.reorder_mesh_id else 'PANEL_CLOSE'
+        text = 'Enabled' if section_prop.reorder_mesh_id else 'Disabled'
+        col2.prop(section_prop, "reorder_mesh_id", text=text, icon=icon)
         col2.prop(section_prop, "rename_import", text="")
 
         layout.separator(factor=0.5)
