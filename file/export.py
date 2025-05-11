@@ -1,3 +1,4 @@
+import re
 import bpy
 import time
 import json
@@ -189,23 +190,73 @@ def reset_chest_values(saved_sizes) -> None:
     bpy.context.view_layer.update()
 
 class MeshHandler:
+# This class takes all visible meshes in a Blender scene and runs various logic on them to retain/add properties needed for XIV models. 
+# It's designed to work with my export operators to save and restore the Blender scene when the class is done with its operations.
+# It works non-destructively by duplicating the initial models, hiding them, then making the destructice edits on the duplicates.
+# 1. prepare_meshes saves the scene visibility state, sorts meshes, and creates dupes to work on.
+# 2. process_meshes are the actual operations.
+# 3. restore_meshes restores the initial Blender scene from before prepare_meshes.
+# Each function should be called separately on the same instance of the class in the listed order.
 
     def __init__(self):
-        props                              = bpy.context.scene.file_props
-        self.shapekeys   : bool            = props.keep_shapekeys
-        self.backfaces   : bool            = props.create_backfaces
-        self.reset       : list[Object]    = []
-        self.delete      : list[Object]    = []
-        self.tri_method  : tuple[str, str] = ('BEAUTY', 'BEAUTY')
-        self.handler_list: list[dict[str, Object | list | bool]] = []
+        props                             = bpy.context.scene.file_props
+        self.shapekeys   :bool            = props.keep_shapekeys
+        self.backfaces   :bool            = props.create_backfaces
+        self.reset       :list[Object]    = []
+        self.delete      :list[Object]    = []
+        self.rename      :list[Object]    = []
+        self.tri_method  :tuple[str, str] = ('BEAUTY', 'BEAUTY')
+        self.handler_list:list[dict[str, Object | list | bool]] = []                       
     
     def prepare_meshes(self) -> None:
         visible_obj = visible_meshobj()
+
+        # Bools for deciding which waist shape keys to keep. Only relevant for Yet Another Devkit.
+        rue   = False
+        buff  = False
+        torso = False
         
+        if hasattr(bpy.context.scene, "devkit_props"):
+            for obj in visible_obj:
+                rue_key  = obj.data.shape_keys.key_blocks.get("Rue")
+                buff_key = obj.data.shape_keys.key_blocks.get("Buff")
+                if rue_key and rue_key.mute == False and rue_key.value == 1.0:
+                    rue = True 
+                if buff_key and buff_key.mute == False and buff_key.value == 1.0 :
+                    buff = True
+                if obj.data.name == "Torso":
+                    torso = True
+
         for obj in visible_obj:
-            shape_key    = [key for key in obj.data.shape_keys.key_blocks if key.name.startswith("shp")] if self.shapekeys and obj.data.shape_keys else []
+            shape_key    = []
             transparency = True if "xiv_transparency" in obj and obj["xiv_transparency"] else False
             backfaces    = True if self.backfaces and obj.vertex_groups.get("BACKFACES") else False
+            
+            if self.shapekeys and obj.data.shape_keys:
+                for key in obj.data.shape_keys.key_blocks:
+                    if not key.name.startswith("shp"):
+                        continue
+                    if key.name[4:6] == "wa":
+                        # Rue does not use any waist shape keys.
+                        if rue:   
+                            continue
+
+                        # We check for buff and torso because in the case where the torso and waist are present we
+                        # remove the abs key from both body parts.
+                        if not buff and torso and key.name.endswith("abs"):
+                            continue
+
+                        # We don't have to check for torso here because it's implicitly assumed to be present when buff is True.
+                        # When waist and torso are present we then remove the yab key.
+                        if buff and key.name.endswith("yab"):
+                            continue
+                    shape_key.append(key)
+            
+            if re.search(r"^\d+.\d+\s", obj.name):
+                name_parts = obj.name.split(" ")
+                obj.name = " ".join(name_parts[1:] + name_parts[0:1])
+                self.rename.append(obj)
+
             if any((shape_key, transparency, backfaces)):
                 bpy.ops.object.select_all(action="DESELECT")
                 bpy.context.view_layer.objects.active = obj
@@ -260,7 +311,6 @@ class MeshHandler:
 
         for entry in self.handler_list:
             obj = entry['dupe']
-            print(obj.name, [modifier.name for modifier in obj.modifiers])
             if entry['transparency']:
                 if not triangulation_check(obj):
                     verify_target(obj)
@@ -280,6 +330,8 @@ class MeshHandler:
             entry['original'].hide_set(state=True)
 
     def check_modifiers(self, obj:Object, data_transfer=False) -> None:
+        # We initially look for inactive modifiers so we can assume the remaining ones should be retained.
+        # This is done to avoid any unforeseen behaviour when removing a driver in the non data_transfer condition.
         inactive = [modifier for modifier in obj.modifiers if not modifier.show_viewport]
         for modifier in inactive:
             bpy.ops.object.modifier_remove(modifier=modifier.name)
@@ -393,7 +445,6 @@ class MeshHandler:
         
     def restore_meshes(self) -> None:
         for obj in self.delete:
-            # print(f"Deleting: {obj.name}")
             try:
                 bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
             except:
@@ -404,6 +455,10 @@ class MeshHandler:
                 obj.hide_set(state=False)
             except:
                 pass
+
+        for obj in self.rename:
+            name_parts = obj.name.split(" ")
+            obj.name = " ".join(name_parts[-1:] + name_parts[0:-1])
  
 class FileExport:
 
