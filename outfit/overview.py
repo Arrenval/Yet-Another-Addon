@@ -1,3 +1,4 @@
+import re
 import bpy
 
 from bpy.types import Operator, Object
@@ -120,11 +121,20 @@ class ChangeGroupPart(Operator):
         
     def invoke(self, context, event):
         obj: Object = bpy.data.objects[self.obj]
-        name_parts = obj.name.split(" ")
+
+        if re.search(r"^\d+.\d+\s", obj.name):
+            self.id_index = 0
+        else:
+            self.id_index = -1
+
+        self.name_parts = obj.name.split(" ")
+        self.group = int(self.name_parts[self.id_index].split(".")[0])
+        self.part  = int(self.name_parts[self.id_index].split(".")[1])
+        
         if self.type == "GROUP":
-            self.user_input = int(name_parts[-1].split(".")[0])
+            self.user_input = self.group
         elif self.type == "PART":
-            self.user_input  = int(name_parts[-1].split(".")[1])
+            self.user_input  = self.part
         else:
             return self.execute(context)
         bpy.context.window_manager.invoke_props_dialog(self, confirm_text="Confirm", title="", width=1)
@@ -137,28 +147,24 @@ class ChangeGroupPart(Operator):
     def execute(self, context):
         obj: Object = bpy.data.objects[self.obj]
         context.view_layer.objects.active = obj
-        name_parts = obj.name.split(" ")
-        group = int(name_parts[-1].split(".")[0])
-        part  = int(name_parts[-1].split(".")[1])
 
-        if self.type == "GROUP":
-            new = f"{self.user_input}.{part}"
-            obj.name = f"{obj.name[:-len(name_parts[-1])]}{new}"
-        if self.type == "PART":
-            new = f"{group}.{self.user_input}"
-            obj.name = f"{obj.name[:-len(name_parts[-1])]}{new}"
-        if self.type == "INC_PART":
-            new = f"{group}.{part + 1}"
-            obj.name = f"{obj.name[:-len(name_parts[-1])]}{new}"
-        if self.type == "DEC_PART":
-            new = f"{group}.{part - 1}"
-            obj.name = f"{obj.name[:-len(name_parts[-1])]}{new}"
-        if self.type == "INC_GROUP":
-            new = f"{group + 1}.{part}"
-            obj.name = f"{obj.name[:-len(name_parts[-1])]}{new}"
-        if self.type == "DEC_GROUP":
-            new = f"{group - 1}.{part}"
-            obj.name = f"{obj.name[:-len(name_parts[-1])]}{new}"
+        match self.type:
+            case "PART":
+                self.part = self.user_input
+            case "GROUP":
+                self.group = self.user_input
+            case "INC_PART":
+                self.part += 1
+            case "DEC_PART":
+                self.part -= 1
+            case "INC_GROUP":
+                self.group += 1
+            case "DEC_GROUP":
+                self.group -= 1
+
+        self.name_parts[self.id_index] = f"{self.group if self.group >= 0 else 0}.{self.part if self.part >= 0 else 0}"
+        obj.name = " ".join(self.name_parts)
+     
         return {'FINISHED'}
     
 class ChangeMaterial(Operator):
