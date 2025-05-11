@@ -1,3 +1,4 @@
+import re
 import bpy
 
 from bpy.types import Operator, ArmatureModifier
@@ -46,6 +47,11 @@ class SimpleCleanUp(Operator):
             self.update_material()
         if props.rename_import != "":
             self.rename_import()
+        if props.reorder_mesh_id:
+            for obj in self.selected:
+                if re.search(r"\s\d+.\d+$", obj.name):
+                    name_parts = obj.name.split(" ")
+                    obj.name = " ".join(name_parts[-1:] + name_parts[0:-1])
         if props.remove_nonmesh:
             self.remove()
         return {"FINISHED"}
@@ -71,6 +77,8 @@ class SimpleCleanUp(Operator):
     def fix_parent(self, armature) -> None:
         for obj in self.selected:
             if obj.type != "MESH":
+                continue
+            if obj.parent == bpy.data.objects[armature]:
                 continue
             bpy.ops.object.select_all(action="DESELECT")
             bpy.context.view_layer.objects.active = obj
