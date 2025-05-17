@@ -851,9 +851,10 @@ class FileManager(Panel):
                     "Gen C":  ("Gen C", [yab, rue, lava, masc]),
                     "Gen SFW":  ("Gen SFW", [yab, rue, lava, masc]),
                     "Melon": ("Melon", [yab, rue, lava, masc]),
-                    "Skull": ("Skull", [yab, rue]),  
+                    "Skull": ("Skull", [yab, rue]),
+                    "Yanilla":  ("Yanilla", [yab, rue]),  
                     "Mini": ("Mini", [yab, rue]),
-                    "Pubes":  ("Pubes", [yab, rue, lava, masc])
+                    
                 }
                 
                 self.dynamic_column_buttons(4, layout, section_prop, labels, category, button_type)
@@ -861,9 +862,8 @@ class FileManager(Panel):
                 layout.separator(factor=0.5, type="LINE")
 
                 labels = {
-                    "Small Butt": ("Small Butt", [yab, rue, lava, masc]),
-                    "Soft Butt": ("Soft Butt", [yab, rue, lava, masc]), 
-                    "Hip Dips":  ("Hip Dips", [yab, rue]),
+                    "Small Butt":  ("Small", [yab, rue, lava, masc]),
+                    "Pubes":  ("Pubes", [yab, rue, lava, masc])
                 }
         
                 self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type) 
