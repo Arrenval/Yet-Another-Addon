@@ -415,7 +415,7 @@ class Modpacker(Operator):
             if file.stem in model_props:
                 commands.append("echo Writing model to database...")
                 commands.append(rf"cd {textools}\converters\fbx")
-                commands.append(f'converter.exe "{source}" >nul')
+                commands.append(f'converter.exe "{source}"')
                 commands.append("echo Updating model database tables...")
                 commands.append(f'"{python_dir}" "{script_dir.resolve()}" "{textools}" "{file.stem}" "{props_json}" >nul')
                 commands.append(f"cd {textools}")
@@ -426,7 +426,7 @@ class Modpacker(Operator):
                 source = str(textools / "converters" / "fbx" / "result.db")
 
             commands.append("echo Finalising .mdl...")
-            commands.append(f'ConsoleTools.exe /wrap "{source}" "{dest}.mdl" "{game_path}" >nul')
+            commands.append(f'ConsoleTools.exe /wrap "{source}" "{dest}.mdl" "{game_path}"')
 
             cmds_added += 1
         
@@ -652,9 +652,8 @@ class Modpacker(Operator):
     def write_group_json(user_input:UserInput, to_pack:list[Path], create_group:dict, group_dir:str, to_replace:ModGroups="") -> None:
         bpy.context.scene.file_props.modpack_progress = "Writing json..."
         for file_name, (mdl_game, group_name, group_data) in create_group.items():
-            
-            options = [
-                {
+            options = []
+            none_option = {
                 "Files": {},
                 "FileSwaps": {},
                 "Manipulations": [],
@@ -663,8 +662,8 @@ class Modpacker(Operator):
                 "Description": "",
                 "Image": ""
                 }
-                ]
- 
+            if group_data["Type"] == "Single":
+                options.append(none_option)
             for file in to_pack:
                 option_name = file.stem
                 new_option = {
