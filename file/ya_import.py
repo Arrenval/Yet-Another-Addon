@@ -48,10 +48,15 @@ class SimpleCleanUp(Operator):
         if props.rename_import != "":
             self.rename_import()
         if props.reorder_mesh_id:
+            # This just looks for the default TT naming convention and corrects it
             for obj in self.selected:
                 if re.search(r"\s\d+.\d+$", obj.name):
                     name_parts = obj.name.split(" ")
-                    obj.name = " ".join(name_parts[-1:] + name_parts[0:-1])
+                    if name_parts[-2] == "Part":
+                        end_idx = -2
+                    else:
+                        end_idx = -1
+                    obj.name = " ".join(name_parts[-1:] + name_parts[0:end_idx])
         if props.remove_nonmesh:
             self.remove()
         return {"FINISHED"}
@@ -103,8 +108,15 @@ class SimpleCleanUp(Operator):
         for obj  in self.selected:
             bpy.context.view_layer.objects.active = obj
             if obj.type == "MESH":
+                if re.search(r"^\d+.\d+\s", obj.name):
+                    id_index = 1
+                elif re.search(r"\s\d+.\d+$", obj.name):
+                    id_index = 0
+                else:
+                    obj.name = bpy.context.scene.file_props.rename_import
+                    continue
                 split = obj.name.split()
-                split[0] = bpy.context.scene.file_props.rename_import
+                split[id_index] = bpy.context.scene.file_props.rename_import
                 obj.name = " ".join(split)
 
 CLASSES = [
