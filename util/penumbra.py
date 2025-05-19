@@ -5,7 +5,7 @@ from dataclasses import dataclass, asdict, field, fields
 
 @dataclass
 class TypeManip:
-    Entry               :int | float | dict | None = None
+    Entry               :int | float | dict | bool | None = None
     #EQDP, EQP, Est
     Gender              :str | None = None
     Race                :str | None = None
@@ -32,6 +32,11 @@ class TypeManip:
     AttributeAndSound   :int | None = None
     AttributeMask       :int | None = None
     SoundId             :int | None = None
+    #Shp
+    Id                  :int | None = None
+    Shape               :str | None = None
+    ConnectorCondition      :str | None = None
+
 
     @classmethod
     def from_dict(cls, data:dict):
@@ -55,7 +60,7 @@ class ModManipulations:
         return cls(**filtered_data)
     
     def __post_init__(self):
-        self.Manipulation = TypeManip(self.Manipulation)
+        self.Manipulation = TypeManip.from_dict(self.Manipulation)
 
 @dataclass
 class CombinedContainers:
@@ -81,11 +86,11 @@ class GroupOptions:
     Files           :Dict[str, str] | None = None
     FileSwaps       :Dict[str, str] | None = None
     Manipulations   :List[ModManipulations] | None = None
-    Priority        :int = 0
+    Priority        :int = None
     AttributeMask   :int | None = None
     Name            :str = ""
     Description     :str = ""
-    Image           :str = ""
+    Image           :str = None
 
     @classmethod
     def from_dict(cls, data:dict):
@@ -101,7 +106,7 @@ class GroupOptions:
                  
 @dataclass
 class ModGroups:    
-    Version         :int       | None                = None
+    Version         :int       | None                = 0
     DefaultEntry    :TypeManip | None                = None
     Identifier      :TypeManip | None                = None
     AllVariants     :bool      | None                = None
