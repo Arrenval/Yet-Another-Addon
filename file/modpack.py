@@ -1,18 +1,19 @@
 import os
+import re
 import bpy
 import json
 import shutil
 import sqlite3
 import subprocess
 
-from typing             import Dict
+from typing             import Dict, List
 from pathlib            import Path
 from functools          import partial
 from datetime           import datetime
 from bpy.types          import Operator
-from bpy.props          import StringProperty
+from bpy.props          import StringProperty, IntProperty, BoolProperty
 from dataclasses        import dataclass, field
-from ..util.props       import get_modpack_groups, modpack_data, modpack_group_data
+from ..util.props       import get_modpack_groups, modpack_data, modpack_group_data, CombiningOptions, CombiningFinal, CorrectionEntry, PMPShapeKeys
 from ..util.penumbra    import ModGroups, ModMeta
 from zipfile            import ZipFile, ZIP_DEFLATED
 
@@ -231,13 +232,257 @@ class GamepathCategory(Operator):
         gamepath_split[-1]  = ".".join(category_split)
 
         context.scene.file_props.game_model_path = "_".join(gamepath_split)
+        bpy.context.view_layer.update()
         return {'FINISHED'}
+
+class ShapeKeyOptions(Operator):
+    bl_idname = "ya.shape_key_options"
+    bl_label = "Shp"
+    bl_description = ""
+
+    add: BoolProperty() # type: ignore
+    category: StringProperty() # type: ignore
+    preset: StringProperty() # type: ignore
+    option_idx: IntProperty() # type: ignore
+    shp_idx: IntProperty() # type: ignore
+
+    @classmethod
+    def description(cls, context, properties):
+        if properties.category == "OPTION":
+            if properties.add == True:
+                return "Add toggleable option"
+            else:
+                return "Remove option"
+        elif properties.category == "SHAPE_KEY" or properties.category == "CORRECTION":
+            if properties.add == True:
+                return "Add shape key entry"
+            else:
+                return "Remove shape key entry"
+        elif properties.category == "RESET":
+            return "Remove all options/entries"
+        elif properties.category == "PRESET":
+            return "Add selected preset"
+
+        
+    def execute(self, context):
+        scene = context.scene
+        self.props = scene.file_props
+        self.combining_options = scene.pmp_combining_options
+        self.combined_options = scene.pmp_combining_final
+        self.corrections = scene.pmp_correction_entries
+        self.correction_selection:str = self.props.shape_correction
+        
+        if self.category == "OPTION":
+            self.change_options(context)
+
+        elif self.category == "SHAPE_KEY":
+            self.change_shape_keys(context)
+
+        elif self.category == "CORRECTION":
+            self.change_corrections(context)
+        
+        elif self.category == "PRESET":
+            self.set_preset(context)
+        
+        elif self.category == "RESET":
+            self.combining_options.clear()
+            self.corrections.clear()
+
+        self.calculate_final_options(context)
+
+        return {'FINISHED'}
+    
+    def change_options(self, context) -> None:
+        if self.add:
+            if any(self.props.shape_option_name in option.name for option in self.combining_options):
+                self.report({'ERROR'}, "Option already exists.")
+                return {'CANCELLED'} 
+            new_option = self.combining_options.add()
+            new_option.name = self.props.shape_option_name
+        else:
+            temp_options = []
+            for index, option in enumerate(self.combining_options):
+                temp_entries = []
+                if index == self.option_idx:
+                    continue
+                for entry in option.entries:
+                    temp_entries.append((entry.slot, entry.modelid, entry.condition, entry.shape))
+                temp_options.append((option.name, temp_entries))
+            self.combining_options.clear()
+            for option, entries in temp_options:
+                new_option = self.combining_options.add()
+                new_option.name = option
+                for entry in entries:
+                    new_shape = new_option.entries.add()
+                    new_shape.slot = entry[0]
+                    new_shape.modelid = entry[1]
+                    new_shape.condition = entry[2]
+                    new_shape.shape = entry[3]
+    
+    def change_shape_keys(self,context) -> None:
+        if self.add:
+            new_shape = self.combining_options[self.option_idx].entries.add()
+            new_shape.modelid = self.get_model_id_from_path(context)
+        else:
+            temp_shp = []
+            for index, shp in enumerate(self.combining_options[self.option_idx].entries):
+                if index == self.shp_idx:
+                    continue
+                temp_shp.append((shp.slot, shp.modelid, shp.condition, shp.shape))
+            self.combining_options[self.option_idx].entries.clear()
+            for shp in temp_shp:
+                new_shape = self.combining_options[self.option_idx].entries.add()
+                new_shape.slot = shp[0]
+                new_shape.modelid = shp[1]
+                new_shape.condition = shp[2]
+                new_shape.shape = shp[3]
+
+    def change_corrections(self, context) -> None:
+        if self.add:
+            if self.correction_selection == "None":
+                    self.report({'ERROR'}, "Please select a valid combination.")
+                    return {'CANCELLED'} 
+            add_corrections = self.corrections.add()
+            add_corrections.name = self.correction_selection
+            add_corrections.entry.modelid = self.get_model_id_from_path(context)
+            total_options = [option.name for option in self.combining_options]
+            idx_list = []
+            split = self.correction_selection.replace("_", " ").split("/")
+
+            for option in split:
+                idx = total_options.index(option)
+                idx_list.append(idx)
+            for idx in idx_list:
+                item = add_corrections.option_idx.add()
+                item.value = idx
+        else:
+            temp_corrections = []
+            for index, option in enumerate(self.corrections):
+                temp_idx = []
+                if index == self.shp_idx:
+                    continue
+                for entry in option.option_idx:
+                    temp_idx.append(entry)
+                temp_corrections.append(((option.name), (option.entry.slot, option.entry.modelid, option.entry.condition, option.entry.shape), temp_idx))
+            self.corrections.clear()
+            for name, entry, temp_idx in temp_corrections:
+                new_option = self.corrections.add()
+                new_shape = new_option.entry
+            
+                new_option.name = name
+                new_shape.slot = entry[0]
+                new_shape.modelid = entry[1]
+                new_shape.condition = entry[2]
+                new_shape.shape = entry[3]
+
+                for idx in temp_idx:
+                    new_idx = new_option.option_idx.add()
+                    new_idx.value = idx.value
+
+    def calculate_final_options(self, context) -> None:
+        total_options = [option.name for option in self.combining_options]
+        combinations = ["None"]
+    
+        for entry in total_options:
+            new_combinations = []
+            for combo in combinations:
+                if combo == "None":
+                    new_combinations.append(entry)
+                else:
+                    new_combinations.append(f"{combo} + {entry}")
+            
+            combinations.extend(new_combinations)
+
+        self.combined_options.clear()
+        for combo in combinations:
+            idx_list = []
+            add_combined_options = self.combined_options.add()
+            add_combined_options.name = combo
+
+            split_combo = combo.split(" + ")
+            for option in split_combo:
+                if option == "None":
+                    continue
+                idx = total_options.index(option)
+                idx_list.append(idx)
+            for idx in idx_list:
+                item = add_combined_options.option_idx.add()
+                item.value = idx
+            for index, correction in enumerate(self.corrections):
+                corr_idx = []
+                for option_idx in correction.option_idx:
+                    corr_idx.append(option_idx.value)
+                if set(corr_idx).issubset(set(idx_list)):
+                    add_corr_idx = add_combined_options.corr_idx.add()
+                    add_corr_idx.value = index
+
+    def get_model_id_from_path(self, context) -> None:
+        path = str(context.scene.file_props.game_model_path)
+        pattern = "e\d+"
+        match = re.search(pattern, path)
+
+        if match:
+            return int(match.group()[1:])
+        else:
+            return 0
+    
+    def set_preset(self, context) -> None:
+        model_id = self.get_model_id_from_path(context)
+        prefix = "shpx_"
+        
+        slot, options, corrections = self.get_preset(context, self.preset)
+
+        idx = len(self.combining_options)
+        for option, key_data in options.items():
+            new_option = self.combining_options.add()
+            new_option.name = option
+
+            for entries in key_data:
+                new_shape = self.combining_options[idx].entries.add()
+                new_shape.slot = slot
+                new_shape.modelid = model_id
+                new_shape.condition = entries["Conditional"]
+                new_shape.shape = prefix + entries["Shape"]
+            idx +=1
+        for correction in corrections:
+            add_corrections = self.corrections.add()
+            add_corrections.name = "Alt Hips/Soft Butt"
+            add_corrections.entry.slot = slot
+            add_corrections.entry.modelid = model_id
+            add_corrections.entry.condition = correction["Conditional"]
+            add_corrections.entry.shape = prefix + correction["Shape"]
+
+            total_options = [option.name for option in self.combining_options]
+
+            idx_list = []
+            split = "Alt Hips/Soft Butt".split("/")
+            for option in split:
+                idx = total_options.index(option)
+                idx_list.append(idx)
+            for idx in idx_list:
+                item = add_corrections.option_idx.add()
+                item.value = idx
+
+    def get_preset(self, context, preset):
+        slot = "Legs"
+
+        options = {"Alt Hips":  [{"Shape": "yab_hip", "Conditional": "None"},
+                                 {"Shape": "rue_hip", "Conditional": "None"}],
+
+                   "Soft Butt": [{"Shape": "softbutt", "Conditional": "None"},
+                                 {"Shape": "yabc_waist", "Conditional": "Waist"}]}
+        
+        corrections = [{"Shape": "yabc_hipsoft", "Conditional": "None"},
+                       {"Shape": "ruec_hipsoft", "Conditional": "None"}]
+        
+        return slot, options, corrections
 
 @dataclass  
 class UserInput:
     selection      :str  = ""
     mdl_game       :str  = ""
     update         :bool = False
+    model          :bool = True
     pmp            :Path = ""
     fbx            :Path = ""
     temp           :Path = ""
@@ -254,10 +499,15 @@ class UserInput:
     group_old_name :str  = ""
 
     new_meta       :dict = field(default_factory=dict)
+    
+    combining_options : List[CombiningOptions] = None
+    combining_entries : List[CombiningFinal]   = None
+    correction_entries: List[CorrectionEntry]  = None
 
 
     def __post_init__(self):
         props               = bpy.context.scene.file_props
+        scene               = bpy.context.scene
         subfolder           = props.fbx_subfolder
         time                = datetime.now().strftime("%H%M%S")
 
@@ -273,6 +523,7 @@ class UserInput:
         self.group_type     = props.mod_group_type
         self.load_mod_ver   = props.loadmodpack_version
         self.new_page       = 0 if props.modpack_page == "" else int(props.modpack_page)
+        self.model          = props.button_modpack_model
 
         if self.update:
             self.pmp_name = props.loadmodpack_display_directory
@@ -288,6 +539,11 @@ class UserInput:
         for group in get_modpack_groups():
             if self.selection == group[0]:
                     self.group_old_name, self.update_group = group[1], group[2]
+
+        if not self.model:
+            self.combining_options = scene.pmp_combining_options
+            self.combining_entries = scene.pmp_combining_final
+            self.correction_entries = scene.pmp_correction_entries
             
 class Modpacker(Operator):
     bl_idname = "ya.file_modpacker"
@@ -415,7 +671,7 @@ class Modpacker(Operator):
             if file.stem in model_props:
                 commands.append("echo Writing model to database...")
                 commands.append(rf"cd {textools}\converters\fbx")
-                commands.append(f'converter.exe "{source}"')
+                commands.append(f'converter.exe "{source}" >nul')
                 commands.append("echo Updating model database tables...")
                 commands.append(f'"{python_dir}" "{script_dir.resolve()}" "{textools}" "{file.stem}" "{props_json}" >nul')
                 commands.append(f"cd {textools}")
@@ -426,7 +682,7 @@ class Modpacker(Operator):
                 source = str(textools / "converters" / "fbx" / "result.db")
 
             commands.append("echo Finalising .mdl...")
-            commands.append(f'ConsoleTools.exe /wrap "{source}" "{dest}.mdl" "{game_path}"')
+            commands.append(f'ConsoleTools.exe /wrap "{source}" "{dest}.mdl" "{game_path}" >nul')
 
             cmds_added += 1
         
@@ -525,10 +781,10 @@ class Modpacker(Operator):
                 ranking[item] += 12
             if "Skull" in item.stem:
                 ranking[item] += 1
-            if "Lava" in item.stem:
+            if "Yanilla" in item.stem:
                 ranking[item] += 2
-            if "Soft" in item.stem:
-                ranking[item] += 4
+            if "Lava" in item.stem:
+                ranking[item] += 3
             if "Buff" in item.stem:
                 ranking[item] += 20
             if "Rue" in item.stem:
@@ -635,6 +891,7 @@ class Modpacker(Operator):
             "Type": user_input.group_type,
             "DefaultSettings": mod_data[user_input.update_group].DefaultSettings,
             "Options": [],
+            "Containers": []
             }
         
         else:
@@ -647,23 +904,12 @@ class Modpacker(Operator):
             "Type": user_input.group_type,
             "DefaultSettings": 0,
             "Options": [],
+            "Containers": []
             }
 
     def write_group_json(user_input:UserInput, to_pack:list[Path], create_group:dict, group_dir:str, to_replace:ModGroups="") -> None:
-        bpy.context.scene.file_props.modpack_progress = "Writing json..."
-        for file_name, (mdl_game, group_name, group_data) in create_group.items():
-            options = []
-            none_option = {
-                "Files": {},
-                "FileSwaps": {},
-                "Manipulations": [],
-                "Priority": 0,
-                "Name": "None",
-                "Description": "",
-                "Image": ""
-                }
-            if group_data["Type"] == "Single":
-                options.append(none_option)
+
+        def save_models():
             for file in to_pack:
                 option_name = file.stem
                 new_option = {
@@ -688,8 +934,59 @@ class Modpacker(Operator):
                     
                 options.append(new_option)
 
+        def save_shape_keys():
+            for combi_option in user_input.combining_options:
+                    options.append({"Name": combi_option.name, "Description": ""})
+            for entry in user_input.combining_entries:
+                manips = []
+                for idx in entry.option_idx:
+                    for option_entry in user_input.combining_options[idx.value].entries:
+                        manip = {"Type": "Shp", "Manipulation": {}}
+                        shape_key:PMPShapeKeys = option_entry
+                        manip["Manipulation"]["Entry"] = True
+                        manip["Manipulation"]["Slot"]  = shape_key.slot
+                        manip["Manipulation"]["Id"]    = int(shape_key.modelid)
+                        manip["Manipulation"]["Shape"] = shape_key.shape
+                        manip["Manipulation"]["ConnectorCondition"] = None if shape_key.condition == "None" else shape_key.condition
+                        manips.append(manip)
+                for idx in entry.corr_idx:
+                    manip = {"Type": "Shp", "Manipulation": {}}
+                    shape_key:PMPShapeKeys = user_input.correction_entries[idx.value].entry
+                    manip["Manipulation"]["Entry"] = True
+                    manip["Manipulation"]["Slot"]  = shape_key.slot
+                    manip["Manipulation"]["Id"]    = int(shape_key.modelid)
+                    manip["Manipulation"]["Shape"] = shape_key.shape
+                    manip["Manipulation"]["ConnectorCondition"] = None if shape_key.condition == "None" else shape_key.condition
+                    manips.append(manip)
+
+                containers.append({"Files": {}, "FileSwaps": {}, "Manipulations": manips})
+        
+        bpy.context.scene.file_props.modpack_progress = "Writing json..."
+        for file_name, (mdl_game, group_name, group_data) in create_group.items():
+            options = []
+            containers = []
+            
+            none_option = {
+                "Files": {},
+                "FileSwaps": {},
+                "Manipulations": [],
+                "Priority": 0,
+                "Name": "None",
+                "Description": "",
+                "Image": ""
+                }
+            
+            if group_data["Type"] == "Single":
+                options.append(none_option)
+            
+            if user_input.model:
+                save_models()
+            else:
+                save_shape_keys()
+                
             group_data["Options"] = options
             group_data["Name"] = group_name
+            group_data["Containers"] = containers
 
             new_group = user_input.temp / sanitise_path(file_name)
 
@@ -772,6 +1069,8 @@ class Modpacker(Operator):
     def delete_orphans(temp_folder:Path, update_group:ModGroups) -> None:
         bpy.context.scene.file_props.modpack_progress = "Deleting orphans...." 
         for options in update_group.Options:
+            if options.Files is None:
+                continue
             for gamepath, relpath in options.Files.items():
                 try:
                     absolute_path = os.path.join(temp_folder, relpath)
@@ -819,6 +1118,7 @@ CLASSES = [
     PMPSelector,
     CopyToFBX,
     GamepathCategory,
+    ShapeKeyOptions,
     ConsoleTools,
     Modpacker
 ]

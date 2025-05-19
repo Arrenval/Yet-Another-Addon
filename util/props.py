@@ -4,6 +4,7 @@ import json
 
 from pathlib   import Path
 from zipfile   import ZipFile
+from itertools import combinations
 from .penumbra import ModGroups, ModMeta
 from bpy.types import PropertyGroup, Object, Context
 from bpy.props import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
@@ -29,17 +30,71 @@ def scene_armatures() -> list[tuple[str, str, str]]:
                 armatures.append((obj.name, obj.name, "Armature"))
         
         return armatures
-
+    
 class ModpackGroups(PropertyGroup):
-    group_value: bpy.props.StringProperty() # type: ignore
-    group_name: bpy.props.StringProperty() # type: ignore
-    group_description: bpy.props.StringProperty(default="") # type: ignore
-    group_page: bpy.props.IntProperty(default=0) # type: ignore
+    group_value: StringProperty() # type: ignore
+    group_name: StringProperty() # type: ignore
+    group_description: StringProperty(default="") # type: ignore
+    group_page: IntProperty(default=0) # type: ignore
 
 class FBXSubfolders(PropertyGroup):
-    group_value: bpy.props.StringProperty(default="None") # type: ignore
-    group_name: bpy.props.StringProperty(default="None") # type: ignore
-    group_description: bpy.props.StringProperty(default="") # type: ignore
+    group_value: StringProperty(default="None") # type: ignore
+    group_name: StringProperty(default="None") # type: ignore
+    group_description: StringProperty(default="") # type: ignore
+
+class PMPShapeKeys(PropertyGroup):
+    shape: StringProperty(default="", name="", description="Shape key name") # type: ignore
+    slot: EnumProperty(
+        name= "",
+        description= "Select a body slot",
+        default="Body",
+        items= [
+            ("", "Gear", ""),
+            ("Head", "Head", ""),
+            ("Body", "Body", ""),
+            ("Hands", "Hands", ""),
+            ("Legs", "Legs", ""),
+            ("Feet", "Feet", ""),
+            ("", "Misc", ""),
+            ("Ears", "Ears", ""),
+            ("Neck", "Neck", ""),
+            ("Wrists", "Wrists", ""),
+            ("Right", "Right Finger", ""),
+            ("Left", "Left Finger", ""),
+            ("Glasses", "Glasses", ""),
+            ("", "Customization", ""),
+            ("Hair", "Hair", ""),
+            ("Face", "Face", ""),
+            ("Ears", "Ears", "")]
+            ) # type: ignore
+    
+    condition: EnumProperty(
+        name= "",
+        description= "Select a conditional",
+        items= [
+            ("None", "None", ""),
+            ("Waist", "Waist", ""),
+            ("Wrists", "Wrists", ""),
+            ("Ankles", "Ankles", ""),]
+            ) # type: ignore
+    modelid: IntProperty(default=0, name="", description="XIV model ID") # type: ignore
+
+class CombiningOptions(PropertyGroup):
+    shape: StringProperty(default="") # type: ignore
+    entries: CollectionProperty(type=PMPShapeKeys) # type: ignore
+
+class IndexItem(PropertyGroup):
+    value: IntProperty() # type: ignore
+
+class CorrectionEntry(PropertyGroup):
+    name: StringProperty() # type: ignore
+    entry: PointerProperty(type=PMPShapeKeys) # type: ignore
+    option_idx: CollectionProperty(type=IndexItem) # type: ignore
+
+class CombiningFinal(PropertyGroup):
+    name: StringProperty() # type: ignore
+    option_idx: CollectionProperty(type=IndexItem) # type: ignore
+    corr_idx: CollectionProperty(type=IndexItem) # type: ignore
 
 def modpack_data(context) -> None:
     scene = context.scene
@@ -92,11 +147,18 @@ def get_modpack_groups() -> list[tuple[str, str, str]]:
 
 class FileProps(PropertyGroup):
 
+    # These will be prefixed with button_ when calling them. _ is also used as separator betweent the keywords.
+    # These are generally used to control the UI
+    # Category   Name        Description
     ui_buttons_list = [
     ("modpack",  "expand",   "Opens the category"),
-    ("modpack",  "replace",  "Make new or update existing mod")
+    ("modpack",  "replace",  "Make new or update existing mod"),
+    ("modpack",  "model",    "Add model or shape key groups"),
+    ("modpack",  "all_keys", "Show all Combining Group options"),
     ]
     
+    # Used to define operator behaviour. No prefix is added.
+    #   Keyword      Keyword       Default  Description
     extra_buttons_list = [
         ("create",   "backfaces",  True,   "Creates backface meshes on export based on existing vertex groups"),
         ("check",    "tris",       True,   "Verify that the meshes are triangulated"),
@@ -135,7 +197,7 @@ class FileProps(PropertyGroup):
             name_lower = name.lower()
 
             default = False
-            if name_lower == "advanced":
+            if name_lower == "advanced" or name_lower == "all_keys":
                 default = True
             
             prop_name = f"button_{name_lower}_{category_lower}"
@@ -189,6 +251,18 @@ class FileProps(PropertyGroup):
             if selection == group[0]:
                     return [(str(group[1]), f"Pg: {group[1]:<3}", "")]
     
+    def get_combining_options(self, context:Context) -> list[tuple[str, str, str]]:
+        total_options = [option.name for option in context.scene.pmp_combining_options]
+        tuple_combinations = set()
+        for r in range(2, len(total_options) + 1):
+            tuple_combinations.update(combinations(total_options, r))
+        
+        final_list = ["None"]
+        for tuple in tuple_combinations:
+            final_list.append("/".join([*tuple]))
+
+        return [(option.replace(" ", "_"), option, "") for option in final_list]
+    
     def check_gamepath_category(self, context:Context) -> None:
         self.game_model_path:str
         if self.game_model_path.startswith("chara") and self.game_model_path.endswith("mdl"):
@@ -214,14 +288,99 @@ class FileProps(PropertyGroup):
                     context.scene.file_props.hands_g_category = False
                     context.scene.file_props.legs_g_category  = False
                     context.scene.file_props.feet_g_category  = True
+    
+    ui_size_category: StringProperty(
+        name="",
+        subtype="DIR_PATH", 
+        maxlen=255,
+        )  # type: ignore
 
+    file_man_ui: EnumProperty(
+        name= "",
+        description= "Select a manager",
+        items= [
+            ("IMPORT", "Import", "Import Files"),
+            ("EXPORT", "Export", "Export models"),
+            ("MODPACK", "Modpack", "Package mods"),
+        ]
+        )  # type: ignore
+
+    ##########
+    # IMPORT #
+    ##########
+    
     armatures: EnumProperty(
         name="Armatures",
         description="Select an armature from the scene to parent meshes to",
         items=lambda self, context: scene_armatures(),
         default= 0,
     ) # type: ignore
- 
+
+    import_display_directory: StringProperty(
+        name="Export Folder",
+        default="Select Export Directory",  
+        maxlen=255,
+        update=lambda self, context: self.update_directory(context, 'import'),
+        ) # type: ignore
+    
+    rename_import: StringProperty(
+        name="",
+        description="Renames the prefix of the selected meshes",
+        default="",
+        maxlen=255,
+        )  # type: ignore
+
+    file_gltf: BoolProperty(
+        name="",
+        description="Switch file format", 
+        default=False,
+        ) # type: ignore
+    
+    ##########
+    # EXPORT #
+    ##########
+    
+    export_body_slot: EnumProperty(
+        name= "",
+        description= "Select a body slot",
+        items= [
+            ("Chest", "Chest", "Chest export options."),
+            ("Legs", "Legs", "Leg export options."),
+            ("Hands", "Hands", "Hand export options."),
+            ("Feet", "Feet", "Feet export options."),
+            ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.")]
+        )  # type: ignore
+
+    export_display_directory: StringProperty(
+        name="Export Folder",
+        default="Select Export Directory",  
+        maxlen=255,
+        update=lambda self, context: self.update_directory(context, 'export'),
+        ) # type: ignore
+    
+    export_directory: StringProperty(
+        default="Select Export Directory",
+        subtype="DIR_PATH", 
+        maxlen=255,
+        )  # type: ignore
+    
+    export_total: IntProperty(default=0) # type: ignore
+
+    export_progress: FloatProperty(default=0) # type: ignore
+
+    export_step: IntProperty(default=0) # type: ignore
+
+    export_time: FloatProperty(default=0) # type: ignore
+
+    export_file_name: StringProperty(name="",
+        default="",  
+        maxlen=255,
+        ) # type: ignore
+
+    ##########
+    #  MODP  #
+    ##########
+
     fbx_subfolder: EnumProperty(
         name= "",
         description= "Alternate folder for fbx/mdl files",
@@ -251,8 +410,8 @@ class FileProps(PropertyGroup):
         description= "Single or Multi",
         items= [
             ("Single", "Single", "Exclusive options in a group"),
-            ("Multi", "Multi ", "Multiple selectable options in a group")
-
+            ("Multi", "Multi ", "Multiple selectable options in a group"),
+            ("Combining", "Combi ", "Combine multiple selectable groups")
         ]
         )   # type: ignore
     
@@ -354,83 +513,17 @@ class FileProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-    ui_size_category: StringProperty(
+    shape_option_name: StringProperty(
         name="",
-        subtype="DIR_PATH", 
-        maxlen=255,
-        )  # type: ignore
-
-    file_man_ui: EnumProperty(
-        name= "",
-        description= "Select a manager",
-        items= [
-            ("IMPORT", "Import", "Import Files"),
-            ("EXPORT", "Export", "Export models"),
-            ("MODPACK", "Modpack", "Package mods"),
-        ]
-        )  # type: ignore
-
-    export_body_slot: EnumProperty(
-        name= "",
-        description= "Select a body slot",
-        items= [
-            ("Chest", "Chest", "Chest export options."),
-            ("Legs", "Legs", "Leg export options."),
-            ("Hands", "Hands", "Hand export options."),
-            ("Feet", "Feet", "Feet export options."),
-            ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.")]
-        )  # type: ignore
-
-    export_display_directory: StringProperty(
-        name="Export Folder",
-        default="Select Export Directory",  
-        maxlen=255,
-        update=lambda self, context: self.update_directory(context, 'export'),
-        ) # type: ignore
-    
-    export_directory: StringProperty(
-        default="Select Export Directory",
-        subtype="DIR_PATH", 
-        maxlen=255,
-        )  # type: ignore
-    
-    export_total: IntProperty(default=0) # type: ignore
-
-    export_progress: FloatProperty(default=0) # type: ignore
-
-    export_step: IntProperty(default=0) # type: ignore
-
-    export_time: FloatProperty(default=0) # type: ignore
-
-    export_file_name: StringProperty(name="",
-        default="",  
-        maxlen=255,
-        ) # type: ignore
-
-    import_display_directory: StringProperty(
-        name="Export Folder",
-        default="Select Export Directory",  
-        maxlen=255,
-        update=lambda self, context: self.update_directory(context, 'import'),
-        ) # type: ignore
-    
-    rename_import: StringProperty(
-        name="",
-        description="Renames the prefix of the selected meshes",
         default="",
+        description="Name of your option", 
         maxlen=255,
         )  # type: ignore
-
-    file_gltf: BoolProperty(
-        name="",
-        description="Switch file format", 
-        default=False,
-        ) # type: ignore
     
-    ui_size_category: StringProperty(
-        name="",
-        subtype="DIR_PATH", 
-        maxlen=255,
+    shape_correction: EnumProperty(
+        name= "",
+        description= "Select an existing option",
+        items= lambda self, context: self.get_combining_options(context)
         )  # type: ignore
 
 def selected_yas_vgroup() -> None:
@@ -765,6 +858,11 @@ class OutfitProps(PropertyGroup):
 CLASSES = [
     ModpackGroups,
     FBXSubfolders,
+    PMPShapeKeys,
+    CombiningOptions,
+    IndexItem,
+    CorrectionEntry,
+    CombiningFinal,
     FileProps,
     AnimationOptimise,
     YASVGroups,
@@ -784,17 +882,26 @@ def set_addon_properties() -> None:
     
     bpy.types.Scene.yas_vindex = IntProperty(name="YAS Group Index", description="Index of the YAS groups on the active object", update=lambda self, context:selected_yas_vgroup())
     
-    bpy.types.Scene.pmp_group_options = bpy.props.CollectionProperty(
+    bpy.types.Scene.pmp_group_options = CollectionProperty(
         type=ModpackGroups)
     
-    bpy.types.Scene.animation_optimise = bpy.props.CollectionProperty(
+    bpy.types.Scene.animation_optimise = CollectionProperty(
         type=AnimationOptimise)
     
-    bpy.types.Scene.fbx_subfolder = bpy.props.CollectionProperty(
+    bpy.types.Scene.fbx_subfolder = CollectionProperty(
         type=FBXSubfolders)
     
-    bpy.types.Scene.shape_modifiers = bpy.props.CollectionProperty(
+    bpy.types.Scene.shape_modifiers = CollectionProperty(
         type=ShapeModifiers)
+    
+    bpy.types.Scene.pmp_combining_options = CollectionProperty(
+        type=CombiningOptions)
+    
+    bpy.types.Scene.pmp_combining_final = CollectionProperty(
+        type=CombiningFinal)
+    
+    bpy.types.Scene.pmp_correction_entries = CollectionProperty(
+        type=CorrectionEntry)
     
     FileProps.ui_buttons()
     FileProps.extra_options()
@@ -810,3 +917,6 @@ def remove_addon_properties() -> None:
     del bpy.types.Scene.animation_optimise
     del bpy.types.Scene.fbx_subfolder
     del bpy.types.Scene.shape_modifiers
+    del bpy.types.Scene.pmp_combining_options
+    del bpy.types.Scene.pmp_combining_final
+    del bpy.types.Scene.pmp_correction_entries

@@ -1031,6 +1031,7 @@ class FileManager(Panel):
         layout.separator(factor=0.5)
 
     def draw_modpack(self, layout:UILayout, section_prop):
+        scene = bpy.context.scene
         if platform.system() == "Windows":
             row = layout.row(align=True)
             split = row.split(factor=0.65, align=True)
@@ -1044,7 +1045,7 @@ class FileManager(Panel):
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
-        split.label(text="Model:")
+        split.label(text="XIV Source:")
         split.prop(section_prop, "game_model_path", text="")
         model_path = section_prop.game_model_path
         icon = "CHECKMARK" if model_path.startswith("chara") or model_path.endswith("mdl") else "X"
@@ -1064,7 +1065,7 @@ class FileManager(Panel):
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
-        split.label(text="FBX:")
+        split.label(text="Models:")
         split.prop(section_prop, "savemodpack_display_directory", text="")
         row.operator("ya.modpack_dir_selector", icon="FILE_FOLDER", text="").category = "savemodpack"
         
@@ -1165,24 +1166,179 @@ class FileManager(Panel):
             col.alignment = "CENTER"
             col.prop(section_prop, "mod_group_type", text="")
 
-
+        box.separator(factor=0.5,type="LINE")
 
         row = box.row(align=True)
-        if platform.system() == "Windows":
-            row.operator("ya.file_modpacker", text="Convert & Pack").preset = "convert_pack"
-            row.operator("ya.file_modpacker", text="Convert").preset = "convert"
-        row.operator("ya.file_modpacker", text="Pack").preset = "pack"
+        row.prop(section_prop, "button_modpack_model", text="Model", icon="ARMATURE_DATA")
+        row.prop(section_prop, "button_modpack_model", text="Shape Key", icon="SHAPEKEY_DATA", invert_checkbox=True)
 
-        box.separator(factor=0.5, type="LINE")
+        box.separator(factor=0.5,type="LINE")
 
+        if section_prop.button_modpack_model:
+
+            row = box.row(align=True)
+            if platform.system() == "Windows":
+                row.operator("ya.file_modpacker", text="Convert & Pack").preset = "convert_pack"
+                row.operator("ya.file_modpacker", text="Convert").preset = "convert"
+            row.operator("ya.file_modpacker", text="Pack").preset = "pack"
+            
+        else:
+            row = box.row(align=True)
+            subrow = row.row(align=True)
+            subrow.scale_x = 1.3
+            subrow.label(text="Add Option:")
+            row.prop(section_prop, "shape_option_name")
+
+            op = row.operator("ya.shape_key_options", icon="ADD", text="")
+            op.add = True
+            op.category = "OPTION"
+
+            box.separator(factor=0.5,type="LINE")
+
+            for option_idx, option in enumerate(scene.pmp_combining_options):
+                row = box.row(align=True)
+                subrow = row.row(align=True)
+                subrow.scale_x = 1.3
+                subrow.label(text=f"Option #{option_idx}")
+                row.prop(scene.pmp_combining_options[option_idx], "name", text="")
+
+                op = row.operator("ya.shape_key_options", icon="TRASH", text="")
+                op.add = False
+                op.category ="OPTION"
+                op.option_idx = option_idx
+
+                for shp_idx, shp in enumerate(scene.pmp_combining_options[option_idx].entries):
+                    row = box.row(align=True)
+                    row.label(text="", icon="RIGHTARROW")
+                    row.prop(shp, "slot", text="")
+                    subrow = row.row(align=True)
+                    subrow.scale_x = 1.5
+                    subrow.prop(shp, "shape", text="")
+                    row.prop(shp, "modelid", text="")
+                    row.prop(shp, "condition", text="")
+
+                    op = row.operator("ya.shape_key_options", icon="TRASH", text="")
+                    op.add = False
+                    op.category ="SHAPE_KEY"
+                    op.option_idx = option_idx
+                    op.shp_idx = shp_idx
+                
+                row = box.row(align=True)
+                row.alignment = "RIGHT"
+                op = row.operator("ya.shape_key_options", icon="ADD", text="Add Entry")
+                op.add = True
+                op.category ="SHAPE_KEY"
+                op.option_idx = option_idx
+
+                box.separator(factor=0.5,type="LINE")
+
+            row = box.row(align=True)
+            subrow = row.row(align=True)
+            subrow.scale_x = 1.3
+            subrow.label(text="Corrections:")
+            row.prop(section_prop, "shape_correction")
+            op = row.operator("ya.shape_key_options", icon="ADD", text="")
+            op.add = True
+            op.category = "CORRECTION"
+
+            box.separator(factor=0.5,type="LINE")
+            is_entry = False
+            for idx, option in enumerate(scene.pmp_correction_entries):
+                row = box.row(align=True)
+                row.label(text=f"{scene.pmp_correction_entries[idx].name}:")
+                row = box.row(align=True)
+                row.label(text="", icon="RIGHTARROW")
+                row.prop(option.entry, "slot", text="")
+                subrow = row.row(align=True)
+                subrow.scale_x = 1.5
+                subrow.prop(option.entry, "shape", text="")
+                row.prop(option.entry, "modelid", text="")
+                row.prop(option.entry, "condition", text="")
+
+                op = row.operator("ya.shape_key_options", icon="TRASH", text="")
+                op.add = False
+                op.category ="CORRECTION"
+                op.shp_idx = idx
+
+                is_entry = True
+            
+            if is_entry:
+                box.separator(factor=0.5,type="LINE")
+
+            row = box.row(align=True)
+            op = row.operator("ya.shape_key_options", icon="FILE_REFRESH", text="")
+            op.add = True
+            op.category ="RESET"
+
+            op = row.operator("ya.shape_key_options", text="YAB Leg Preset")
+            op.add = True
+            op.category ="PRESET"
+
+            row.operator("ya.file_modpacker", text="Pack").preset = "pack"
+
+            button = section_prop.button_modpack_all_keys
+
+            box = layout.box()
+            row = box.row(align=True)
+            
+            icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+            row.prop(section_prop, "button_modpack_all_keys", text="", icon=icon, emboss=False)
+            row.label(text="Show All Options")
+            if button:
+                box = layout.box()
+                row = box.row(align=True)
+                split = row.split(factor=0.3)
+                col1 = split.column()
+                col2 = split.column()
+                row = col1.row(align=True)
+                row.alignment = "CENTER"
+                row.label(text="Options")
+
+                row = col2.row(align=True)
+                row.label(text="Slot")
+                row.label(text="Shape")
+                row.label(text="Model ID")
+                row.label(text="Conditional")
+
+                for option in scene.pmp_combining_final:
+                    if len(option.option_idx) == 0:
+                        continue
+                    
+                    row = layout.row(align=True)
+                    split = row.split(factor=0.3)
+                    col1 = split.column()
+                    col2 = split.column()
+                    row = col1.row(align=True)
+                    row.alignment = "CENTER"
+                    row.label(text=option.name)
+                    
+                    for item in option.option_idx:
+                        idx = item.value
+                        for shp_idx, shp in enumerate(scene.pmp_combining_options[idx].entries):
+                            row = col2.row(align=True)
+                            row.label(text=f"{shp.slot}")
+                            row.label(text=f"{'_'.join(shp.shape.split('_')[1:])}")
+                            row.label(text=f"{shp.modelid}")
+                            row.label(text=f"{shp.condition}")
+                    for item in option.corr_idx:
+                        idx = item.value
+                        shp = scene.pmp_correction_entries[idx].entry
+                        row = col2.row(align=True)
+                        row.label(text=f"{shp.slot}")
+                        row.label(text=f"{'_'.join(shp.shape.split('_')[1:])}")
+                        row.label(text=f"{shp.modelid}")
+                        row.label(text=f"{shp.condition}")
+
+                    layout.separator(factor=0.5,type="LINE")
+              
+        box = layout.box()
         row = box.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Status:")
         split.prop(section_prop, "modpack_progress", text="", emboss=False)
 
-        box.separator(factor=0.1)
-
+            
     def dynamic_column_buttons(self, columns, box:UILayout, section_prop, labels, category, button_type):
         if category == "Chest":
             yab = self.devkit_props.export_yab_chest_bool
