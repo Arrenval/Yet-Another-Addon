@@ -17,8 +17,12 @@ class RemoveEmptyVGroups(Operator):
 
     def execute(self, context:Context):
         old_mode = context.mode
-        if old_mode == 'PAINT_WEIGHT':
-            old_mode = 'WEIGHT_PAINT'
+        match old_mode:
+            case "PAINT_WEIGHT":
+                old_mode = "WEIGHT_PAINT"
+            case "EDIT_MESH":
+                old_mode = "EDIT"
+   
         bpy.ops.object.mode_set(mode='OBJECT')
         prop = context.scene.outfit_props
         obj = context.active_object
