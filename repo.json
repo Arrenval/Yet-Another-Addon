@@ -1,38 +1,36 @@
-﻿{
- "version": "v1",
- "blocklist": [
-
-      ],
- "data": [
-     {
-      "schema_version": "1.0.0",
-      "id": "yet_another_addon",
-      "name": "Yet Another Addon",
-      "tagline": "Several tools to speed up XIV modding workflows",
-      "version": "0.15.0",
-      "type": "add-on",
-      "maintainer": "Aleks",
-      "license": [
-          "SPDX:GPL-3.0-or-later"
-         ],
-      "blender_version_min": "4.2.0",
-      "website": "https://discord.com/invite/qEKqwYGsnr",
-      "permissions": {
-           "files": "Import/export files from/to disk",
-           "clipboard": "Paste bone scaling"
-          },
-      "tags": [
-          "Animation",
-          "Import-Export",
-          "Modeling",
-          "Mesh",
-          "Object",
-          "Rigging",
-          "User Interface"
-         ],
-      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/0.15.0/Yet.Another.Addon.v0.15.0.zip",
-      "archive_size": 73303,
-      "archive_hash": "sha256:f22eb42a002c76edb507c38591ad82e9520f5bddb371ac6a6e28a71a0758173e"
-     }
-    ]
+{
+  "version": "v1",
+  "blocklist": [],
+  "data": [
+ {
+   "schema_version": "1.0.0",
+   "id": "yet_another_addon",
+   "name": "Yet Another Addon",
+   "tagline": "Several tools to speed up XIV modding workflows",
+   "version": "0.15.0",
+   "type": "add-on",
+   "maintainer": "Aleks",
+   "license": [
+  "SPDX:GPL-3.0-or-later"
+   ],
+   "blender_version_min": "4.2.0",
+   "website": "https://discord.com/invite/qEKqwYGsnr",
+   "permissions": {
+  "files": "Import/export files from/to disk",
+  "clipboard": "Paste bone scaling"
+   },
+   "tags": [
+  "Animation",
+  "Import-Export",
+  "Modeling",
+  "Mesh",
+  "Object",
+  "Rigging",
+  "User Interface"
+   ],
+   "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/0.15.0/Yet.Another.Addon.v0.15.0.zip",
+   "archive_size": 73303,
+   "archive_hash": "sha256:fd536b51f3a8264f0d541fb6c667f2c0c0f8df266ac21e98492b2e2634a690f0"
+ }
+  ]
 }
