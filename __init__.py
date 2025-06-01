@@ -1,17 +1,11 @@
-# The code within this tool is made for the Blender API and follows its GPL3 licensing.
-
-# The code's implentation is specifically tailored for my "Yet Another Devkit",
-# and regarding its usage I do request that it does not be used for creating mods 
-# or assets that are behind a permanent paywall, three months at the most.
-
-bl_info = {
-    "name": "Yet Another Addon",
-    "author": "Aleks",
-    "description": "Several tools to speed up XIV modding workflows.",
-    "version": (0, 15, 0),
-    "blender": (4, 2, 0),
-    "category": "",
-    }
+# bl_info = {
+#     "name": "Yet Another Addon",
+#     "author": "Aleks",
+#     "description": "Several tools to speed up XIV modding workflows.",
+#     "version": (0, 0, 1),
+#     "blender": (4, 2, 0),
+#     "category": "",
+#     }
 
 import bpy
 
@@ -63,12 +57,13 @@ def register():
             props.set_addon_properties()
       
     handlers.set_handlers()
-    bpy.types.Scene.ya_addon_ver = bl_info["version"]
+    bpy.types.Scene.ya_addon_ver = (0, 15, 0)
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
 
 def unregister():
     handlers.remove_handlers()
     bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_emptyvgroup_append)
+    del bpy.types.Scene.ya_addon_ver
     
     for module in reversed(modules):
         if module == props:
