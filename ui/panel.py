@@ -317,12 +317,14 @@ class OutfitStudio(Panel):
 
                     elif key == "part":
                         col.alignment = "EXPAND"
+                        col.scale_x = 1.5
                         conflict = False
                         for con_obj, con_values in obj_data:
                             if con_obj == obj:
                                 continue
                             if con_values["part"] == values["part"]:
                                 conflict = True
+                                break
                         op = col.operator("ya.overview_group", 
                                             text="", 
                                             emboss=False, 
@@ -716,15 +718,21 @@ class OutfitStudio(Panel):
             split.label(text="Scaling:" if section_prop.scaling_armature else "Pose:")
             split.label(text=bpy.context.scene.outfit_props.pose_display_directory)
             buttonrow = split.row(align=True)
-            buttonrow.operator("ya.pose_apply", text="Apply")
+            op = buttonrow.operator("ya.pose_apply", text="Apply")
+            op.reset = False
+            op.use_clipboard = False
             buttonrow.prop(section_prop, "scaling_armature", text="", icon="FIXED_SIZE")
-            buttonrow.operator("ya.pose_apply", text="", icon="FILE_REFRESH").reset = True
+            op = buttonrow.operator("ya.pose_apply", text="", icon="FILE_REFRESH")
+            op.reset = True
+            op.use_clipboard = False
 
             row = box.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
             split.label(text="" if section_prop.scaling_armature else "Scaling:")
-            split.operator("ya.pose_apply", text="Import from Clipboard").use_clipboard = True
+            op = split.operator("ya.pose_apply", text="Import from Clipboard")
+            op.use_clipboard = True
+            op.reset = False
 
             box.separator(factor=0.5, type="LINE")
             row = box.row(align=True)
@@ -1462,8 +1470,7 @@ class FileManager(Panel):
         split.alignment = "RIGHT"
         split.label(text="Status:")
         split.prop(section_prop, "modpack_progress", text="", emboss=False)
-
-            
+           
     def dynamic_column_buttons(self, columns, box:UILayout, section_prop, labels, category, button_type):
         if category == "Chest":
             yab = self.devkit_props.export_yab_chest_bool
