@@ -12,6 +12,7 @@ from itertools      import combinations
 from bpy.props      import StringProperty
 from bpy.types      import Operator, Object, Context, ShapeKey, TriangulateModifier, LayerCollection, Armature
 from bmesh.types    import BMFace
+from collections    import Counter
 from ..util.props   import get_object_from_mesh, visible_meshobj
 
 def add_driver(shape_key:ShapeKey, source:Object) -> None:
@@ -273,9 +274,9 @@ class MeshHandler:
                 self.reset.append(obj)
                 self.delete.append(dupe)
                 
-            if shape_key:
-                for key in dupe.data.shape_keys.key_blocks:
-                    key.lock_shape = False
+                if dupe.data.shape_keys:
+                    for key in dupe.data.shape_keys.key_blocks:
+                        key.lock_shape = False
                      
     def process_meshes(self):
 
@@ -284,7 +285,6 @@ class MeshHandler:
             bpy.context.view_layer.objects.active = obj
             obj.select_set(state=True)
             bpy.ops.object.mode_set(mode='OBJECT')
-            self.check_modifiers(obj, data_transfer=True)
 
         def triangulation_check(obj:Object)-> bool:
             bpy.ops.object.select_all(action="DESELECT")
@@ -292,7 +292,6 @@ class MeshHandler:
             obj.select_set(state=True)
             bpy.ops.object.mode_set(mode='OBJECT')
 
-            triangulated    = True
             self.tri_method = ('BEAUTY', 'BEAUTY')
             for modifier in reversed(obj.modifiers):
                 if modifier.type == "TRIANGULATE" and modifier.show_viewport:
@@ -300,13 +299,9 @@ class MeshHandler:
                     self.tri_method = (modifier.quad_method, modifier.ngon_method)
                     bpy.ops.object.modifier_remove(modifier=modifier.name)
                     break
-    
-            for poly in obj.data.polygons:
-                verts = len(poly.vertices)
-                if verts > 3:
-                    triangulated = False
-                    return triangulated
             
+            triangulated = all(len(poly.vertices) <= 3 for poly in obj.data.polygons)
+
             return triangulated
 
         for entry in self.handler_list:
@@ -405,7 +400,7 @@ class MeshHandler:
 
     def shape_key_keeper(self, obj:Object, xiv_key:list[ShapeKey]) -> None:
         # to_join are the temporary dupes with the shape keys activated that will be merged into the export mesh (obj)
-        to_join     :list[Object] = []
+        to_join     :list[tuple[Object, str]] = []
 
         for key in xiv_key:
             bpy.context.view_layer.objects.active = obj
@@ -415,19 +410,26 @@ class MeshHandler:
             shapekey_dupe = bpy.context.selected_objects[0]
             shapekey_dupe.data.shape_keys.key_blocks[key.name].mute  = False
             shapekey_dupe.data.shape_keys.key_blocks[key.name].value = 1.0
-            shapekey_dupe.name = key.name
-            self.check_modifiers(shapekey_dupe)
-            to_join.append(shapekey_dupe)
+            to_join.append((shapekey_dupe, key.name))
             bpy.ops.object.select_all(action="DESELECT")
 
         if to_join:
             bpy.context.view_layer.objects.active = obj
             obj.select_set(state=True)
             bpy.ops.object.mode_set(mode='OBJECT')
-            self.check_modifiers(obj)
-            for dupe in to_join:
-                dupe.select_set(state=True)
+            self.apply_modifiers(obj)
+            for dupe, key_name in to_join:
+                if len(obj.data.vertices) != len(dupe.data.vertices):
+                    bpy.ops.object.select_all(action="DESELECT")
+                    bpy.context.view_layer.objects.active = dupe
+                    dupe.select_set(state=True)
+                    self.apply_modifiers(dupe, data_transfer=False)
+                    bpy.context.view_layer.objects.active = obj
+                    obj.select_set(state=True)
+                else:
+                    dupe.select_set(state=True)
                 bpy.ops.object.join_shapes()
+                obj.data.shape_keys.key_blocks[-1].name = key_name
                 bpy.data.objects.remove(dupe, do_unlink=True, do_id_user=True, do_ui_user=True)
             bpy.ops.object.select_all(action="DESELECT")
 
@@ -495,6 +497,7 @@ class FileExport:
                 "export_attributes": True,
                 "export_normals": True,
                 "export_tangents": True,
+                "export_skins": True,
                 "export_influence_nb": 8,
                 "export_active_vertex_color_when_no_material": True,
                 "export_all_vertex_colors": True,
@@ -654,6 +657,7 @@ class BatchQueue(Operator):
         self.leg_sizes = {
             "Melon": self.size_options["Melon"],
             "Skull": self.size_options["Skull"], 
+            "Yanilla": self.size_options["Yanilla"], 
             "Mini Legs": self.size_options["Mini Legs"]
             }
 
@@ -826,7 +830,7 @@ class BatchQueue(Operator):
                     exception_handling(size, "", 0)
             else:
                 for size in leg_sizes:
-                    if (body == "Lava" or body == "Masc") and (size == "Skull" or size == "Mini Legs"):
+                    if (body == "Lava" or body == "Masc") and (size == "Skull" or size == "Mini Legs" or size == "Yanilla"):
                         continue
                     for gen, options_groups in self.actual_combinations.items(): 
                         exception_handling(size, gen, gen_options)
@@ -1050,7 +1054,7 @@ class BatchQueue(Operator):
         collection   = context.view_layer.layer_collection.children
         
         if getattr(devkit_props, "is_exporting"):
-            return 0.1
+            return 0.3
         setattr(devkit_props, "is_exporting", True)
         
         mesh_handler = MeshHandler()
@@ -1125,7 +1129,7 @@ class BatchQueue(Operator):
             duration = end_time - start_time
             props.export_time = duration
             BatchQueue.progress_tracker(queue)
-            return 0.1
+            return 0.3
         else:
             queue_exit()
             return None
