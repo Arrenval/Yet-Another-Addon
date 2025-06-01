@@ -147,7 +147,7 @@ def get_modpack_groups() -> list[tuple[str, str, str]]:
 
 class FileProps(PropertyGroup):
 
-    # These will be prefixed with button_ when calling them. _ is also used as separator betweent the keywords.
+    # These will be prefixed with button_ when calling them.
     # These are generally used to control the UI
     # Category   Name        Description
     ui_buttons_list = [
@@ -655,8 +655,14 @@ class OutfitProps(PropertyGroup):
         ("scaling",   "armature",   False,   "Applies scaling to armature"),
         ("keep",      "modifier",   False,   "Keeps the modifier after applying. Unable to keep Data Transfers"),
         ("filter",    "vgroups",    True,    "Switches between showing all vertex groups or just YAS groups"),
+        ("all",       "keys",       False,   "Transfers all shape keys from source to target"),
+        ("include",   "deforms",    False,   "Enable this to include deforms. If disabled only the shape key entries are added"),
+        ("existing",  "only",       False,   "Only updates deforms of shape keys that already exist on the target"),
         ("adjust",    "overhang",   False,   "Tries to adjust for clothing that hangs off of the breasts"),
         ("add",       "shrinkwrap", False,   "Applies a shrinkwrap modifier when deforming the mesh. Remember to exclude parts of the mesh overlapping with the body"),
+        ("seam",      "waist",      False,   "Applies the selected seam shape key to your mesh"),
+        ("seam",      "wrist",      False,   "Applies the selected seam shape key to your mesh"),
+        ("seam",      "ankle",      False,   "Applies the selected seam shape key to your mesh"),
         ("sub",       "shape_keys", False,   """Includes minor shape keys without deforms:
         - Squeeze
         - Push-Up
@@ -722,15 +728,13 @@ class OutfitProps(PropertyGroup):
         for key in key_blocks:
             key.mute = True
 
-        key_blocks[props.shape_key_base.upper()].mute = False
+        key_blocks[props.shape_chest_base.upper()].mute = False
 
-    def get_vertex_groups(self, context:Context) -> list[tuple[str, str, str]]:
-        obj = context.active_object
-
+    def get_vertex_groups(self, context:Context, obj:Object) -> list[tuple[str, str, str]]:
         if obj and obj.type == "MESH":
             return [("None", "None", "")] + [(group.name, group.name, "") for group in obj.vertex_groups]
         else:
-            return [("None", "Select a mesh", "")]
+            return [("None", "Select a target", "")]
 
     def scene_actions(self) -> list[tuple[str, str, str]]: 
         armature_actions = [("None", "None", ""), None]
@@ -788,37 +792,114 @@ class OutfitProps(PropertyGroup):
         if os.path.exists(display_directory):  
             setattr(prop, actual_prop, display_directory)
 
-    shape_key_source: EnumProperty(
+    def get_shape_key_enum(self, context:Context, obj:Object, new:bool=False) -> None:
+        if obj is not None and obj.data.shape_keys:
+            shape_keys = []
+            if new:
+                shape_keys.extend([("", "NEW:", ""),("None", "New Key", "")])
+            shape_keys.append(("", "BASE:", ""))
+            for index, key in enumerate(obj.data.shape_keys.key_blocks):
+                if key.name.endswith(":"):
+                    shape_keys.append(("", key.name, ""))
+                    continue
+                shape_keys.append((key.name, key.name, ""))
+            return shape_keys
+        else:
+            return [("None", "New Key", "")]
+
+    shapes_method: EnumProperty(
         name= "",
         description= "Select an overview",
         items= [
-            ("Selected", "Selected", "Uses the selected mesh as the source"),
+            ("Selected", "Selection", "Uses the selected mesh as the source"),
             ("Chest", "Chest", "Uses the YAB Chest mesh as source"),
             ("Legs", "Legs", "Uses the YAB leg mesh as source"),
+            ("Seams", "Seams", "Transfer seam related shape keys"),
         ]
         )  # type: ignore
     
-    shape_key_base: EnumProperty(
+    shapes_source: PointerProperty(
+        type= Object,
+        name= "",
+        description= "Select an overview",
+        )  # type: ignore
+    
+    shapes_target: PointerProperty(
+        type= Object,
+        name= "",
+        )  # type: ignore
+
+    shapes_source_enum: EnumProperty(
+        name= "",
+        description= "Select a shape key",
+        items=lambda self, context: self.get_shape_key_enum(context, self.shapes_source)
+        )  # type: ignore
+    
+    shapes_target_enum: EnumProperty(
+        name= "",
+        description= "Select a shape key",
+        items=lambda self, context: self.get_shape_key_enum(context, self.shapes_target, new=True)
+        )  # type: ignore
+
+    shapes_corrections: EnumProperty(
+        name= "",
+        default= "None",
+        description= "Choose level of Corrective Smooth",
+        items= [("", "Select degree of smoothing", ""),
+                ("None", "None", ""),
+                ("Smooth", "Smooth", ""),
+                ("Aggressive", "Aggresive", ""),]
+        )  # type: ignore
+    
+    shape_chest_base: EnumProperty(
         name= "",
         description= "Select the base size",
         items= [
             ("Large", "Large", ""),
             ("Medium", "Medium", ""),
             ("Small", "Small", ""),
+            ("Masc", "Masc", ""),
+        ],
+        update=lambda self, context: self.chest_controller_update(context)
+        )  # type: ignore
+    
+    shape_leg_base: EnumProperty(
+        name= "",
+        description= "Select the base size",
+        items= [
+            ("Melon", "Watermelon Crushers", ""),
+            ("Skull", "Skull Crushers", ""),
+            ("Yanilla", "Yanilla", ""),
+            ("Mini", "Mini", ""),
+            ("Lavabod", "Lavabod", ""),
+            ("Masc", "Masc", ""),
+        ],
+        update=lambda self, context: self.chest_controller_update(context)
+        )  # type: ignore
+    
+    shape_seam_base: EnumProperty(
+        name= "",
+        description= "Select the base size, only affects waist seam",
+        items= [
+            ("YAB", "YAB", ""),
+            ("Lavabod", "Lavabod", ""),
+            ("Yanilla", "Yanilla", ""),
+            ("Masc", "Masc", ""),
+            ("Mini", "Mini", ""),
         ],
         update=lambda self, context: self.chest_controller_update(context)
         )  # type: ignore
     
     obj_vertex_groups: EnumProperty(
         name= "",
-        description= "Select a group to pin",
-        items=lambda self, context: self.get_vertex_groups(context)
+        description= "Select a group to pin, it will be ignored by any smoothing corrections",
+        items=lambda self, context: self.get_vertex_groups(context, self.shapes_target)
         )  # type: ignore
     
     exclude_vertex_groups: EnumProperty(
         name= "",
         description= "Select a group to exclude from shrinkwrapping",
-        items=lambda self, context: self.get_vertex_groups(context)
+        items=lambda self, context: self.get_vertex_groups(context, self.shapes_target)
         )  # type: ignore
     
     shape_modifiers: EnumProperty(
