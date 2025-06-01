@@ -319,80 +319,76 @@ class MeshHandler:
             if entry['shape']:
                 verify_target(obj)
                 self.shape_key_keeper(obj, entry["shape"])
+            else:
+                self.apply_modifiers(obj)
             
             if entry['backfaces']:
                 verify_target(obj)
                 self.create_backfaces(obj)
-            
-            if not entry['shape']:
-                self.check_modifiers(obj)
                 
             entry['original'].hide_set(state=True)
 
-    def check_modifiers(self, obj:Object, data_transfer=False) -> None:
+    def apply_modifiers(self, obj:Object, data_transfer=True) -> None:
         # We initially look for inactive modifiers so we can assume the remaining ones should be retained.
-        # This is done to avoid any unforeseen behaviour when removing a driver in the non data_transfer condition.
+        # This is done to avoid any unforeseen behaviour when removing a driver.
         inactive = [modifier for modifier in obj.modifiers if not modifier.show_viewport]
         for modifier in inactive:
             bpy.ops.object.modifier_remove(modifier=modifier.name)
 
         modifiers = [modifier for modifier in obj.modifiers if modifier.type != "ARMATURE"]
-        if not data_transfer and obj.data.shape_keys:
+        if obj.data.shape_keys:
             bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
             obj.data.update()
         
         for modifier in modifiers:
-            if data_transfer and modifier.type == "DATA_TRANSFER":
-                bpy.ops.object.shape_key_add(from_mix=True)
-                obj.data.update()
-                try:
-                    bpy.ops.object.modifier_apply(modifier=modifier.name)
-                except:
-                    bpy.ops.object.modifier_remove(modifier=modifier.name)
-                bpy.ops.object.shape_key_remove()
+            if not data_transfer and modifier.type == "DATA_TRANSFER":
+                continue
 
-            elif not data_transfer:
-                try:
-                    modifier.driver_remove("show_viewport")
-                except:
-                    pass
-                modifier.show_viewport = True
-                try:
-                    bpy.ops.object.modifier_apply(modifier=modifier.name)
-                except:
-                    bpy.ops.object.modifier_remove(modifier=modifier.name)
+            try:
+                modifier.driver_remove("show_viewport")
+            except:
+                pass
+            modifier.show_viewport = True
+            try:
+                bpy.ops.object.modifier_apply(modifier=modifier.name)
+            except:
+                bpy.ops.object.modifier_remove(modifier=modifier.name)
     
     def sequential_faces(self, obj:Object) -> None:
         mesh = obj.data
         bm = bmesh.new()
         bm.from_mesh(mesh)
         
-        original_faces: list[tuple[list[int], int]] = [(tuple(v.index for v in face.verts), len(face.verts) - 2) for face in bm.faces]
+        original_faces: list[tuple[set[int], int]] = [(set(v.index for v in face.verts), len(face.verts) - 2) for face in bm.faces]
         
         bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method=self.tri_method[0], ngon_method=self.tri_method[1])
 
-        vert_to_faces: list[set[int]] = [set() for _ in range(len(bm.verts))]
+        tri_to_verts: dict[BMFace, set[int] ] = {}
+        vert_to_faces: list[set[BMFace]] = [set() for _ in range(len(bm.verts))]
         for tri in bm.faces:
+            vert_indices = set()
             for vert in tri.verts:
+                vert_indices.add(vert.index)
                 vert_to_faces[vert.index].add(tri)
-      
+            tri_to_verts[tri] = vert_indices
+            
         ordered_faces = {}
         new_index = 0
+        
         for face_verts, tri_count in original_faces:
             face_count = 0
 
             if tri_count > 2:
-                adjacent_faces:set[BMFace] = {vert for vert in face_verts}
+                # Checks if faces shares a vertex.
+                adjacent_faces: set[BMFace] = {tri for vert in face_verts for tri in vert_to_faces[vert]}
+                
             else:
-                face_shared_verts: dict[BMFace, int] = {}
-                for vert in face_verts:
-                    for tri in vert_to_faces[vert]:
-                        face_shared_verts[tri] = face_shared_verts.get(tri, 0) + 1
-
+                # Checks if faces shares an edge.
+                face_shared_verts = Counter(tri for vert in face_verts for tri in vert_to_faces[vert])
                 adjacent_faces = {tri for tri, count in face_shared_verts.items() if count >= 2}
             
             for tri in adjacent_faces:
-                if tri not in ordered_faces and set(vert.index for vert in tri.verts).issubset(face_verts):
+                if tri not in ordered_faces and tri_to_verts[tri] <= face_verts:
                     ordered_faces[tri] = new_index
                     new_index += 1
                     face_count += 1
