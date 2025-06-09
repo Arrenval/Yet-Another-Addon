@@ -1,19 +1,12 @@
-# bl_info = {
-#     "name": "Yet Another Addon",
-#     "author": "Aleks",
-#     "description": "Several tools to speed up XIV modding workflows.",
-#     "version": (0, 0, 1),
-#     "blender": (4, 2, 0),
-#     "category": "",
-#     }
-
 import bpy
 
+from .              import preferences
+from .              import properties
 from .ui            import panel
 from .file          import export
 from .file          import modpack
 from .file          import ya_import
-from .util          import props
+from .util          import logging
 from .util          import handlers
 from .util          import penumbra
 from .outfit        import overview 
@@ -21,10 +14,17 @@ from .outfit        import mesh
 from .outfit        import shapes   
 from .outfit        import weights  
 from .outfit        import armature
+from .ui.helpers    import operators
+from .ui.helpers    import containers
+
 from importlib      import reload
+from .ui.menu       import menu_emptyvgroup_append
        
 modules = [
-    props,
+    preferences,
+    properties,
+    containers,
+    operators,
     ya_import,
     export,
     modpack,
@@ -38,14 +38,10 @@ modules = [
 
 m_reload = [
     handlers,
-    penumbra
+    penumbra,
+    logging
 ]
-
-def menu_emptyvgroup_append(self, context):
-    self.layout.separator(type="LINE")
-    self.layout.operator("ya.remove_empty_vgroups", text="Remove Empty Vertex Groups").preset = "menu"
-    self.layout.operator("ya.remove_select_vgroups", text= "Remove Selected and Adjust Parent").preset = "menu"
-
+    
 def register():
     for module in modules + m_reload:
         reload(module)
@@ -53,8 +49,10 @@ def register():
     for module in modules:
         for cls in module.CLASSES:
             bpy.utils.register_class(cls)
-        if module == props:
-            props.set_addon_properties()
+        if module == properties:
+            properties.set_addon_properties()
+        if module == containers:
+            containers.set_ui_containers()
       
     handlers.set_handlers()
     bpy.types.Scene.ya_addon_ver = (0, 15, 0)
@@ -66,7 +64,9 @@ def unregister():
     del bpy.types.Scene.ya_addon_ver
     
     for module in reversed(modules):
-        if module == props:
-            props.remove_addon_properties()
+        if module == properties:
+            properties.remove_addon_properties()
+        if module == containers:
+            containers.remove_ui_containers()
         for cls in reversed(module.CLASSES):
             bpy.utils.unregister_class(cls)
