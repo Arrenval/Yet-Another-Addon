@@ -1,26 +1,29 @@
-import os
 import re
 import bpy
+
 import platform
 
-from pathlib       import Path
-from bpy.props     import StringProperty, BoolProperty
-from ..util.props  import get_object_from_mesh, visible_meshobj
-from bpy.types     import Panel, Operator, UIList, UILayout, Context, VertexGroup, Object
+from pathlib                import Path
+from bpy.types              import Panel, UIList, UILayout, Context, VertexGroup, Object
+from ..preferences          import get_preferences
+from ..properties           import get_file_properties, get_outfit_properties, get_object_from_mesh, visible_meshobj
+from .helpers.containers    import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, ModMetaEntry, ModpackHelper
+
 
 class MESH_UL_yas(UIList):
     bl_idname = "MESH_UL_yas"
 
     def draw_item(self, context:Context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
+        props = get_outfit_properties()
         ob = data
         vgroup = item
         icon = self.get_icon_value("GROUP_VERTEX")
         try:
-            category = bpy.context.scene.outfit_props.YAS_BONES[vgroup.name]
+            category = get_outfit_properties().YAS_BONES[vgroup.name]
         except:
             category = "Unknown"
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if len(context.scene.yas_vgroups) == 1 and "has no " in vgroup.name:
+            if len(props.yas_vgroups) == 1 and "has no " in vgroup.name:
                 error = self.get_icon_value("INFO")
                 layout.prop(vgroup, "name", text="", emboss=False, icon_value=error)
                 layout.alignment = "CENTER"
@@ -60,134 +63,16 @@ class MESH_UL_shape(UIList):
 
         return icon_dict[icon_name]
 
-class FrameJump(Operator):
-    bl_idname = "ya.frame_jump"
-    bl_label = "Jump to Endpoint"
-    bl_description = "Jump to first/last frame in frame range"
-    bl_options = {'REGISTER'}
-
-    end: BoolProperty() # type: ignore
- 
-    def execute(self, context):
-        bpy.ops.screen.frame_jump(end=self.end)
-        context.scene.outfit_props.animation_frame = context.scene.frame_current
-
-        return {'FINISHED'}
-
-class KeyframeJump(Operator):
-    bl_idname = "ya.keyframe_jump"
-    bl_label = "Jump to Keyframe"
-    bl_description = "Jump to previous/next keyframe"
-    bl_options = {'REGISTER'}
-
-    next: BoolProperty() # type: ignore
-
-    def execute(self, context):
-        bpy.ops.screen.keyframe_jump(next=self.next)
-        context.scene.outfit_props.animation_frame = context.scene.frame_current
-
-        return {'FINISHED'}
-    
-class DirSelector(Operator):
-    bl_idname = "ya.dir_selector"
-    bl_label = "Select Folder"
-    bl_description = "Select file or directory. Hold Alt to open the folder"
-    
-    directory: StringProperty() # type: ignore
-    category: StringProperty(options={'HIDDEN'}) # type: ignore
-    filter_glob: bpy.props.StringProperty(
-        subtype="DIR_PATH",
-        options={'HIDDEN'}) # type: ignore
-    
-    
-
-    def invoke(self, context, event):
-        actual_dir = getattr(context.scene.file_props, f"{self.category}_directory", "")     
-
-        if event.alt and event.type == "LEFTMOUSE" and os.path.isdir(actual_dir):
-            os.startfile(actual_dir)
-        elif event.type == "LEFTMOUSE":
-            context.window_manager.fileselect_add(self)
-        else:
-             self.report({"ERROR"}, "Not a directory!")
-    
-        return {"RUNNING_MODAL"}
-
-    def execute(self, context):
-        actual_dir_prop = f"{self.category}_directory"
-        display_dir_prop = f"{self.category}_display_directory"
-        selected_file = Path(self.directory)  
-
-        if selected_file.is_dir():
-            setattr(context.scene.file_props, actual_dir_prop, str(selected_file))
-            setattr(context.scene.file_props, display_dir_prop, str(Path(*selected_file.parts[-3:])))
-            self.report({"INFO"}, f"Directory selected: {selected_file}")
-        
-        else:
-            self.report({"ERROR"}, "Not a valid path!")
-        
-        return {'FINISHED'}
-    
-class BodyPartSlot(Operator):
-    bl_idname = "ya.set_body_part"
-    bl_label = "Select body slot to export."
-    bl_description = "The icons almost make sense"
-
-    body_part: StringProperty() # type: ignore
-
-    def execute(self, context):
-        context.scene.file_props.export_body_slot = self.body_part
-        return {'FINISHED'}
-    
-class PanelCategory(Operator):
-    bl_idname = "ya.set_ui"
-    bl_label = "Select the menu."
-    bl_description = "Changes the panel menu"
-
-    menu: StringProperty() # type: ignore
-
-    def execute(self, context):
-        context.scene.file_props.file_man_ui = self.menu
-        return {'FINISHED'}
-
-class OutfitCategory(Operator):
-    bl_idname = "ya.outfit_category"
-    bl_label = "Select menus."
-    bl_description = """Changes the panel menu.
-    *Click to select single category.
-    *Shift+Click to pin/unpin categories"""
-
-    menu: StringProperty() # type: ignore
-    panel: StringProperty() # type: ignore
-
-    def invoke(self, context, event):
-        props = context.scene.outfit_props
-        categories = ["overview", "shapes", "mesh", "weights", "armature"]
-        if event.shift:
-            state = getattr(props, f"{self.menu.lower()}_category")
-            if state:
-                setattr(props, f"{self.menu.lower()}_category", False)
-            else:
-                setattr(props, f"{self.menu.lower()}_category", True)
-        else:
-            for category in categories:
-                if self.menu.lower() == category:
-                    setattr(props, f"{category.lower()}_category", True)
-                else:
-                    setattr(props, f"{category.lower()}_category", False)
-
-        return {'FINISHED'}
-
 class OutfitStudio(Panel):
     bl_idname = "VIEW3D_PT_YA_OutfitStudio"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Devkit"
+    bl_category = "XIV Kit"
     bl_label = "Outfit Studio"
     bl_order = 1
 
     def draw(self, context:Context):
-        section_prop = context.scene.outfit_props
+        self.outfit_props = get_outfit_properties()
         layout = self.layout
 
         self.options ={
@@ -200,25 +85,25 @@ class OutfitStudio(Panel):
 
         row = layout.row()
         colui = row.column()
-        self.ui_category_buttons(colui, section_prop, self.options)
+        self.ui_category_buttons(colui, self.outfit_props, self.options)
         col = row.column()
         
-        if section_prop.overview_category:
+        if self.outfit_props.overview_category:
             columns = ["OBJECT", "PART", "ATTR"]
 
-            self.draw_overview(col, section_prop, columns)
+            self.draw_overview(col, self.outfit_props, columns)
             
-        if section_prop.shapes_category:
-            self.draw_shapes(col, section_prop)
+        if self.outfit_props.shapes_category:
+            self.draw_shapes(col, self.outfit_props)
             
-        if section_prop.mesh_category:
-            self.draw_mesh(col, section_prop)
+        if self.outfit_props.mesh_category:
+            self.draw_mesh(col, self.outfit_props)
 
-        if section_prop.weights_category:
-            self.draw_weights(col, section_prop)
+        if self.outfit_props.weights_category:
+            self.draw_weights(col, self.outfit_props)
 
-        if section_prop.armature_category:
-            self.draw_armature(col, section_prop)
+        if self.outfit_props.armature_category:
+            self.draw_armature(col, self.outfit_props)
 
     def draw_overview(self, layout:UILayout, section_prop, columns):
 
@@ -649,7 +534,7 @@ class OutfitStudio(Panel):
         row.label(text="Transparency")
         if button:
             obj = bpy.context.active_object
-            if obj != None:
+            if obj is not None:
                 icon = 'CHECKBOX_HLT' if "xiv_transparency" in obj and obj["xiv_transparency"] == True else 'CHECKBOX_DEHLT'
                 row = box.row(align=True)
                 row.label(text="Transparent Mesh", icon=icon)
@@ -678,8 +563,8 @@ class OutfitStudio(Panel):
         if section_prop.filter_vgroups:
             col.template_list(
                 "MESH_UL_yas", "", 
-                bpy.context.scene, "yas_vgroups", 
-                bpy.context.scene, "yas_vindex", 
+                get_outfit_properties(), "yas_vgroups", 
+                get_outfit_properties(), "yas_vindex", 
                 rows=5
                 )
         else:
@@ -692,8 +577,8 @@ class OutfitStudio(Panel):
                 rows=5
                 )
         row = col.row(align=True)
-        row.operator("ya.remove_select_vgroups", text= "Remove Selected").preset = ""
-        row.operator("ya.remove_empty_vgroups", text= "Remove Empty").preset = ""
+        row.operator("ya.remove_select_vgroups", text= "Remove Selected").preset = "PANEL"
+        row.operator("ya.remove_empty_vgroups", text= "Remove Empty")
         row.prop(section_prop, "filter_vgroups", text="", icon="FILTER")
                     
     def draw_armature(self, layout:UILayout, section_prop):
@@ -716,7 +601,7 @@ class OutfitStudio(Panel):
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
             split.label(text="Scaling:" if section_prop.scaling_armature else "Pose:")
-            split.label(text=bpy.context.scene.outfit_props.pose_display_directory)
+            split.label(text=self.outfit_props.pose_display_directory)
             buttonrow = split.row(align=True)
             op = buttonrow.operator("ya.pose_apply", text="Apply")
             op.reset = False
@@ -766,7 +651,6 @@ class OutfitStudio(Panel):
                      
     def dynamic_column_buttons(self, columns:int, layout:UILayout, section_prop, labels, slot, button_type):
         row = layout.row(align=True)
-        outfit_props = bpy.context.scene.outfit_props
         columns_list = [row.column(align=True) for _ in range(columns)]
 
         for index, (name, key) in enumerate(labels.items()):
@@ -779,7 +663,7 @@ class OutfitStudio(Panel):
                 icon = 'CHECKMARK' if getattr(section_prop, prop_name) else 'PANEL_CLOSE'
                 
                 col_index = index % columns 
-                emboss = False if (slot == "Legs" and name == outfit_props.shape_leg_base) or (slot == "Chest" and name == outfit_props.shape_chest_base) else True
+                emboss = False if (slot == "Legs" and name == self.outfit_props.shape_leg_base) or (slot == "Chest" and name == self.outfit_props.shape_chest_base) else True
                 columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon if emboss else "SHAPEKEY_DATA", emboss=emboss)
             else:
                 # print(f"{name} has no assigned property!")
@@ -802,14 +686,15 @@ class FileManager(Panel):
     bl_idname = "VIEW3D_PT_YA_FileManager"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Devkit"
+    bl_category = "XIV Kit"
     bl_label = "File Manager"
     bl_options = {'DEFAULT_CLOSED'}
     bl_order = 3
 
     def draw(self, context:Context):
-        section_prop = context.scene.file_props
-        self.outfit_prop  = context.scene.outfit_props
+        self.prefs       = get_preferences()
+        self.file_props  = get_file_properties()
+        self.outfit_prop = get_outfit_properties()
         if hasattr(context.scene, "devkit_props"):
             self.devkit_props = context.scene.devkit_props
         layout = self.layout
@@ -822,34 +707,31 @@ class FileManager(Panel):
 
         box = layout.box()
         row = box.row(align=True)
-        row.label(icon=options[section_prop.file_man_ui])
-        row.label(text=f"  {section_prop.file_man_ui.capitalize()}")
+        row.label(icon=options[self.file_props.file_man_ui])
+        row.label(text=f"  {self.file_props.file_man_ui.capitalize()}")
         button_row = row.row(align=True)
         
-        self.ui_category_buttons(button_row, section_prop, options)
+        self.ui_category_buttons(button_row, self.file_props, options)
 
         # IMPORT
-        button = section_prop.file_man_ui
-        # box = self.dropdown_header(button, section_prop, "button_import_expand", "Import", "IMPORT")
+        button = self.file_props.file_man_ui
         if button == "IMPORT":
-            self.draw_import(layout, section_prop)
+            self.draw_import(layout)
 
         # EXPORT
-        # box = self.dropdown_header(button, section_prop, "button_export_expand", "Export", "EXPORT")
         if button == "EXPORT":
-            self.draw_export(context, layout, section_prop)
+            self.draw_export(context, layout)
 
         if button == "MODPACK":
-                section_prop = context.scene.file_props
-                self.draw_modpack(layout, section_prop)
+            self.draw_modpack(layout)
 
-    def draw_export(self, context:Context, layout:UILayout, section_prop):
-        if section_prop.export_total > 0:
+    def draw_export(self, context:Context, layout:UILayout):
+        if self.file_props.export_total > 0:
             layout.separator(factor=0.5)
 
-            total = section_prop.export_total
-            step = section_prop.export_step
-            total_time = section_prop.export_time
+            total = self.file_props.export_total
+            step = self.file_props.export_step
+            total_time = self.file_props.export_time
             if step < 1:
                 time_left = "Estimating duration..."
             else:
@@ -866,19 +748,19 @@ class FileManager(Panel):
             row = layout.row(align=True)
             row.alignment = "CENTER"
             row.progress(
-                factor=section_prop.export_progress, 
+                factor=self.file_props.export_progress, 
                 text=f"Exporting: {step + 1}/{total}",
                 type="RING")
             row.label(text=f"{time_left}")
             layout.separator(factor=0.5, type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
-            row.label(text=f"{section_prop.export_file_name}")
+            row.label(text=f"{self.file_props.export_file_name}")
 
             layout.separator(factor=0.5)
         else:
             row = layout.row(align=True)
-            row.prop(section_prop, "export_display_directory", text="")
+            row.prop(self.prefs, "export_display_dir", text="")
             row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
 
             row = layout.row(align=True)
@@ -889,19 +771,19 @@ class FileManager(Panel):
                 col2 = row.column(align=True)
                 col2.operator("ya.batch_queue", text="Batch Export")
             
-            export_text = "GLTF" if section_prop.file_gltf else " FBX "
-            icon = "BLENDER" if section_prop.file_gltf else "VIEW3D"
+            export_text = "GLTF" if self.file_props.file_gltf else " FBX "
+            icon = "BLENDER" if self.file_props.file_gltf else "VIEW3D"
             col3 = row.column(align=True)
             col3.alignment = "RIGHT"
-            col3.prop(section_prop, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
+            col3.prop(self.file_props, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
 
         if hasattr(bpy.context.scene, "devkit_props"):
             box = layout.box()
             row = box.row(align=True)
-            if section_prop.export_body_slot == "Chest & Legs":
+            if self.file_props.export_body_slot == "Chest & Legs":
                 row.label(text=f"Body Part: Chest")
             else:
-                row.label(text=f"Body Part: {section_prop.export_body_slot}")
+                row.label(text=f"Body Part: {self.file_props.export_body_slot}")
 
             options =[
                 ("Chest", "MOD_CLOTH"),
@@ -911,23 +793,23 @@ class FileManager(Panel):
                 ("Chest & Legs", "ARMATURE_DATA")
                 ]
             
-            self.body_category_buttons(row, section_prop, options)
+            self.body_category_buttons(row, self.file_props, options)
     
             
             # CHEST EXPORT  
         
             button_type = "export"
         
-            if section_prop.export_body_slot == "Chest" or section_prop.export_body_slot == "Chest & Legs":
+            if self.file_props.export_body_slot == "Chest" or self.file_props.export_body_slot == "Chest & Legs":
 
                 category = "Chest"
 
                 labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Flat": ("Masc", [])}
         
-                self.dynamic_column_buttons(len(labels), layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, self.file_props, labels, category, button_type)
 
                 yab = self.devkit_props.export_yab_chest_bool
-                rue = self.devkit_props.export_rue_chest_bool and section_prop.rue_export
+                rue = self.devkit_props.export_rue_chest_bool and self.file_props.rue_export
                 lava = self.devkit_props.export_lava_chest_bool
                 masc = self.devkit_props.export_flat_chest_bool
 
@@ -935,7 +817,7 @@ class FileManager(Panel):
 
                 labels = {"Buff": ("Buff", [yab, rue, lava, masc]), "Piercings": ("Piercings", [yab, rue, lava, masc])}
         
-                self.dynamic_column_buttons(len(labels), layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, self.file_props, labels, category, button_type)
 
                 layout.separator(factor=0.5, type="LINE")
                 
@@ -954,22 +836,22 @@ class FileManager(Panel):
                     "Pecs":       ("Pecs", [masc]),
                 }
         
-                self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(3, layout, self.file_props, labels, category, button_type)
                 
             # LEG EXPORT  
             
-            if section_prop.export_body_slot == "Legs" or section_prop.export_body_slot == "Chest & Legs":
+            if self.file_props.export_body_slot == "Legs" or self.file_props.export_body_slot == "Chest & Legs":
                 
                 category = "Legs"
 
-                if section_prop.export_body_slot == "Chest & Legs":
+                if self.file_props.export_body_slot == "Chest & Legs":
                     layout.separator(factor=1, type="LINE")
                     row = layout.row(align=True)
                     row.label(text=f"Body Part: Legs")
 
                 labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Masc": ("Masc", [])}
         
-                self.dynamic_column_buttons(len(labels), layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, self.file_props, labels, category, button_type)
 
                 yab = self.devkit_props.export_yab_legs_bool
                 rue = self.devkit_props.export_rue_legs_bool
@@ -990,7 +872,7 @@ class FileManager(Panel):
                     
                 }
                 
-                self.dynamic_column_buttons(4, layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(4, layout, self.file_props, labels, category, button_type)
 
                 layout.separator(factor=0.5, type="LINE")
 
@@ -999,11 +881,11 @@ class FileManager(Panel):
                     "Pubes":  ("Pubes", [yab, rue, lava, masc])
                 }
         
-                self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type) 
+                self.dynamic_column_buttons(3, layout, self.file_props, labels, category, button_type) 
 
             # HAND EXPORT  
             
-            if section_prop.export_body_slot == "Hands":
+            if self.file_props.export_body_slot == "Hands":
                 
                 category = "Hands"
                 labels = {
@@ -1012,7 +894,7 @@ class FileManager(Panel):
                     "Lava": ("Lava", []),
                     }
         
-                self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(3, layout, self.file_props, labels, category, button_type)
                 
                 yab = self.devkit_props.export_yab_hands_bool
                 rue = self.devkit_props.export_rue_hands_bool
@@ -1027,7 +909,7 @@ class FileManager(Panel):
                     "Stabbies": ("Stabbies", [yab, rue, lava]), 
                     }
 
-                self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, self.file_props, labels, category, button_type)
                 
                 row = layout.row(align=True)
                 row.label(text="Clawsies:")
@@ -1037,13 +919,13 @@ class FileManager(Panel):
                     "Curved": ("Curved", [yab, rue, lava]),
                     }
 
-                self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, self.file_props, labels, category, button_type)
 
                 row = layout.row(align=True)
 
             # FEET EXPORT  
             
-            if section_prop.export_body_slot == "Feet":
+            if self.file_props.export_body_slot == "Feet":
                 
                 category = "Feet"
                 labels = {
@@ -1051,7 +933,7 @@ class FileManager(Panel):
                     "Rue": ("Rue", []), 
                     }
         
-                self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, self.file_props, labels, category, button_type)
 
                 yab = self.devkit_props.export_yab_feet_bool
                 rue = self.devkit_props.export_rue_feet_bool
@@ -1062,7 +944,7 @@ class FileManager(Panel):
                     "Clawsies": ("Clawsies", [yab, rue])
                     }
 
-                self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, self.file_props, labels, category, button_type)
         
             layout.separator(factor=0.5, type="LINE")
 
@@ -1090,32 +972,32 @@ class FileManager(Panel):
         col2 = split.column(align=True)
         col2.alignment = "RIGHT"
         if hasattr(context.scene, "devkit_props"):
-            icon = 'CHECKMARK' if section_prop.force_yas else 'PANEL_CLOSE'
-            text = 'Enabled' if section_prop.force_yas else 'Disabled'
-            col2.prop(section_prop, "force_yas", text=text, icon=icon)
-            icon = 'CHECKMARK' if section_prop.body_names else 'PANEL_CLOSE'
-            text = 'Always' if section_prop.body_names else 'Conditional'
-            col2.prop(section_prop, "body_names", text=text, icon=icon)
-            icon = 'CHECKMARK' if section_prop.rue_export else 'PANEL_CLOSE'
-            text = 'Standalone' if section_prop.rue_export else 'Variant'
-            col2.prop(section_prop, "rue_export", text=text, icon=icon)
-        icon = 'CHECKMARK' if section_prop.check_tris else 'PANEL_CLOSE'
-        text = 'Enabled' if section_prop.check_tris else 'Disabled'
-        col2.prop(section_prop, "check_tris", text=text, icon=icon)
-        icon = 'CHECKMARK' if section_prop.keep_shapekeys else 'PANEL_CLOSE'
-        text = 'Keep' if section_prop.keep_shapekeys else 'Remove'
-        col2.prop(section_prop, "keep_shapekeys", text=text, icon=icon)
-        icon = 'CHECKMARK' if section_prop.create_backfaces else 'PANEL_CLOSE'
-        text = 'Create' if section_prop.create_backfaces else 'Ignore'
-        col2.prop(section_prop, "create_backfaces", text=text, icon=icon)
+            icon = 'CHECKMARK' if self.file_props.force_yas else 'PANEL_CLOSE'
+            text = 'Enabled' if self.file_props.force_yas else 'Disabled'
+            col2.prop(self.file_props, "force_yas", text=text, icon=icon)
+            icon = 'CHECKMARK' if self.file_props.body_names else 'PANEL_CLOSE'
+            text = 'Always' if self.file_props.body_names else 'Conditional'
+            col2.prop(self.file_props, "body_names", text=text, icon=icon)
+            icon = 'CHECKMARK' if self.file_props.rue_export else 'PANEL_CLOSE'
+            text = 'Standalone' if self.file_props.rue_export else 'Variant'
+            col2.prop(self.file_props, "rue_export", text=text, icon=icon)
+        icon = 'CHECKMARK' if self.file_props.check_tris else 'PANEL_CLOSE'
+        text = 'Enabled' if self.file_props.check_tris else 'Disabled'
+        col2.prop(self.file_props, "check_tris", text=text, icon=icon)
+        icon = 'CHECKMARK' if self.file_props.keep_shapekeys else 'PANEL_CLOSE'
+        text = 'Keep' if self.file_props.keep_shapekeys else 'Remove'
+        col2.prop(self.file_props, "keep_shapekeys", text=text, icon=icon)
+        icon = 'CHECKMARK' if self.file_props.create_backfaces else 'PANEL_CLOSE'
+        text = 'Create' if self.file_props.create_backfaces else 'Ignore'
+        col2.prop(self.file_props, "create_backfaces", text=text, icon=icon)
         if hasattr(context.scene, "devkit_props"):
-            icon = 'CHECKMARK' if section_prop.create_subfolder else 'PANEL_CLOSE'
-            text = 'Create' if section_prop.create_subfolder else 'Ignore'
-            col2.prop(section_prop, "create_subfolder", text=text, icon=icon)
+            icon = 'CHECKMARK' if self.file_props.create_subfolder else 'PANEL_CLOSE'
+            text = 'Create' if self.file_props.create_subfolder else 'Ignore'
+            col2.prop(self.file_props, "create_subfolder", text=text, icon=icon)
 
         layout.separator(factor=0.5)
     
-    def draw_import(self, layout:UILayout, section_prop):
+    def draw_import(self, layout:UILayout):
         layout = self.layout
         row = layout.row(align=True)
         col = row.column(align=True)
@@ -1124,11 +1006,11 @@ class FileManager(Panel):
         col2 = row.column(align=True)
         col2.operator("ya.simple_cleanup", text="Cleanup")
         
-        export_text = "GLTF" if section_prop.file_gltf else "FBX"
-        icon = "BLENDER" if section_prop.file_gltf else "VIEW3D"
+        export_text = "GLTF" if self.file_props.file_gltf else "FBX"
+        icon = "BLENDER" if self.file_props.file_gltf else "VIEW3D"
         col3 = row.column(align=True)
         col3.alignment = "RIGHT"
-        col3.prop(section_prop, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
+        col3.prop(self.file_props, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
 
         box = layout.box()
         row = box.row(align=True)
@@ -1149,328 +1031,508 @@ class FileManager(Panel):
         
         col2 = split.column(align=True)
         col2.alignment = "RIGHT"
-        icon = 'CHECKMARK' if section_prop.remove_nonmesh else 'PANEL_CLOSE'
-        col2.prop(section_prop, "armatures", text="", icon="ARMATURE_DATA")
-        text = 'Remove' if section_prop.remove_nonmesh else 'Keep'
-        col2.prop(section_prop, "remove_nonmesh", text=text, icon=icon)
-        icon = 'CHECKMARK' if section_prop.update_material else 'PANEL_CLOSE'
-        text = 'Enabled' if section_prop.update_material else 'Disabled'
-        col2.prop(section_prop, "update_material", text=text, icon=icon)
-        icon = 'CHECKMARK' if section_prop.reorder_mesh_id else 'PANEL_CLOSE'
-        text = 'Enabled' if section_prop.reorder_mesh_id else 'Disabled'
-        col2.prop(section_prop, "reorder_mesh_id", text=text, icon=icon)
-        col2.prop(section_prop, "rename_import", text="")
+        icon = 'CHECKMARK' if self.file_props.remove_nonmesh else 'PANEL_CLOSE'
+        col2.prop(self.file_props, "armatures", text="", icon="ARMATURE_DATA")
+        text = 'Remove' if self.file_props.remove_nonmesh else 'Keep'
+        col2.prop(self.file_props, "remove_nonmesh", text=text, icon=icon)
+        icon = 'CHECKMARK' if self.file_props.update_material else 'PANEL_CLOSE'
+        text = 'Enabled' if self.file_props.update_material else 'Disabled'
+        col2.prop(self.file_props, "update_material", text=text, icon=icon)
+        icon = 'CHECKMARK' if self.file_props.reorder_mesh_id else 'PANEL_CLOSE'
+        text = 'Enabled' if self.file_props.reorder_mesh_id else 'Disabled'
+        col2.prop(self.file_props, "reorder_mesh_id", text=text, icon=icon)
+        col2.prop(self.file_props, "rename_import", text="")
 
         layout.separator(factor=0.5)
 
-    def draw_modpack(self, layout:UILayout, section_prop):
+    def draw_modpack(self, layout:UILayout):
         scene = bpy.context.scene
         if platform.system() == "Windows":
             row = layout.row(align=True)
-            split = row.split(factor=0.65, align=True)
-            icon = "CHECKMARK" if section_prop.consoletools_status == "ConsoleTools Ready!" else "X"
-            split.label(text=section_prop.consoletools_status, icon=icon)
+            split = row.split(factor=0.25, align=True)
+            icon = "CHECKMARK" if self.prefs.consoletools_status else "X"
+            text = "ConsoleTools Ready!" if self.prefs.consoletools_status else "ConsoleTools missing."
+            split.alignment = "RIGHT"
+            split.label(text="")
+            split.label(text=text, icon=icon)
             split.operator("ya.file_console_tools", text="Check")
             row.operator("ya.consoletools_dir", icon="FILE_FOLDER", text="")
 
             layout.separator(factor=0.5,type="LINE")
+        
+        row = layout.row(align=True)
+        split = row.split(factor=0.25, align=True)
+        split.alignment = "RIGHT"
+        split.label(text="Output:")
+        split.prop(self.prefs, "modpack_output_display_dir", text="")
+        row.operator("ya.modpack_dir_selector", icon="FILE_FOLDER", text="").category = "OUTPUT_PMP" 
+
+        box = layout.box()
+        row = box.row(align=True)
+        
+        op_atr = {
+            "category": "ALL",
+            "group":    0,
+            }
+            
+        self.operator_button(row, "ya.file_modpacker", icon="FILE_PARENT", attributes=op_atr)
+        row.prop(self.file_props, "modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
+        row.prop(self.file_props, "modpack_replace", text="Update", icon="CURRENT_FILE",)
+
+        op_atr = {
+            "add":      True,
+            "category": "GROUP",
+            "group":    0,
+            "option":   0
+            }
+            
+        self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
+        self.operator_button(row, "ya.pmp_selector", icon="FILE")
+
+        box.separator(factor=0.5,type="LINE")
+
+        row = box.row(align=True)
+        split = row.split(factor=0.25)
+        col2 = split.column(align=True)
+        col2.label(text="Ver.")
+        col2.prop(self.file_props, "modpack_version", text="")
+
+        col = split.column(align=True)
+        col.label(text="Modpack:")
+        col.prop(self.file_props, "modpack_display_dir", text="", emboss=True)
+
+        split2 = row.split()
+        col3 = split2.column(align=True)
+        col3.alignment = "CENTER"
+        col3.label(text="")
+        col3.prop(self.file_props, "modpack_author", text="by", emboss=True)
+
+        if self.file_props.modpack_replace and Path(self.file_props.modpack_dir).is_file():
+            box.separator(factor=0.5,type="LINE")
+            row = box.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text=f"{Path(self.file_props.modpack_dir).name} is loaded.", icon="INFO")
+
+        elif self.file_props.modpack_replace:
+            box.separator(factor=0.5,type="LINE")
+            row = box.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="No modpack is loaded.", icon="INFO")
+
+        elif not self.file_props.modpack_replace and (Path(self.prefs.modpack_output_dir) / Path(self.file_props.modpack_display_dir + ".pmp")).is_file():
+            box.separator(factor=0.5,type="LINE")
+            row = box.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text=f"{self.file_props.modpack_display_dir + '.pmp'} already exists!", icon="ERROR")
+        else:
+            box.separator(factor=0.1,type="SPACE")
+
+        self.checked_folders = {}
+        option_indent:float = 0.21
+        for group_idx, group in enumerate(scene.pmp_mod_groups):
+            group: BlendModGroup
+            box = layout.box()
+            button = group.show_group
+
+            self.group_header(box, group, group_idx)
+
+            if not button:
+                continue
+
+            box.separator(factor=0.5,type="LINE")
+
+            self.group_container(box, group, group_idx)
+
+            if group.use_folder and group.group_type != "Combining":
+                box.separator(factor=0.1,type="SPACE")
+    
+                row = layout.row(align=True)
+                split = row.split(factor=option_indent)
+
+                columns = [split.column() for _ in range(1, 3)]
+                box = columns[1].box()
+                self.folder_container(box, group, group_idx, 0)
+
+                layout.separator(factor=0.1,type="SPACE")
+                continue
+
+            for option_idx, option in enumerate(group.mod_options):
+                option: BlendModOption
+
+                row = layout.row(align=True)
+                split = row.split(factor=option_indent)
+
+                columns = [split.column() for _ in range(1, 3)]
+                                                         
+                if group.group_type == "Combining" and option_idx == 8:
+                    row = columns[1].row(align=True)
+                    row.alignment = "CENTER"
+                    row.label(icon="ERROR", text="Combining groups have a limit of 8 options.")
+                    row = columns[1].row(align=True)
+                    row.alignment = "CENTER"
+                    row.label(icon="BLANK1", text="Options below will be discarded.")
+                    columns[1].separator(factor=2,type="LINE")
+
+                self.option_header(columns[1], group, option, group_idx, option_idx)
+
+                if option.show_option:
+                    row = self.right_align_prop(columns[1], "Description", "description", option)
+
+                    columns[1].separator(factor=2,type="LINE")
+
+                    row.label(icon="FILE_TEXT")
+                    self.entry_container(columns[1], option, group_idx, option_idx)
+            
+            for correction_idx, correction in enumerate(group.corrections):
+                correction: CorrectionEntry
+
+                row = layout.row(align=True)
+                split = row.split(factor=option_indent)
+
+                columns = [split.column() for _ in range(1, 3)]
+
+                self.correction_header(columns[1], group, correction, group_idx, correction_idx)
+
+                if correction.show_option:
+                    self.right_align_prop(columns[1], "Options", "names", correction)
+
+                    columns[1].separator(factor=2,type="LINE")
+
+                    self.entry_container(columns[1], correction, group_idx, correction_idx)
+
+        # row = layout.row(align=True)
+        # if platform.system() == "Windows":
+            # row.operator("ya.file_converter", text="Convert")
+           
+    def group_header(self, layout:UILayout, group:BlendModGroup, group_idx:int):
+        button = group.show_group
+
+        row = layout.row(align=True)
+        columns = [row.column() for _ in range(1, 4)]
+        
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        row = columns[0].row(align=True)
+        row.alignment = "LEFT"
+        row.prop(group, "show_group", text="", icon=icon, emboss=False)
+        row.label(icon="BLANK1")
+        row.label(icon="BLANK1")
+    
+        row = columns[1].row(align=True)
+        row.alignment = "EXPAND"
+        op_atr = {
+            "category": "SINGLE",
+            "group":    group_idx,
+            }
+            
+        self.operator_button(row, "ya.file_modpacker", icon="FILE_PARENT", attributes=op_atr)
+        row.prop(group, "name", text="", icon="GROUP")
+        subrow = row.row(align=True)
+        subrow.scale_x = 0.4
+        subrow.prop(group, "priority", text="")
+       
+        row = columns[2].row(align=True)
+        row.alignment = "RIGHT"
+        row.label(icon="BLANK1")
+
+        # if group.group_type == "Combining":
+            # row.label(text="", icon="NEWFOLDER")
+        # else:
+        row.prop(group, "use_folder", text="", icon="NEWFOLDER", emboss=True)
+        
+        if group.use_folder and group.group_type != "Combining":
+            row.label(icon="ADD", text="")
+        else:
+            op_atr = {
+            "add":      True,
+            "category": "OPTION",
+            "group":    group_idx,
+            "option":   0
+            }
+            
+            self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
+
+        op_atr = {
+        "add":      False,
+        "category": "GROUP",
+        "group":    group_idx,
+        "option":   0
+        }
+        
+        self.operator_button(row, "ya.modpacker_ui_containers", icon="TRASH", attributes=op_atr)
+
+    def group_container(self, layout:UILayout, group:BlendModGroup, idx:int):
+            row = layout.row(align=True)
+            split = row.split(factor=0.25)
+            col = split.column()
+            subrow = col.row(align=True)
+            subrow.alignment = "RIGHT"
+            subrow.label(text="Replace:")
+
+            col2 = split.column()
+            col2.prop(group, "idx")
+
+            split2 = row.split(factor=1)
+            col3 = split2.column()
+            col3.alignment = "CENTER"
+            col3.prop(group, "page", text="", emboss=True)
+
+            row = layout.row(align=True)
+            split = row.split(factor=0.25)
+            col = split.column()
+            subrow = col.row(align=True)
+            subrow.alignment = "RIGHT"
+            subrow.label(text="Description:")
+
+            col2 = split.column()
+            col2.prop(group, "description", text="")
+
+            split2 = row.split(factor=1)
+            col3 = split2.column(align=True)
+            col3.alignment = "CENTER"
+            col3.prop(group, "group_type", text="", emboss=True)
+
+            if not group.use_folder:
+                layout.separator(factor=0.1, type="SPACE")
+
+    def option_header(self, layout:UILayout, group:BlendModGroup, option:BlendModOption, group_idx:int, option_idx:int):
+        row = layout.box().row(align=True)
+        columns = [row.column() for _ in range(1, 4)]
+
+        button = option.show_option
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        row = columns[0].row(align=True)
+        row.alignment = "LEFT"
+        row.prop(option, "show_option", text="", icon=icon, emboss=False)
+        row.label(icon="BLANK1")
+    
+        row = columns[1].row(align=True)
+        row.alignment = "EXPAND"
+        row.row(align=True).prop(option, "name", text="", icon="OPTIONS")
+        if group.group_type != "Combining":
+            subrow = row.row(align=True)
+            subrow.scale_x = 0.4
+            subrow.prop(option, "priority", text="")
+
+        row = columns[2].row(align=True)
+        row.alignment = "RIGHT"
+        row.label(icon="BLANK1")
+
+        op_atr = {
+            "add":      True,
+            "category": "ENTRY",
+            "group":    group_idx,
+            "option":   option_idx
+            }
+            
+        self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
+        
+        op_atr = {
+            "add":      False,
+            "category": "OPTION",
+            "group":    group_idx,
+            "option":   option_idx
+            }
+            
+        self.operator_button(row, "ya.modpacker_ui_containers", icon="TRASH", attributes=op_atr)
+    
+    def correction_header(self, layout:UILayout, group:BlendModGroup, option:CorrectionEntry, group_idx:int, option_idx:int):
+        row = layout.box().row(align=True)
+        columns = [row.column() for _ in range(1, 4)]
+
+        button = option.show_option
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        row = columns[0].row(align=True)
+        row.alignment = "LEFT"
+        row.prop(option, "show_option", text="", icon=icon, emboss=False)
+        row.label(icon="BLANK1")
+    
+        row = columns[1].row(align=True)
+        row.alignment = "EXPAND"
+        row.row(align=True).label(text=f"Correction #{option_idx + 1}", icon="LINK_BLEND")
+
+        row = columns[2].row(align=True)
+        row.alignment = "RIGHT"
+        row.label(icon="BLANK1")
+
+        op_atr = {
+            "add":      True,
+            "category": "COMBI_ENTRY",
+            "group":    group_idx,
+            "option":   option_idx
+            }
+            
+        self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
+        
+        op_atr = {
+            "add":      False,
+            "category": "COMBI",
+            "group":    group_idx,
+            "option":   option_idx
+            }
+            
+        self.operator_button(row, "ya.modpacker_ui_containers", icon="TRASH", attributes=op_atr)
+
+    def folder_container(self, layout:UILayout, container:BlendModGroup, group_idx:int, option_idx:int):
+        layout.separator(factor=0.1,type="SPACE")
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
-        split.label(text="XIV Source:")
-        split.prop(section_prop, "game_model_path", text="")
-        model_path = section_prop.game_model_path
-        icon = "CHECKMARK" if model_path.startswith("chara") or model_path.endswith("mdl") else "X"
-        row.label(icon=icon)
+        split.label(text="Folder:")
 
-        if section_prop.game_model_path.startswith("chara") and section_prop.game_model_path.endswith("mdl"):
+        # This is stupid
+        path = str(Path(*Path(container.folder_path).parts[-3:])) if Path(container.folder_path).is_dir else container.folder_path
+        split.alignment = "LEFT"
+        split.label(text=f"{path}")
+
+        op_atr = {
+            "category": "GROUP",
+            "group": group_idx,
+            "option": option_idx,
+            }
+
+        self.operator_button(row, "ya.modpack_dir_selector", icon="FILE_FOLDER", attributes=op_atr)
+
+        if len(container.get_subfolder()) > 1:
             row = layout.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
             split.label(text="")
-            split.operator("ya.gamepath_category", text="Chest", depress=section_prop.chest_g_category).category = "top"
-            split.operator("ya.gamepath_category", text="Hands", depress=section_prop.hands_g_category).category = "glv"
-            split.operator("ya.gamepath_category", text="Legs", depress=section_prop.legs_g_category).category = "dwn"
-            split.operator("ya.gamepath_category", text="Feet", depress=section_prop.feet_g_category).category = "sho"
+            split.prop(container, "subfolder", text="Subfolder")
+            row.label(icon="FOLDER_REDIRECT")
+
+        if container.use_folder:
+            row = self.right_align_prop(layout, "XIV Path", "game_path", container)
+            icon = "CHECKMARK" if container.valid_path else "X"
+            row.label(icon=icon)
+            self.xiv_path_category(layout, container, "GROUP", group_idx, option_idx)
         
+            if container.get_folder_stats(model_check=True):
+                self.get_file_stats(layout, container)
         
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Models:")
-        split.prop(section_prop, "savemodpack_display_directory", text="")
-        row.operator("ya.modpack_dir_selector", icon="FILE_FOLDER", text="").category = "savemodpack"
-        
-        if len(bpy.context.scene.fbx_subfolder) > 1:
+        layout.separator(factor=0.1,type="SPACE")
+
+    def entry_container(self, layout:UILayout, container:BlendModOption | CorrectionEntry, group_idx:int, option_idx:int):
+         
+        for file_idx, file in enumerate(container.file_entries):
+            file: ModFileEntry
+
             row = layout.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
-            split.label(text="Subfolder:")
-            split.prop(section_prop, "fbx_subfolder", text="") 
-            row.label(icon="FOLDER_REDIRECT") 
+            split.label(text="File:")
+            split.alignment = "LEFT"
+            split.label(text=f"{Path(file.file_path).name}")
 
+            op_atr = {
+                "category": "FILE_ENTRY",
+                "group": group_idx,
+                "option": option_idx,
+                "entry": file_idx,
+            }
+    
+            self.operator_button(row, "ya.modpack_file_selector", icon="FILE_FOLDER", attributes=op_atr)
+            
+            row = self.right_align_prop(layout, "XIV Path", "game_path", file)
+            icon = "CHECKMARK" if file.valid_path else "X"
+            row.label(icon=icon)
+            self.xiv_path_category(layout, file, "FILE_ENTRY", group_idx, option_idx, file_idx)
+
+            layout.separator(factor=1.5,type="LINE")
+
+        for entry_idx, entry in enumerate(container.meta_entries):
+            entry: ModMetaEntry
+
+            match entry.type:
+                case "ATR":
+                    category = "ATR_ENTRY" if isinstance(container, BlendModOption) else "ATR_COMBI"
+                    icon = "MESH_CONE"
+
+                case "SHP":
+                    category = "SHP_ENTRY" if isinstance(container, BlendModOption) else "SHP_COMBI"
+                    icon = "SHAPEKEY_DATA"
+
+            row = layout.row(align=True)
+            row.alignment = "EXPAND"
+            row.label(text="", icon=icon)
+
+            subrow = row.row(align=True)
+            subrow.scale_x = 0.6
+            subrow.prop(entry, "slot", text="")
+
+            subrow = row.row(align=True)
+            subrow.scale_x = 0.8
+            subrow.prop(entry, "manip_ref", text="")
+
+            subrow = row.row(align=True)
+            subrow.scale_x = 0.6
+            subrow.prop(entry, "model_id", text="")
+
+            if entry.type == "SHP":
+                subrow = row.row(align=True)
+                subrow.scale_x = 0.6
+                subrow.prop(entry, "connector_condition", text="")
+
+            subrow = row.row(align=True)
+            subrow.scale_x = 0.6
+            subrow.prop(entry, "race_condition", text="")
+
+            row.prop(entry, "enable", text="", icon= "CHECKMARK" if entry.enable else "X")
+            
+            op_atr = {
+                "add":      False,
+                "category": category,
+                "group":    group_idx,
+                "option":   option_idx,
+                "entry":    entry_idx,
+            }
+    
+            self.operator_button(row, "ya.modpacker_ui_containers", icon="TRASH", attributes=op_atr)
+
+            layout.separator(factor=1.5,type="LINE")
+    
+    def get_file_stats(self, layout:UILayout, container:BlendModGroup | BlendModOption):
+
+        layout.separator(factor=2,type="LINE")
+
+        button = container.show_folder
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
         row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.label(text="")
-        split.operator("ya.directory_copy", text="Copy from Export") 
+        row.alignment = "LEFT"
+        row.prop(container, "show_folder", text="Model Stats", icon=icon, emboss=False)
 
-        box = layout.box()
-        row = box.row(align=True)
-        row.prop(section_prop, "button_modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
-        row.prop(section_prop, "button_modpack_replace", text="Update", icon="CURRENT_FILE",)
-
-        box.separator(factor=0.5,type="LINE")
-
-        if section_prop.button_modpack_replace:
-
-            row = box.row(align=True)
-            split = row.split(factor=0.25)
-            col2 = split.column(align=True)
-            col2.label(text="Ver.")
-            col2.prop(section_prop, "loadmodpack_version", text="")
-
-            col = split.column(align=True)
-            col.label(text="Modpack:")
-            col.prop(section_prop, "loadmodpack_display_directory", text="", emboss=False)
-
-            split2 = row.split(factor=1)
-            col3 = split2.column(align=True)
-            col3.alignment = "CENTER"
-            col3.operator("ya.pmp_selector", icon="FILE", text="")
-            col3.prop(section_prop, "loadmodpack_author", text="by", emboss=False)
-
-            if Path(section_prop.loadmodpack_directory).is_file():
-                selection = section_prop.modpack_groups
-
-                row = box.row(align=True)
-                split = row.split(factor=0.25, align=True)
-                split.alignment = "RIGHT"
-                text = "Create:" if selection == "0" else "Replace:"
-                split.label(text=text)
-                split.prop(section_prop, "modpack_groups", text="")
-                sub = row.row(align=True)
-                sub.alignment = "RIGHT"
-                if selection != "0":
-                    sub.prop(section_prop, "modpack_ui_page", emboss=False)
-                else:
-                    sub.prop(section_prop, "modpack_page", emboss=True)
-
-                row = box.row(align=True)
-                split = row.split(factor=0.25, align=True)
-                split.alignment = "RIGHT"
-                split.label(text="Name:")
-                split.prop(section_prop, "modpack_rename_group", text="")
-                sub = row.row(align=True)
-                sub.alignment = "RIGHT"
-                sub.prop(section_prop, "mod_group_type", text="")
-            else:
-                row = box.row(align=True)
-
-        else:
-
-            row = box.row(align=True)
-            split = row.split(factor=0.25)
-            col2 = split.column(align=True)
-            col2.label(text="Ver.")
-            col2.prop(section_prop, "new_mod_version", text="")
-
-            col = split.column(align=True)
-            col.label(text="Mod Name:")
-            col.prop(section_prop, "new_mod_name", text="")
+        if button:
+            layout.separator(factor=0.5,type="LINE")
             
-            split2 = row.split(factor=1)
-            col3 = split2.column(align=True)
-            col3.alignment = "CENTER"
-            col3.label(text="Author:")
-            col3.prop(section_prop, "author_name", text="")
+            row = layout.row(align=True)
+            row.label(icon="BLANK1")
+            split = row.split(factor=0.4)
+            split.label(text="Name:")
+            split.label(text="MDL:")
+            split.label(text="FBX:")
 
-            row = box.row(align=True)
-            split = row.split(factor=0.25)
-            col3 = split.column(align=True)
-            col3.alignment = "RIGHT"
-            col3.label(text="Group:")
+            folder = container.final_folder()
+            if folder not in self.checked_folders:
+                folder_stats = container.get_folder_stats()
+            else: 
+                folder_stats = self.checked_folders[folder]
 
-            col2 = split.column(align=True)
-            col2.prop(section_prop, "modpack_rename_group", text="")
+            for file_name, file_type in folder_stats.items():
+                file_name:str
+                file_type:dict[str, bool]
 
-            split2 = row.split(factor=1)
-            col = split2.column(align=True)
-            col.alignment = "CENTER"
-            col.prop(section_prop, "mod_group_type", text="")
-
-        box.separator(factor=0.5,type="LINE")
-
-        row = box.row(align=True)
-        row.prop(section_prop, "button_modpack_model", text="Model", icon="ARMATURE_DATA")
-        row.prop(section_prop, "button_modpack_model", text="Shape Key", icon="SHAPEKEY_DATA", invert_checkbox=True)
-
-        box.separator(factor=0.5,type="LINE")
-
-        if section_prop.button_modpack_model:
-
-            row = box.row(align=True)
-            if platform.system() == "Windows":
-                row.operator("ya.file_modpacker", text="Convert & Pack").preset = "convert_pack"
-                row.operator("ya.file_modpacker", text="Convert").preset = "convert"
-            row.operator("ya.file_modpacker", text="Pack").preset = "pack"
+                row = layout.row(align=True)
+                row.label(icon="BLANK1")
+                split = row.split(factor=0.4)
+                split.label(text=file_name)
+                split.label(text="  X" if not file_type["mdl"] or file_type["mdl"] < file_type["fbx"] else "  ✓")
+                split.label(text="  X" if not file_type["fbx"] or file_type["mdl"] > file_type["fbx"] else "  ✓")
             
-        else:
-            row = box.row(align=True)
-            subrow = row.row(align=True)
-            subrow.scale_x = 1.3
-            subrow.label(text="Add Option:")
-            row.prop(section_prop, "shape_option_name")
+            layout.separator(factor=2,type="LINE")
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="Checkmarks indicate the most recent file.", icon="INFO")
 
-            op = row.operator("ya.shape_key_options", icon="ADD", text="")
-            op.add = True
-            op.category = "OPTION"
-
-            box.separator(factor=0.5,type="LINE")
-
-            for option_idx, option in enumerate(scene.pmp_combining_options):
-                row = box.row(align=True)
-                subrow = row.row(align=True)
-                subrow.scale_x = 1.3
-                subrow.label(text=f"Option #{option_idx}")
-                row.prop(scene.pmp_combining_options[option_idx], "name", text="")
-
-                op = row.operator("ya.shape_key_options", icon="TRASH", text="")
-                op.add = False
-                op.category ="OPTION"
-                op.option_idx = option_idx
-
-                for shp_idx, shp in enumerate(scene.pmp_combining_options[option_idx].entries):
-                    row = box.row(align=True)
-                    row.label(text="", icon="RIGHTARROW")
-                    row.prop(shp, "slot", text="")
-                    subrow = row.row(align=True)
-                    subrow.scale_x = 1.5
-                    subrow.prop(shp, "shape", text="")
-                    row.prop(shp, "modelid", text="")
-                    row.prop(shp, "condition", text="")
-
-                    op = row.operator("ya.shape_key_options", icon="TRASH", text="")
-                    op.add = False
-                    op.category ="SHAPE_KEY"
-                    op.option_idx = option_idx
-                    op.shp_idx = shp_idx
-                
-                row = box.row(align=True)
-                row.alignment = "RIGHT"
-                op = row.operator("ya.shape_key_options", icon="ADD", text="Add Entry")
-                op.add = True
-                op.category ="SHAPE_KEY"
-                op.option_idx = option_idx
-
-                box.separator(factor=0.5,type="LINE")
-
-            row = box.row(align=True)
-            subrow = row.row(align=True)
-            subrow.scale_x = 1.3
-            subrow.label(text="Corrections:")
-            row.prop(section_prop, "shape_correction")
-            op = row.operator("ya.shape_key_options", icon="ADD", text="")
-            op.add = True
-            op.category = "CORRECTION"
-
-            box.separator(factor=0.5,type="LINE")
-            is_entry = False
-            for idx, option in enumerate(scene.pmp_correction_entries):
-                row = box.row(align=True)
-                row.label(text=f"{scene.pmp_correction_entries[idx].name}:")
-                row = box.row(align=True)
-                row.label(text="", icon="RIGHTARROW")
-                row.prop(option.entry, "slot", text="")
-                subrow = row.row(align=True)
-                subrow.scale_x = 1.5
-                subrow.prop(option.entry, "shape", text="")
-                row.prop(option.entry, "modelid", text="")
-                row.prop(option.entry, "condition", text="")
-
-                op = row.operator("ya.shape_key_options", icon="TRASH", text="")
-                op.add = False
-                op.category ="CORRECTION"
-                op.shp_idx = idx
-
-                is_entry = True
-            
-            if is_entry:
-                box.separator(factor=0.5,type="LINE")
-
-            row = box.row(align=True)
-            op = row.operator("ya.shape_key_options", icon="FILE_REFRESH", text="")
-            op.add = True
-            op.category ="RESET"
-
-            op = row.operator("ya.shape_key_options", text="YAB Leg Preset")
-            op.add = True
-            op.category ="PRESET"
-
-            row.operator("ya.file_modpacker", text="Pack").preset = "pack"
-
-            button = section_prop.button_modpack_all_keys
-
-            box = layout.box()
-            row = box.row(align=True)
-            
-            icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-            row.prop(section_prop, "button_modpack_all_keys", text="", icon=icon, emboss=False)
-            row.label(text="Show All Options")
-            if button:
-                box = layout.box()
-                row = box.row(align=True)
-                split = row.split(factor=0.3)
-                col1 = split.column()
-                col2 = split.column()
-                row = col1.row(align=True)
-                row.alignment = "CENTER"
-                row.label(text="Options")
-
-                row = col2.row(align=True)
-                row.label(text="Slot")
-                row.label(text="Shape")
-                row.label(text="Model ID")
-                row.label(text="Conditional")
-
-                for option in scene.pmp_combining_final:
-                    if len(option.option_idx) == 0:
-                        continue
-                    
-                    row = layout.row(align=True)
-                    split = row.split(factor=0.3)
-                    col1 = split.column()
-                    col2 = split.column()
-                    row = col1.row(align=True)
-                    row.alignment = "CENTER"
-                    row.label(text=option.name)
-                    
-                    for item in option.option_idx:
-                        idx = item.value
-                        for shp_idx, shp in enumerate(scene.pmp_combining_options[idx].entries):
-                            row = col2.row(align=True)
-                            row.label(text=f"{shp.slot}")
-                            row.label(text=f"{'_'.join(shp.shape.split('_')[1:])}")
-                            row.label(text=f"{shp.modelid}")
-                            row.label(text=f"{shp.condition}")
-                    for item in option.corr_idx:
-                        idx = item.value
-                        shp = scene.pmp_correction_entries[idx].entry
-                        row = col2.row(align=True)
-                        row.label(text=f"{shp.slot}")
-                        row.label(text=f"{'_'.join(shp.shape.split('_')[1:])}")
-                        row.label(text=f"{shp.modelid}")
-                        row.label(text=f"{shp.condition}")
-
-                    layout.separator(factor=0.5,type="LINE")
-              
-        box = layout.box()
-        row = box.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Status:")
-        split.prop(section_prop, "modpack_progress", text="", emboss=False)
-           
     def dynamic_column_buttons(self, columns, box:UILayout, section_prop, labels, category, button_type):
         if category == "Chest":
             yab = self.devkit_props.export_yab_chest_bool
@@ -1511,22 +1573,69 @@ class FileManager(Panel):
                 columns_list[col_index].label(text=name, icon="PANEL_CLOSE")
         return box  
 
-    def dropdown_header(self, button, section_prop, prop_str=str, label=str, extra_icon=""):
-        layout = self.layout
+    def dropdown_header(self, layout:UILayout, button, section_prop, prop_str=str, label=str, alignment="LEFT", extra_icon=""):
         row = layout.row(align=True)
         split = row.split(factor=1)
         box = split.box()
         sub = box.row(align=True)
-        sub.alignment = 'LEFT'
+        sub.alignment = alignment
 
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
         sub.prop(section_prop, prop_str, text="", icon=icon, emboss=False)
-        sub.label(text=label)
+        if isinstance(section_prop, BlendModOption):
+            sub.prop(section_prop, "name", text="")
+        else:
+            sub.label(text=label)
         if extra_icon != "":
             sub.label(icon=extra_icon)
         
         return box
 
+    def right_align_prop(self, layout:UILayout, label:str, prop:str, obj, factor:float=0.25) -> UILayout:
+        """Get simple, customisable, right aligned prop with label on a new row. Returns the row if you want to append extra items.
+        Args:
+            label: Row name.
+            prop: Prop referenced.
+            container: Object that contains the necessary props.
+            factor: Split row ratio.
+           """
+        
+        row = layout.row(align=True)
+        split = row.split(factor=factor, align=True)
+        split.alignment = "RIGHT"
+        split.label(text=f"{label}:")
+        split.prop(obj, prop, text="")
+        
+        return row
+
+    def operator_button(self, layout:UILayout, operator:str, icon:str, text:str="", attributes:dict={}):
+        """Operator as a simple button."""
+
+        op = layout.operator(operator, icon=icon, text=text)
+        for attribute, value in attributes.items():
+            setattr(op, attribute, value)
+    
+    def xiv_path_category(self, layout:UILayout, container:BlendModOption | ModFileEntry, category:str, group_idx:int, option_idx:int=0, entry_idx:int=0, factor:float=0.25):
+        if container.valid_path and container.game_path.endswith(".mdl"):
+            body_slots = {
+                "Chest": "top",
+                "Hands": "glv",
+                "Legs":  "dwn",
+                "Feet":  "sho"
+            }
+        
+            row = layout.row(align=True)
+            split = row.split(factor=factor, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="")
+            for key, value in body_slots.items():
+                op = split.operator("ya.gamepath_category", text=key, depress=True if value == container.check_gamepath_category() else False)
+                setattr(op, "body_slot", value)
+                setattr(op, "group", group_idx)
+                setattr(op, "option", option_idx)
+                setattr(op, "entry", entry_idx)
+                setattr(op, "category", category)
+        
     def body_category_buttons(self, layout:UILayout, section_prop, options):
         row = layout
 
@@ -1547,12 +1656,6 @@ class FileManager(Panel):
 CLASSES = [
     MESH_UL_yas,
     MESH_UL_shape,
-    FrameJump,
-    KeyframeJump,
-    DirSelector,
-    BodyPartSlot,
-    PanelCategory,
-    OutfitCategory,
     OutfitStudio,
     FileManager
 ]   
