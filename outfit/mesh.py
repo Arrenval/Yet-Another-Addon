@@ -1,7 +1,8 @@
 import bpy
 
-from bpy.types   import Operator, Context, Object
-from bpy.props   import StringProperty
+from bpy.types    import Operator, Context, Object
+from bpy.props    import StringProperty
+from ..properties import get_outfit_properties
 
 
 class TagBackfaces(Operator):
@@ -167,13 +168,13 @@ class ModifierShape(Operator):
     @classmethod
     def poll(cls, context):
         obj = context.active_object
-        modifier:str = context.scene.outfit_props.shape_modifiers
+        modifier:str = get_outfit_properties().shape_modifiers
         return context.mode == "OBJECT" and modifier != "None"
     
     @classmethod
     def description(cls, context, properties):
-        props = context.scene.outfit_props
-        obj = context.active_object
+        props = get_outfit_properties()
+        obj   = context.active_object
         modifier:str = props.shape_modifiers
         if modifier == "None":
             return "Missing modifier"
@@ -183,7 +184,7 @@ class ModifierShape(Operator):
             return "Applies Deform Modifier to active shape key"
 
     def execute(self, context):
-        props = context.scene.outfit_props
+        props = get_outfit_properties()
         self.keep = props.keep_modifier
         obj = context.active_object
         modifier:str = props.shape_modifiers

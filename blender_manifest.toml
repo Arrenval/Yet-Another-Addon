@@ -12,7 +12,7 @@ website = "https://discord.com/invite/qEKqwYGsnr"
 tags = ["Animation", "Import-Export", "Modeling", "Mesh", "Object", "Rigging", "User Interface"]
 
 blender_version_min = "4.2.0"
-# blender_version_max = "5.1.0"
+blender_version_max = "4.4"
 
 license = ["SPDX:GPL-3.0-or-later"]
 

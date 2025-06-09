@@ -1,17 +1,17 @@
 import bpy
 
-from .props               import get_object_from_mesh
 from bpy.types            import Object
 from bpy.app.handlers     import persistent
+from ..properties         import get_object_from_mesh, get_outfit_properties
 
 def frame_ui(dummy):
-    bpy.context.scene.outfit_props.animation_frame = bpy.context.scene.frame_current
+    get_outfit_properties().animation_frame = bpy.context.scene.frame_current
 
 @persistent
 def get_mesh_props(dummy) -> None:
     obj: Object   = bpy.context.active_object
     scene         = bpy.context.scene
-    props         = bpy.context.scene.outfit_props
+    props         = get_outfit_properties()
     mod_button    = props.button_modifiers_expand
     weight_button = props.filter_vgroups
     
@@ -19,8 +19,8 @@ def get_mesh_props(dummy) -> None:
         return None
     
     if not obj:
-        scene.shape_modifiers.clear()
-        scene.yas_vgroups.clear()
+        props.shape_modifiers_group.clear()
+        props.yas_vgroups.clear()
         return None
 
     if getattr(props, "mesh_category") and mod_button and obj.modifiers:
@@ -30,38 +30,38 @@ def get_mesh_props(dummy) -> None:
                 'DATA_TRANSFER'
             }
         
-        scene.shape_modifiers.clear()
+        props.shape_modifiers_group.clear()
         for modifier in obj.modifiers:
             if modifier.type in mod_types:
-                new_modifier = scene.shape_modifiers.add()
+                new_modifier = props.shape_modifiers_group.add()
                 new_modifier.name = modifier.name
                 new_modifier.icon = "MOD_SMOOTH" if "SMOOTH" in modifier.type else \
                                     "MOD_MESHDEFORM" if "DEFORM" in modifier.type else \
                                     f"MOD_{modifier.type}"
         
-        if scene.shape_modifiers and props.shape_modifiers == "":
-            props.shape_modifiers = scene.shape_modifiers[0].name
+        if props.shape_modifiers_group and props.shape_modifiers == "":
+            props.shape_modifiers = props.shape_modifiers_group[0].name
 
     else:
-        scene.shape_modifiers.clear()
+        props.shape_modifiers_group.clear()
         
     if getattr(props, "weights_category") and weight_button and obj.vertex_groups:
         prefixes = {"iv_", "ya_"}
 
-        scene.yas_vgroups.clear()
+        props.yas_vgroups.clear()
         has_groups = False
         for group in obj.vertex_groups:
             if any(group.name.startswith(prefix) for prefix in prefixes):
                 has_groups = True
-                new_group = scene.yas_vgroups.add()
+                new_group = props.yas_vgroups.add()
                 new_group.name = group.name
                 new_group.lock_weight = obj.vertex_groups[group.name].lock_weight
         if not has_groups:
-            new_group = scene.yas_vgroups.add()
+            new_group = props.yas_vgroups.add()
             new_group.name = "Mesh has no YAS Groups"
 
     else:
-        scene.yas_vgroups.clear()
+        props.yas_vgroups.clear()
         
 DEVKIT_VER = (0, 0, 0)
 
@@ -103,13 +103,14 @@ def pre_anim_handling(dummy) ->None:
 
 @persistent
 def post_anim_handling(dummy) ->None:
-    context = bpy.context
-    optimise = context.scene.animation_optimise
+    props    = get_outfit_properties()
+    context  = bpy.context
+    optimise = props.animation_optimise
     if hasattr(bpy.context.scene, "devkit_props"):
         context.scene.devkit_props.controller_triangulation = optimise[0].triangulation
         bpy.ops.yakit.collection_manager(preset="Restore") 
     
-    context.scene.outfit_props.animation_frame = context.scene.frame_current
+    props.animation_frame = context.scene.frame_current
     
     try:
         area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]

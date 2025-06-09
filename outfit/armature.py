@@ -9,7 +9,7 @@ from pathlib       import Path
 from mathutils     import Quaternion
 from bpy.types     import Operator, Object, PoseBone, Context, Modifier
 from bpy.props     import StringProperty, BoolProperty
-from ..util.props  import visible_meshobj
+from ..properties  import get_outfit_properties, visible_meshobj
 
     
 class PoseApply(Operator):
@@ -27,15 +27,16 @@ class PoseApply(Operator):
    
     @classmethod
     def description(cls, context, properties):
+        props = get_outfit_properties()
         if properties.reset:
-            if bpy.context.scene.outfit_props.scaling_armature:
+            if props.scaling_armature:
                 return "Reset scaling. Toggle scaling to reset pose"
             else:
                 return "Reset pose. Toggle scaling to reset scale"
         if properties.use_clipboard:
             return "Apply C+ scaling from clipboard"
         else:
-            if bpy.context.scene.outfit_props.scaling_armature:
+            if props.scaling_armature:
                 return """Select and apply scaling to armature:
             *Hold Shift to reapply.
             *Hold Alt to open folder"""
@@ -46,7 +47,8 @@ class PoseApply(Operator):
         
     @classmethod
     def poll(cls, context):
-        return bpy.context.scene.outfit_props.armatures != "None" or bpy.context.scene.outfit_props.armatures != ""
+        props = get_outfit_properties()
+        return props.armatures != "None" or props.armatures != ""
     
     def invoke(self, context, event):
         self.actual_file = Path(self.filepath)
@@ -66,7 +68,8 @@ class PoseApply(Operator):
         return {"RUNNING_MODAL"}
     
     def execute(self, context):
-        self.scaling      = bpy.context.scene.outfit_props.scaling_armature
+        self.props        = get_outfit_properties
+        self.scaling      = self.props.scaling_armature
         self.old_bone_map = {
             "j_asi_e_l": "ToesLeft",
             "j_asi_d_l": "FootLeft",
@@ -157,14 +160,14 @@ class PoseApply(Operator):
             }
     
         pose_file         = Path(self.filepath)
-        skeleton: Object  = bpy.data.objects[context.scene.outfit_props.armatures]
+        skeleton: Object  = bpy.data.objects[self.props.armatures]
         visibility = skeleton.hide_get()
         skeleton.hide_set(state=False)
         if self.reset:
             self.reset_armature(context, skeleton)
         elif self.use_clipboard or (pose_file.exists() and pose_file.suffix == ".pose"):
             if not self.use_clipboard:
-                context.scene.outfit_props.pose_display_directory = pose_file.stem
+                self.props.pose_display_directory = pose_file.stem
             apply_status = self.apply(context, skeleton, pose_file)
             if apply_status == "JSON":
                 self.report({"ERROR"}, "Not a valid C+ preset.")
@@ -175,7 +178,7 @@ class PoseApply(Operator):
         return {'FINISHED'}
     
     def reset_armature(self, context:Context, skeleton:Object):
-        skeleton: Object = bpy.data.objects[context.scene.outfit_props.armatures]
+        skeleton: Object = bpy.data.objects[self.props.armatures]
         context.view_layer.objects.active = skeleton
         bpy.ops.object.mode_set(mode='POSE')
         bpy.ops.pose.select_all(action='SELECT')

@@ -1,8 +1,9 @@
 import re
 import bpy
 
-from bpy.types import Operator, ArmatureModifier
-from bpy.props import StringProperty
+from bpy.types    import Operator, ArmatureModifier
+from bpy.props    import StringProperty
+from ..properties import get_file_properties
 
 class SimpleImport(Operator):
     bl_idname = "ya.simple_import"
@@ -17,7 +18,7 @@ class SimpleImport(Operator):
         return context.mode == "OBJECT"
     
     def execute(self, context):
-        gltf = context.scene.file_props.file_gltf
+        gltf = get_file_properties().file_gltf
         if gltf:
             bpy.ops.import_scene.gltf('INVOKE_DEFAULT')
         else:
@@ -38,16 +39,16 @@ class SimpleCleanUp(Operator):
         return context.mode == "OBJECT"
     
     def execute(self, context):
-        props = context.scene.file_props
+        self.props = get_file_properties()
         self.selected = bpy.context.selected_objects
-        armature = props.armatures
+        armature = self.props.armatures
         if armature != "None":
             self.fix_parent(armature)
-        if props.update_material:
+        if self.props.update_material:
             self.update_material()
-        if props.rename_import != "":
+        if self.props.rename_import != "":
             self.rename_import()
-        if props.reorder_mesh_id:
+        if self.props.reorder_mesh_id:
             # This just looks for the default TT naming convention and corrects it
             for obj in self.selected:
                 if re.search(r"\s\d+.\d+$", obj.name):
@@ -57,7 +58,7 @@ class SimpleCleanUp(Operator):
                     else:
                         end_idx = -1
                     obj.name = " ".join(name_parts[-1:] + name_parts[0:end_idx])
-        if props.remove_nonmesh:
+        if self.props.remove_nonmesh:
             self.remove()
         return {"FINISHED"}
 
@@ -113,10 +114,10 @@ class SimpleCleanUp(Operator):
                 elif re.search(r"\s\d+.\d+$", obj.name):
                     id_index = 0
                 else:
-                    obj.name = bpy.context.scene.file_props.rename_import
+                    obj.name = self.props.rename_import
                     continue
                 split = obj.name.split()
-                split[id_index] = bpy.context.scene.file_props.rename_import
+                split[id_index] = self.props.rename_import
                 obj.name = " ".join(split)
 
 CLASSES = [
