@@ -1,7 +1,7 @@
 import bpy   
 
 from bpy.types     import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
-    
+from ..properties  import get_outfit_properties
     
 class ShapeKeyTransfer(Operator):
     bl_idname = "ya.transfer_shape_keys"
@@ -22,7 +22,7 @@ class ShapeKeyTransfer(Operator):
 
     @classmethod
     def poll(cls, context):
-        props         = bpy.context.scene.outfit_props
+        props         = get_outfit_properties()
         obj:Object    = props.shapes_target
         source:Object = props.shapes_source
         if props.shapes_method != "Selected":
@@ -34,7 +34,7 @@ class ShapeKeyTransfer(Operator):
         if hasattr(context.scene, "devkit"):
             self.devkit                 = bpy.context.scene.devkit
 
-        props                           = bpy.context.scene.outfit_props
+        props                           = get_outfit_properties()
         self.deform_target              = {}
         self.input_method       :str    = props.shapes_method
         self.vertex_pin         :str    = props.obj_vertex_groups
@@ -356,7 +356,7 @@ class ShapeKeyTransfer(Operator):
                     continue
 
                 buff = target.data.shape_keys.key_blocks.get("Buff")
-                if buff:
+                if buff and source_key.name == "shpx_wa_yabs":
                     model_state.append(buff)
 
                 target_key = get_target_key(new_name)
@@ -379,13 +379,7 @@ class ShapeKeyTransfer(Operator):
                 source.data.shape_keys.key_blocks[self.chest_base.upper()].mute = True
 
             elif self.input_method == "Legs" and target_key.name in leg_filter:
-                if self.leg_base == "Melon":
-                    leg_base = 0
-                elif self.leg_base == "Skull":
-                    leg_base = "Skull Crushers"
-                else:
-                    leg_base = self.leg_base
-                source.data.shape_keys.key_blocks[leg_base].mute = True
+                source.data.shape_keys.key_blocks[self.leg_base].mute = True
 
             for key in model_state:
                 key.mute = False
