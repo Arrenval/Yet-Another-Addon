@@ -13,7 +13,7 @@ from bpy.props      import StringProperty
 from bpy.types      import Operator, Object, Context, ShapeKey, TriangulateModifier, LayerCollection, Armature
 from bmesh.types    import BMFace
 from collections    import Counter
-from ..util.props   import get_object_from_mesh, visible_meshobj
+from ..properties   import get_file_properties, get_object_from_mesh, visible_meshobj
 
 def add_driver(shape_key:ShapeKey, source:Object) -> None:
             shape_key.driver_remove("value")
@@ -200,7 +200,7 @@ class MeshHandler:
 # Each function should be called separately on the same instance of the class in the listed order.
 
     def __init__(self):
-        props                             = bpy.context.scene.file_props
+        props                             = get_file_properties()
         self.shapekeys   :bool            = props.keep_shapekeys
         self.backfaces   :bool            = props.create_backfaces
         self.reset       :list[Object]    = []
@@ -213,11 +213,12 @@ class MeshHandler:
         visible_obj = visible_meshobj()
 
         # Bools for deciding which waist shape keys to keep. Only relevant for Yet Another Devkit.
-        rue   = False
-        buff  = False
-        torso = False
+        rue    = False
+        buff   = False
+        torso  = False
+        devkit = hasattr(bpy.context.scene, "devkit_props")
         
-        if hasattr(bpy.context.scene, "devkit_props"):
+        if devkit:
             for obj in visible_obj:
                 rue_key  = obj.data.shape_keys.key_blocks.get("Rue")
                 buff_key = obj.data.shape_keys.key_blocks.get("Buff")
@@ -232,24 +233,29 @@ class MeshHandler:
             shape_key    = []
             transparency = True if "xiv_transparency" in obj and obj["xiv_transparency"] else False
             backfaces    = True if self.backfaces and obj.vertex_groups.get("BACKFACES") else False
-            
             if self.shapekeys and obj.data.shape_keys:
                 for key in obj.data.shape_keys.key_blocks:
                     if not key.name.startswith("shp"):
                         continue
-                    if key.name[4:6] == "wa":
+                    if rue:
+                        if key.name[5:8] == "wa_":
                         # Rue does not use any waist shape keys.
-                        if rue:   
+                            continue
+                        if key.name[5:8] == "yab":
+                            continue  
+                    else:
+                        if key.name[5:8] == "rue":
                             continue
 
+                    if devkit and key.name[5:8] == "wa_":
                         # We check for buff and torso because in the case where the torso and waist are present we
                         # remove the abs key from both body parts.
-                        if not buff and torso and key.name.endswith("abs"):
+                        if not buff and torso and key.name.endswith("_yabs"):
                             continue
 
                         # We don't have to check for torso here because it's implicitly assumed to be present when buff is True.
-                        # When waist and torso are present we then remove the yab key.
-                        if buff and key.name.endswith("yab"):
+                        # If waist and torso are present we then remove the yab key.
+                        if buff and key.name.endswith("_yab"):
                             continue
                     shape_key.append(key)
             
@@ -462,9 +468,10 @@ class FileExport:
 
     def __init__(self):
         scene = bpy.context.scene
-        self.gltf = scene.file_props.file_gltf
-        self.subfolder = scene.file_props.create_subfolder
-        self.selected_directory = Path(scene.file_props.export_directory)
+        self.props = get_file_properties
+        self.gltf = self.props.file_gltf
+        self.subfolder = self.props.create_subfolder
+        self.selected_directory = Path(self.props.export_directory)
 
     def export_template(self, file_name:str, body_slot:str):
         if self.subfolder:
@@ -564,7 +571,7 @@ class SimpleExport(Operator):
         return context.mode == "OBJECT"
 
     def invoke(self, context, event):
-        self.props              = bpy.context.scene.file_props
+        self.props              = get_file_properties()
         self.check_tris         = self.props.check_tris
         self.force_yas          = self.props.force_yas
         self.directory          = Path(self.props.export_directory)
@@ -646,7 +653,7 @@ class BatchQueue(Operator):
         return context.mode == "OBJECT"
 
     def execute(self, context):
-        props                        = bpy.context.scene.file_props
+        props                        = get_file_properties()
         self.check_tris:bool         = props.check_tris
         self.force_yas:bool          = props.force_yas
         self.subfolder:bool          = props.create_subfolder
@@ -804,7 +811,7 @@ class BatchQueue(Operator):
                 
         devkit          = bpy.context.scene.devkit_props
         mesh            = self.ob_mesh_dict[body_slot]
-        rue_export      = bpy.context.scene.file_props.rue_export
+        rue_export      = get_file_properties().rue_export
         target          = get_object_from_mesh(mesh).data.shape_keys.key_blocks
         leg_sizes       = [key for key in self.leg_sizes.keys() if self.leg_sizes[key]]
         gen_options     = len(self.actual_combinations.keys())
@@ -875,8 +882,8 @@ class BatchQueue(Operator):
                        
     def name_generator(self, options:tuple[str, ...], size:str, body:str, bodies:int, gen:str, gen_options:int, body_slot:str) -> str:
         devkit      = bpy.context.scene.devkit_props
-        yiggle      = bpy.context.scene.file_props.force_yas
-        body_names  = bpy.context.scene.file_props.body_names
+        yiggle      = get_file_properties().force_yas
+        body_names  = get_file_properties().body_names
         gen_name    = None
 
         if body_names or (bodies > 1 and "YAB" != body and body_slot != "Feet"):
@@ -1049,7 +1056,7 @@ class BatchQueue(Operator):
             BatchQueue.progress_reset(props)
             armature_visibility()
 
-        props        = context.scene.file_props
+        props        = get_file_properties()
         devkit_props = context.scene.devkit_props
         collection   = context.view_layer.layer_collection.children
         
@@ -1148,7 +1155,7 @@ class BatchQueue(Operator):
                 obj.hide_set(state=True)
      
     def progress_tracker(queue) -> None:
-        props = bpy.context.scene.file_props
+        props = get_file_properties()
         props.export_progress = (props.export_total - len(queue)) / props.export_total
         props.export_step = (props.export_total - len(queue)) 
         props.export_file_name = queue[-1][0]
