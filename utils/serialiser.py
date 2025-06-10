@@ -1,35 +1,46 @@
 import logging
 
 from bpy.types    import PropertyGroup
-from ..properties import safe_set_enum 
 
 class RNAPropertyManager:
     """
     Serialise Blender RNA based PropertyGroups and its values into a dictionary for easier manipulation and storage.
-    Takes a default set of enum values so they can be safely set and avoid invalid values.
     
     ### Functions:
     
-    extract: Extracts specified PropertyGroup
+    extract: Extracts specified PropertyGroup.
+
     restore: Restores specified PropertyGroup with input data.
-    remove: Removes PropertGroup collection at specified index. Restores data without the removed collection
+
+    remove: Removes PropertGroup collection at specified index. Restores PropertyGroup without the removed collection.
 
     """
-
-    enum_defaults: dict
 
     def __init__(self):
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
     
-    def extract(self, prop_group: PropertyGroup):
+    def extract(self, prop_group: PropertyGroup) -> dict:
         return self.extract_property_group(prop_group)
     
     def restore(self, data: dict, prop_group: PropertyGroup):
-        self.restore_property_group(data, prop_group, self.enum_defaults)
+        self.restore_property_group(data, prop_group)
     
     def remove(self, collection: PropertyGroup, index_to_remove: int):
         """Remove item at specified index and restores PropertyGroup without it, keeping the original order"""
-        return self.remove_from_collection(collection, index_to_remove, self.enum_defaults)
+        if index_to_remove < 0 or index_to_remove >= len(collection):
+            return False
+        
+        temp_items = []
+        for index, item in enumerate(collection):
+            if index != index_to_remove:
+                temp_items.append(self.extract_property_group(item))
+        
+        collection.clear()
+        for item_data in temp_items:
+            new_item = collection.add()
+            self.restore_property_group(item_data, new_item)
+        
+        return True
 
     def extract_property_group(self, prop_group: PropertyGroup):
         if prop_group is None:
@@ -75,11 +86,9 @@ class RNAPropertyManager:
         else:
             return value
     
-    def restore_property_group(self, data: dict, prop_group: PropertyGroup, enum_defaults: dict=None):
+    def restore_property_group(self, data: dict, prop_group: PropertyGroup):
         if data is None:
             return
-        
-        enum_defaults = enum_defaults or {}
         
         for prop_name, value in data.items():
             if not hasattr(prop_group, prop_name):
@@ -91,48 +100,34 @@ class RNAPropertyManager:
                     continue
                     
                 prop_type = prop_def.type
-                self.restore_value_by_type(prop_group, prop_name, value, prop_type, enum_defaults)
+                self.restore_value_by_type(prop_group, prop_name, value, prop_type)
                 
             except Exception as e:
                 self.logger.info(f'Warning: Could not restore property "{prop_name}": {e}')
     
-    def restore_value_by_type(self, prop_group: PropertyGroup, prop_name: str, value, prop_type: str, enum_defaults: dict):
+    def restore_value_by_type(self, prop_group: PropertyGroup, prop_name: str, value, prop_type: str):
         if prop_type == "COLLECTION":
             collection = getattr(prop_group, prop_name)
             collection.clear()
             for item_data in value:
                 new_item = collection.add()
-                self.restore_property_group(item_data, new_item, enum_defaults)
+                self.restore_property_group(item_data, new_item)
                 
         elif prop_type == "POINTER":
             if value is not None:
                 pointer = getattr(prop_group, prop_name)
                 if pointer is not None:
-                    self.restore_property_group(value, pointer, enum_defaults)
+                    self.restore_property_group(value, pointer)
                     
         elif prop_type == "ENUM":
-            default_value = enum_defaults.get(prop_name, "0")
-            safe_set_enum(prop_group, prop_name, value, default_value)
+            try:
+                setattr(prop_group, prop_name, value)
+            except:
+                prop_group.property_unset(prop_name)
+                
             
         else:
             setattr(prop_group, prop_name, value)
     
-    def remove_from_collection(self, collection: PropertyGroup, index_to_remove: int, enum_defaults: dict=None) -> bool:
-        """Remove an item from any collection by extracting, filtering, and restoring"""
-        if index_to_remove < 0 or index_to_remove >= len(collection):
-            return False
-        
-        # Extract all items except the one to remove
-        temp_items = []
-        for index, item in enumerate(collection):
-            if index != index_to_remove:
-                temp_items.append(self.extract_property_group(item))
-        
-        # Clear and restore
-        collection.clear()
-        for item_data in temp_items:
-            new_item = collection.add()
-            self.restore_property_group(item_data, new_item, enum_defaults)
-        
-        return True
+    
     

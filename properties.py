@@ -14,18 +14,6 @@ def visible_meshobj() -> list[Object]:
 
     return sorted(visible_meshobj, key=lambda obj: obj.name)
 
-def safe_set_enum(obj, prop_name:str, value:str, default=""):
-    """Safely set an enum property, falling back to default if value is invalid."""
-    try:
-        setattr(obj, prop_name, value)
-    except TypeError:
-        # Value not in enum items, use default
-        try:
-            setattr(obj, prop_name, default)
-        except TypeError:
-            # Even default failed, skip setting this property
-            pass
-
 def get_object_from_mesh(mesh_name:str) -> Object | None:
     for obj in bpy.context.scene.objects:
         if obj.type == "MESH" and obj.data.name == mesh_name:
@@ -43,7 +31,6 @@ def scene_armatures() -> list[tuple[str, str, str]]:
 
 def modpack_data(context) -> None:
     props = get_file_properties()
-    scene = context.scene
     props.loaded_pmp_groups.clear()
 
     blender_groups = props.pmp_mod_groups
@@ -127,7 +114,7 @@ class ModpackHelper(PropertyGroup):
 
             return folder_stats
 
-    def check_gamepath_category(self,) -> None:
+    def check_gamepath_category(self) -> None:
         if self.valid_path:
             category = self.game_path.split("_")[-1].split(".")[0]
             return category
@@ -161,6 +148,7 @@ class ModMetaEntry(ModpackHelper):
             ) # type: ignore
     race_condition     : EnumProperty(
         name= "",
+         default="0",
         description= "Select a gender/race condition",
         items= [
             ("0", "None", ""),
@@ -185,6 +173,7 @@ class ModMetaEntry(ModpackHelper):
             ) # type: ignore
     connector_condition: EnumProperty(
         name= "",
+         default="None",
         description= "Select a conditional connector",
         items= [
             ("None", "None", ""),
@@ -209,6 +198,7 @@ class CorrectionEntry(ModpackHelper):
 
     names: EnumProperty(
         name= "",
+         default=0,
         description= "When these two groups are in the same combination, you can specify another meta entry to add",
         items= lambda self, context: self.get_possible_corrections(context)
         )  # type: ignore
@@ -239,22 +229,25 @@ class BlendModOption(ModpackHelper):
     meta_entries: CollectionProperty(type=ModMetaEntry) # type: ignore
     file_entries: CollectionProperty(type=ModFileEntry) # type: ignore
 
-    show_option     : BoolProperty(default=True) # type: ignore
+    show_option : BoolProperty(default=True) # type: ignore
 
 class BlendModGroup(ModpackHelper):
     idx        : EnumProperty(
         name= "",
+         default=0,
         update=lambda self, context: self.set_group_values(),
         description= "Select an option to replace",
         items= lambda self, context: self.get_modpack_groups(context)
         )   # type: ignore   
     page       : EnumProperty(
         name= "",
+        default=0,
         description= "Select a page for your group",
         items= lambda self, context: self.get_groups_page(context)
         )   # type: ignore 
     group_type : EnumProperty(
         name= "",
+        default="Single",
         description= "Single, Multi or Combining",
         update=lambda self, context: self.group_type_change(),
         items= [
@@ -265,6 +258,7 @@ class BlendModGroup(ModpackHelper):
         )   # type: ignore
     subfolder  : EnumProperty(
         name= "",
+        default=0,
         description= "Alternate folder for model files",
         items= lambda self, context: self.get_subfolder()
         )  # type: ignore
@@ -292,16 +286,21 @@ class BlendModGroup(ModpackHelper):
         scene_groups: list[LoadedModpackGroup] = props.loaded_pmp_groups
         
         if self.idx != "New":
+            group = scene_groups[int(self.idx)]
             if self.name == "" or not self.name_set and replace:
                 self.name = scene_groups[int(self.idx)].group_name
 
-            safe_set_enum(self, "page", str(scene_groups[int(self.idx)].group_page), "0")
-            self.description = scene_groups[int(self.idx)].group_description
-            self.priority    = scene_groups[int(self.idx)].group_priority
+            try:
+                self.page = str(group.group_page)
+            except:
+                self.property_unset("page")
+
+            self.description = group.group_description
+            self.priority    = group.group_priority
         else:
             if not self.name_set and replace:
                 self.name = "New Group"
-            safe_set_enum(self, "page", "0")
+            self.property_unset("page")
             self.description = ""
 
     def set_name(self):
