@@ -55,6 +55,7 @@ class MESH_UL_shape(UIList):
 
         return icon_dict[icon_name]
 
+
 CLASSES = [
     MESH_UL_yas,
     MESH_UL_shape,

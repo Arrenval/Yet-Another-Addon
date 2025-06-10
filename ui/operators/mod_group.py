@@ -3,7 +3,7 @@ from bpy.types          import Operator, Context
 from bpy.props          import StringProperty, EnumProperty, BoolProperty, IntProperty
 from ...properties      import BlendModOption, BlendModGroup, get_file_properties
 from ...preferences     import get_prefs
-from ...util.serialiser import RNAPropertyManager
+from ...utils.serialiser import RNAPropertyManager
 
 
 MODPACK_DEFAULT_ENUMS = {
@@ -76,7 +76,7 @@ class ModpackerContainers(Operator):
 
             elif event.alt:
                 self.category = f"ATR_{self.category.split('_')[0]}"
-                
+
             else:
                 context.window_manager.invoke_props_dialog(self, confirm_text="Confirm", title="", width=2)
                 return {'RUNNING_MODAL'}

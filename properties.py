@@ -5,7 +5,7 @@ from itertools      import chain
 from pathlib        import Path
 from bpy.types      import PropertyGroup, Object, Context
 from bpy.props      import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
-from .util.penumbra import Modpack
+from .utils.penumbra import Modpack
 
 def visible_meshobj() -> list[Object]:
     """Checks all visible objects and returns them if they contain a mesh."""

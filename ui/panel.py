@@ -7,6 +7,7 @@ from bpy.types              import Panel, UILayout, Context, Object
 from ..preferences          import get_prefs
 from ..properties           import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, ModMetaEntry, get_file_properties, get_outfit_properties, get_object_from_mesh, visible_meshobj
 
+
 class OutfitStudio(Panel):
     bl_idname = "VIEW3D_PT_YA_OutfitStudio"
     bl_space_type = "VIEW_3D"

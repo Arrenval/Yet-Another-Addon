@@ -9,7 +9,7 @@ from pathlib        import Path
 from importlib      import import_module
 
 SUBFOLDERS = [
-    "util",
+    "utils",
     "operators",
     "ui/operators",
     "ui",

@@ -5,6 +5,7 @@ from bpy.types    import Operator, ArmatureModifier
 from bpy.props    import StringProperty
 from ..properties import get_file_properties
 
+
 class SimpleImport(Operator):
     bl_idname = "ya.simple_import"
     bl_label = "Open Import Window"
@@ -119,6 +120,7 @@ class SimpleCleanUp(Operator):
                 split = obj.name.split()
                 split[id_index] = self.props.rename_import
                 obj.name = " ".join(split)
+
 
 CLASSES = [
     SimpleImport,

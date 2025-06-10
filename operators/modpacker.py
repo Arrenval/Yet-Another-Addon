@@ -14,8 +14,8 @@ from bpy.props          import StringProperty, IntProperty
 
 from ..properties       import get_file_properties, modpack_data, BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, ModMetaEntry
 from ..preferences      import get_prefs
-from ..util.penumbra    import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
-from ..util.logging     import ModpackFileError, ModpackGamePathError, ModpackValidationError
+from ..utils.penumbra    import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
+from ..utils.logging     import ModpackFileError, ModpackGamePathError, ModpackValidationError
     
 
 class ModelConverter(Operator):

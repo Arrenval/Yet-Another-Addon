@@ -55,6 +55,7 @@ class OutfitCategory(Operator):
 
         return {'FINISHED'}
 
+
 CLASSES = [
     BodyPartSlot,
     PanelCategory,
