@@ -2,7 +2,7 @@ import bpy
 
 from bpy.types            import Object
 from bpy.app.handlers     import persistent
-from ..properties         import get_object_from_mesh, get_outfit_properties
+from .properties          import get_object_from_mesh, get_outfit_properties
 
 def frame_ui(dummy):
     get_outfit_properties().animation_frame = bpy.context.scene.frame_current

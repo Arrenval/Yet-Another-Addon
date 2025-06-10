@@ -3,6 +3,7 @@ import bpy
 from bpy.types     import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
 from ..properties  import get_outfit_properties
     
+    
 class ShapeKeyTransfer(Operator):
     bl_idname = "ya.transfer_shape_keys"
     bl_label = "Shape Keys"

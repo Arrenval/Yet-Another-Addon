@@ -11,7 +11,7 @@ from bpy.types     import Operator, Object, PoseBone, Context, Modifier
 from bpy.props     import StringProperty, BoolProperty
 from ..properties  import get_outfit_properties, visible_meshobj
 
-    
+
 class PoseApply(Operator):
     bl_idname = "ya.pose_apply"
     bl_label = ""
@@ -22,8 +22,8 @@ class PoseApply(Operator):
         default='*.pose',
         options={'HIDDEN'}) # type: ignore
     
-    reset:          BoolProperty(default=False, options={'HIDDEN'}) # type: ignore
-    use_clipboard:  BoolProperty(default=False, options={'HIDDEN'}) # type: ignore
+    reset:          BoolProperty(default=False, options={'HIDDEN', "SKIP_SAVE"},) # type: ignore
+    use_clipboard:  BoolProperty(default=False, options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
    
     @classmethod
     def description(cls, context, properties):
@@ -307,8 +307,8 @@ class PoseApply(Operator):
                 calculate_bone_level(bone, 0)
         
         return bone_levels
-        
 
+    
 CLASSES = [
     PoseApply
 ]

@@ -15,6 +15,7 @@ from bmesh.types    import BMFace
 from collections    import Counter
 from ..properties   import get_file_properties, get_object_from_mesh, visible_meshobj
 
+
 def add_driver(shape_key:ShapeKey, source:Object) -> None:
             shape_key.driver_remove("value")
             shape_key.driver_remove("mute")
@@ -1249,6 +1250,7 @@ class DatabaseExport:
         bpy.ops.object.mode_set(mode="EDIT")
         bpy.ops.mesh.delete_loose()
         bpy.ops.object.mode_set(mode="OBJECT")
+
 
 CLASSES = [
     SimpleExport,

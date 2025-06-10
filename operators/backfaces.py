@@ -1,8 +1,7 @@
 import bpy
 
-from bpy.types    import Operator, Context, Object
+from bpy.types    import Operator, Context
 from bpy.props    import StringProperty
-from ..properties import get_outfit_properties
 
 
 class TagBackfaces(Operator):
@@ -160,110 +159,8 @@ class CreateBackfaces(Operator):
                 groups[group] = part
         return int(groups[current_group])
     
-class ModifierShape(Operator):
-    bl_idname = "ya.apply_modifier"
-    bl_label = "Backfaces"
-    bl_options = {'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        obj = context.active_object
-        modifier:str = get_outfit_properties().shape_modifiers
-        return context.mode == "OBJECT" and modifier != "None"
     
-    @classmethod
-    def description(cls, context, properties):
-        props = get_outfit_properties()
-        obj   = context.active_object
-        modifier:str = props.shape_modifiers
-        if modifier == "None":
-            return "Missing modifier"
-        if obj.modifiers[modifier].type == "DATA_TRANSFER":
-            return "Applies Data Transfer to current shape key mix"
-        else:
-            return "Applies Deform Modifier to active shape key"
-
-    def execute(self, context):
-        props = get_outfit_properties()
-        self.keep = props.keep_modifier
-        obj = context.active_object
-        modifier:str = props.shape_modifiers
-        key_name = obj.active_shape_key.name
-
-        if obj.modifiers[modifier].type == "DATA_TRANSFER":
-            self.apply_data(obj, modifier)
-            self.report({'INFO'}, "Applied data transfer.")
-        else:
-            self.apply_deform(key_name, obj, modifier)
-            self.report({'INFO'}, "Modifier Applied to Shape.")
-        return {'FINISHED'}
-    
-    def apply_deform(self, key_name:str, target:Object, modifier:str) -> None:
-        bpy.ops.object.modifier_apply_as_shapekey(keep_modifier=self.keep, modifier=modifier)
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        key_index = target.data.shape_keys.key_blocks.find(key_name)
-        target.active_shape_key_index = key_index
-        bpy.ops.mesh.blend_from_shape(shape=modifier, add=False)
-        bpy.ops.mesh.select_all(action='DESELECT')
-        bpy.ops.object.mode_set(mode='OBJECT')
-        key_index = target.data.shape_keys.key_blocks.find(modifier)
-        target.active_shape_key_index = key_index
-        bpy.ops.object.shape_key_remove(all=False)
-        key_index = target.data.shape_keys.key_blocks.find(key_name)
-        target.active_shape_key_index = key_index
-
-    def apply_data(self, target:Object, modifier:str) -> None:
-        old_shape = target.active_shape_key_index
-        bpy.ops.object.shape_key_add(from_mix=True)
-        target.data.update()
-        bpy.ops.object.modifier_apply(modifier=modifier)
-        bpy.ops.object.shape_key_remove()
-        target.active_shape_key_index = old_shape
-
-class TransparencyOverview(Operator):
-    bl_idname = "ya.transparency"
-    bl_label = "Transparency"
-    bl_options = {'UNDO'}
-    bl_description ="Tag mesh as being transparent ingame for extra handling on export. Adjust rendering in Blender when using 'BLENDED'"
-
-    render: StringProperty(default="") # type: ignore
-
-    @classmethod
-    def description(cls, context, properties):
-        if properties.render == 'BLENDED':
-            return "Simpler Blender render method, less accurate transparency"
-        elif properties.render == "DITHERED":
-            return "More accurate Blender rendering of transparency. More performance heavy"
-        
-    def execute(self, context:Context):
-        obj = context.active_object
-        if obj.active_material:
-            material = obj.active_material
-
-        if self.render == 'BLENDED':
-            material.surface_render_method = 'BLENDED'
-        elif self.render == 'DITHERED':
-            material.surface_render_method = 'DITHERED'
-        else:
-            if "xiv_transparency" not in obj:
-                obj["xiv_transparency"] = True
-                if obj.active_material:
-                    obj.active_material.use_transparency_overlap = True
-            elif obj["xiv_transparency"]:
-                obj["xiv_transparency"] = False
-                if obj.active_material:
-                    obj.active_material.use_transparency_overlap = False
-            elif not obj["xiv_transparency"]:
-                obj["xiv_transparency"] = True
-                if obj.active_material:
-                    obj.active_material.use_transparency_overlap = True
-        return {"FINISHED"}
-
-
 CLASSES = [
     TagBackfaces,
     CreateBackfaces,
-    ModifierShape,
-    TransparencyOverview,
 ]

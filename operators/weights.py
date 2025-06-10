@@ -4,6 +4,7 @@ from bpy.props      import StringProperty, EnumProperty, BoolProperty
 from bpy.types      import Operator, Object, VertexGroup, Context, ArmatureModifier
 from ..properties   import get_outfit_properties
 
+
 class RemoveEmptyVGroups(Operator):                         
     bl_idname = "ya.remove_empty_vgroups"
     bl_label = ""
@@ -285,6 +286,7 @@ class AddYASGroups(Operator):
             obj.vertex_groups.active.name = group
 
         return {"FINISHED"}  
+
 
 CLASSES = [
     RemoveEmptyVGroups,
