@@ -63,9 +63,8 @@ class ModpackerContainers(Operator):
             return f"Hold CTRL to remove {properties.category.capitalize()}"
         
     def invoke(self, context:Context, event):
-        self.prefs = get_prefs()
-        self.props = get_file_properties()
-        self.mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
+        props = get_file_properties()
+        mod_groups: list[BlendModGroup] = props.pmp_mod_groups
 
         if self.category in ("ENTRY", "COMBI_ENTRY"):
             if event.shift:
@@ -82,7 +81,7 @@ class ModpackerContainers(Operator):
                 return {'RUNNING_MODAL'}
                 
         if self.category == "OPTION":
-            mod_group = self.mod_groups[self.group]
+            mod_group = mod_groups[self.group]
             if event.shift and mod_group.group_type == "Combining":
                 self.category = "COMBI"
 
@@ -95,13 +94,16 @@ class ModpackerContainers(Operator):
         layout.prop(self, "user_input")
 
     def execute(self, context:Context):
+        props = get_file_properties()
+        mod_groups: list[BlendModGroup] = props.pmp_mod_groups
+
         if self.category == "ENTRY":
             self.category = self.user_input
         self.group: int
         self.option: int
 
-        if len(self.mod_groups) > 0:
-            mod_group = self.mod_groups[self.group]
+        if len(mod_groups) > 0:
+            mod_group = mod_groups[self.group]
             group_options:list[BlendModOption] = mod_group.mod_options
         
         if self.delete:
@@ -111,10 +113,10 @@ class ModpackerContainers(Operator):
         match self.category:
             case "GROUP":
                 if not self.delete:
-                    new_group     = self.mod_groups.add()
+                    new_group     = mod_groups.add()
                     new_group.idx = "New"
                 else:
-                    manager.remove(self.mod_groups, self.group)
+                    manager.remove(mod_groups, self.group)
 
             case "OPTION":
                 if not self.delete:
