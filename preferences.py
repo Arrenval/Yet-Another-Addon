@@ -141,7 +141,7 @@ class YetAnotherPreference(AddonPreferences):
         # layout.prop(self, "filepath")
         # layout.prop(self, "number")
 
-def get_preferences() -> YetAnotherPreference:
+def get_prefs() -> YetAnotherPreference:
     """Get Yet Another Preference"""
     return bpy.context.preferences.addons[__package__].preferences
 
