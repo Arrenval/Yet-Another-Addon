@@ -1,67 +1,11 @@
 import re
 import bpy
-
 import platform
 
 from pathlib                import Path
-from bpy.types              import Panel, UIList, UILayout, Context, VertexGroup, Object
-from ..preferences          import get_preferences
-from ..properties           import get_file_properties, get_outfit_properties, get_object_from_mesh, visible_meshobj
-from .helpers.containers    import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, ModMetaEntry, ModpackHelper
-
-
-class MESH_UL_yas(UIList):
-    bl_idname = "MESH_UL_yas"
-
-    def draw_item(self, context:Context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
-        props = get_outfit_properties()
-        ob = data
-        vgroup = item
-        icon = self.get_icon_value("GROUP_VERTEX")
-        try:
-            category = get_outfit_properties().YAS_BONES[vgroup.name]
-        except:
-            category = "Unknown"
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if len(props.yas_vgroups) == 1 and "has no " in vgroup.name:
-                error = self.get_icon_value("INFO")
-                layout.prop(vgroup, "name", text="", emboss=False, icon_value=error)
-                layout.alignment = "CENTER"
-            else:
-                layout.prop(vgroup, "name", text=category, emboss=False, icon_value=icon)
-                icon = 'LOCKED' if vgroup.lock_weight else 'UNLOCKED'
-                layout.prop(vgroup, "lock_weight", text="", icon=icon, emboss=False)
-        elif self.layout_type == 'GRID':
-            layout.alignment = 'CENTER'
-            layout.label(text="", icon_value=icon)
-    
-    def get_icon_value(self, icon_name: str) -> int:
-        icon_items = UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
-        icon_dict = {tup[1].identifier : tup[1].value for tup in icon_items}
-
-        return icon_dict[icon_name]
-
-class MESH_UL_shape(UIList):
-    bl_idname = "MESH_UL_shape"
-
-    def draw_item(self, context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
-        ob = data
-        shape = item
-        sizes = ["LARGE", "MEDIUM", "SMALL"]
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if shape.name.isupper() and not any(shape.name == size for size in sizes):
-                layout.prop(shape, "name", text="", emboss=False, icon_value=self.get_icon_value("REMOVE"))
-            else:
-                layout.prop(shape, "name", text="", emboss=False, icon_value=icon)
-        elif self.layout_type == 'GRID':
-            layout.alignment = 'CENTER'
-            layout.label(text="", icon_value=icon)
-    
-    def get_icon_value(self, icon_name: str) -> int:
-        icon_items = UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
-        icon_dict = {tup[1].identifier : tup[1].value for tup in icon_items}
-
-        return icon_dict[icon_name]
+from bpy.types              import Panel, UILayout, Context, Object
+from ..preferences          import get_prefs
+from ..properties           import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, ModMetaEntry, get_file_properties, get_outfit_properties, get_object_from_mesh, visible_meshobj
 
 class OutfitStudio(Panel):
     bl_idname = "VIEW3D_PT_YA_OutfitStudio"
@@ -604,12 +548,10 @@ class OutfitStudio(Panel):
             split.label(text=self.outfit_props.pose_display_directory)
             buttonrow = split.row(align=True)
             op = buttonrow.operator("ya.pose_apply", text="Apply")
-            op.reset = False
-            op.use_clipboard = False
+      
             buttonrow.prop(section_prop, "scaling_armature", text="", icon="FIXED_SIZE")
             op = buttonrow.operator("ya.pose_apply", text="", icon="FILE_REFRESH")
             op.reset = True
-            op.use_clipboard = False
 
             row = box.row(align=True)
             split = row.split(factor=0.25, align=True)
@@ -617,7 +559,6 @@ class OutfitStudio(Panel):
             split.label(text="" if section_prop.scaling_armature else "Scaling:")
             op = split.operator("ya.pose_apply", text="Import from Clipboard")
             op.use_clipboard = True
-            op.reset = False
 
             box.separator(factor=0.5, type="LINE")
             row = box.row(align=True)
@@ -692,9 +633,10 @@ class FileManager(Panel):
     bl_order = 3
 
     def draw(self, context:Context):
-        self.prefs       = get_preferences()
+        self.prefs       = get_prefs()
         self.file_props  = get_file_properties()
         self.outfit_prop = get_outfit_properties()
+
         if hasattr(context.scene, "devkit_props"):
             self.devkit_props = context.scene.devkit_props
         layout = self.layout
@@ -1046,7 +988,6 @@ class FileManager(Panel):
         layout.separator(factor=0.5)
 
     def draw_modpack(self, layout:UILayout):
-        scene = bpy.context.scene
         if platform.system() == "Windows":
             row = layout.row(align=True)
             split = row.split(factor=0.25, align=True)
@@ -1080,7 +1021,6 @@ class FileManager(Panel):
         row.prop(self.file_props, "modpack_replace", text="Update", icon="CURRENT_FILE",)
 
         op_atr = {
-            "add":      True,
             "category": "GROUP",
             "group":    0,
             "option":   0
@@ -1129,7 +1069,7 @@ class FileManager(Panel):
 
         self.checked_folders = {}
         option_indent:float = 0.21
-        for group_idx, group in enumerate(scene.pmp_mod_groups):
+        for group_idx, group in enumerate(self.file_props.pmp_mod_groups):
             group: BlendModGroup
             box = layout.box()
             button = group.show_group
@@ -1243,7 +1183,6 @@ class FileManager(Panel):
             row.label(icon="ADD", text="")
         else:
             op_atr = {
-            "add":      True,
             "category": "OPTION",
             "group":    group_idx,
             "option":   0
@@ -1252,10 +1191,9 @@ class FileManager(Panel):
             self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
 
         op_atr = {
-        "add":      False,
+        "delete":   True,
         "category": "GROUP",
         "group":    group_idx,
-        "option":   0
         }
         
         self.operator_button(row, "ya.modpacker_ui_containers", icon="TRASH", attributes=op_atr)
@@ -1318,7 +1256,6 @@ class FileManager(Panel):
         row.label(icon="BLANK1")
 
         op_atr = {
-            "add":      True,
             "category": "ENTRY",
             "group":    group_idx,
             "option":   option_idx
@@ -1327,7 +1264,7 @@ class FileManager(Panel):
         self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
         
         op_atr = {
-            "add":      False,
+            "delete":   True,
             "category": "OPTION",
             "group":    group_idx,
             "option":   option_idx
@@ -1355,7 +1292,6 @@ class FileManager(Panel):
         row.label(icon="BLANK1")
 
         op_atr = {
-            "add":      True,
             "category": "COMBI_ENTRY",
             "group":    group_idx,
             "option":   option_idx
@@ -1364,7 +1300,7 @@ class FileManager(Panel):
         self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
         
         op_atr = {
-            "add":      False,
+            "delete":   True,
             "category": "COMBI",
             "group":    group_idx,
             "option":   option_idx
@@ -1388,7 +1324,6 @@ class FileManager(Panel):
         op_atr = {
             "category": "GROUP",
             "group": group_idx,
-            "option": option_idx,
             }
 
         self.operator_button(row, "ya.modpack_dir_selector", icon="FILE_FOLDER", attributes=op_atr)
@@ -1480,7 +1415,7 @@ class FileManager(Panel):
             row.prop(entry, "enable", text="", icon= "CHECKMARK" if entry.enable else "X")
             
             op_atr = {
-                "add":      False,
+                "delete":   True,
                 "category": category,
                 "group":    group_idx,
                 "option":   option_idx,
@@ -1654,8 +1589,6 @@ class FileManager(Panel):
 
 
 CLASSES = [
-    MESH_UL_yas,
-    MESH_UL_shape,
     OutfitStudio,
     FileManager
 ]   

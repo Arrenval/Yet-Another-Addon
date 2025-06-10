@@ -5,11 +5,12 @@ import sys
 import json
 import sqlite3
 
-textools    = sys.argv[1]
-file_name   = sys.argv[2]
-props_path  = sys.argv[3]
-
 def update_database():
+    
+    textools    = sys.argv[1]
+    file_name   = sys.argv[2]
+    props_path  = sys.argv[3]
+    
     with open(props_path, "r") as file:
         model_props:dict[str, dict[str, dict[str, str]]] = json.load(file)
 
