@@ -3,7 +3,7 @@ from bpy.types          import Operator, Context
 from bpy.props          import StringProperty, EnumProperty, BoolProperty, IntProperty
 from ...properties      import BlendModOption, BlendModGroup, get_file_properties
 from ...preferences     import get_prefs
-from ...utils.serialiser import RNAPropertyManager
+from ...util.serialiser import RNAPropertyManager
 
 
 MODPACK_DEFAULT_ENUMS = {
@@ -63,8 +63,9 @@ class ModpackerContainers(Operator):
             return f"Hold CTRL to remove {properties.category.capitalize()}"
         
     def invoke(self, context:Context, event):
-        props = get_file_properties()
-        mod_groups: list[BlendModGroup] = props.pmp_mod_groups
+        self.prefs = get_prefs()
+        self.props = get_file_properties()
+        self.mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
 
         if self.category in ("ENTRY", "COMBI_ENTRY"):
             if event.shift:
@@ -75,13 +76,13 @@ class ModpackerContainers(Operator):
 
             elif event.alt:
                 self.category = f"ATR_{self.category.split('_')[0]}"
-
+                
             else:
                 context.window_manager.invoke_props_dialog(self, confirm_text="Confirm", title="", width=2)
                 return {'RUNNING_MODAL'}
                 
         if self.category == "OPTION":
-            mod_group = mod_groups[self.group]
+            mod_group = self.mod_groups[self.group]
             if event.shift and mod_group.group_type == "Combining":
                 self.category = "COMBI"
 
@@ -94,16 +95,13 @@ class ModpackerContainers(Operator):
         layout.prop(self, "user_input")
 
     def execute(self, context:Context):
-        props = get_file_properties()
-        mod_groups: list[BlendModGroup] = props.pmp_mod_groups
-
         if self.category == "ENTRY":
             self.category = self.user_input
         self.group: int
         self.option: int
 
-        if len(mod_groups) > 0:
-            mod_group = mod_groups[self.group]
+        if len(self.mod_groups) > 0:
+            mod_group = self.mod_groups[self.group]
             group_options:list[BlendModOption] = mod_group.mod_options
         
         if self.delete:
@@ -113,10 +111,10 @@ class ModpackerContainers(Operator):
         match self.category:
             case "GROUP":
                 if not self.delete:
-                    new_group     = mod_groups.add()
+                    new_group     = self.mod_groups.add()
                     new_group.idx = "New"
                 else:
-                    manager.remove(mod_groups, self.group)
+                    manager.remove(self.mod_groups, self.group)
 
             case "OPTION":
                 if not self.delete:

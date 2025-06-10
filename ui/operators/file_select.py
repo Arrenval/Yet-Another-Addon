@@ -7,7 +7,6 @@ from bpy.props          import StringProperty, IntProperty
 from ...properties      import BlendModOption, BlendModGroup, ModFileEntry, get_file_properties
 from ...preferences     import get_prefs
 
-
 class PMPSelector(Operator):
     bl_idname = "ya.pmp_selector"
     bl_label = "Select Modpack"
@@ -231,7 +230,6 @@ class ModpackDirSelector(Operator):
             self.report({"ERROR"}, "Not a valid path!")
         
         return {'FINISHED'}
-
 
 CLASSES = [
     PMPSelector,

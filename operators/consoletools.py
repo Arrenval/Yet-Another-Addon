@@ -4,6 +4,7 @@ import bpy
 from pathlib                    import Path
 from bpy.types                  import Operator, Context
 from bpy.props                  import StringProperty
+
 from ..preferences              import get_prefs
 
 
