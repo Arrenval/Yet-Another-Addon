@@ -19,35 +19,27 @@ from ..utils.ya_exception   import ModpackFileError, ModpackGamePathError, Modpa
     
 
 class ModelConverter(Operator):
-    bl_idname = "ya.file_converter"
+    bl_idname = "ya.fbx_converter"
     bl_label = "Modpacker"
     bl_description = "FBX to MDL converter via ConsoleTools"
     
     def execute(self, context:Context):
-        self.prefs                  = get_prefs()
-        props                       = get_file_properties()
-        self.game_path : str        = props.game_model_path
-        self.output_dir             = Path(props.savemodpack_directory)
-        self.console   : str        = props.consoletools_status
-        if props.model_subfolder != "None":
-            self.output_dir: Path       = self.output_dir / self.subfolder
-        
-        if not self.mdl_game:
-            self.report({'ERROR'}, "Please input a path to an FFXIV model")
-            return {'CANCELLED'}
-        
-        elif not self.mdl_game.startswith("chara") or not self.mdl_game.endswith("mdl"):
-            self.report({'ERROR'}, "Verify that the model is an actual FFXIV path")
-            return {'CANCELLED'}
-        
-        elif not self.output_dir.is_dir():
+        self.prefs                 = get_prefs()
+        self.props                 = get_file_properties()
+        self.output_dir            = Path(self.prefs.modpack_output_dir)
+        self.folders: dict[Path, str]  = {}
+        self.get_folders()
+
+        if not self.folders:
             self.report({'ERROR'}, "Please select an FBX directory")
             return {'CANCELLED'}
             
-        if self.console != "ConsoleTools Ready!":
-            self.report({'ERROR'}, "Verify that ConsoleTools is ready.")
-            return {'CANCELLED'} 
-        
+        if not self.prefs.consoletools_status:
+            bpy.ops.ya.consoletools("EXEC_DEFAULT")
+            if not self.prefs.consoletools_status:
+                self.report({'ERROR'}, "Verify that ConsoleTools is ready.")
+                return {'CANCELLED'} 
+            
         mdl_status, cmd = self.mdl_converter(context) 
 
         callback = partial(ModelConverter.delete_cmd_file, context, cmd, mdl_status)
@@ -55,31 +47,37 @@ class ModelConverter(Operator):
         return {"FINISHED"}
        
     def mdl_converter(self, context:Context) -> subprocess.Popen:
-        blender_dir  = Path(bpy.app.binary_path).parent
-        python_dir   = str([file for file in (blender_dir).glob("*/python/bin/python*")][0])
-        script_dir   = Path(__file__).parent / "database.py"
-        props_json   = self.output_dir / "MeshProperties.json"
-        textools     = Path(self.prefs.textools_directory)
-        game_path    = self.game_path
-        model_props  = {}
-        to_convert   = [file for file in (self.output_dir / self.subfolder).glob("*.fbx") if file.is_file()]
+        blender_dir           = Path(bpy.app.binary_path).parent
+        python_dir            = str([file for file in (blender_dir).glob("*/python/bin/python*")][0])
+        script_dir            = Path(__file__).parent / "database.py"
+        props_json            = "" # self.output_dir / "MeshProperties.json"
+        textools              = Path(self.prefs.textools_directory)
+        model_props           = {}
 
-        if props_json.is_file():
-            with open(props_json, "r") as file:
-                model_props = json.load(file)
+        to_convert: set[tuple[Path, str]] = set()
+
+        for folder, game_path in self.folders.items():
+            for file in folder.glob("*.fbx"):
+                if not file.is_file():
+                    continue
+
+                to_convert.add((file, game_path))
+
+        # if props_json.is_file():
+        #     with open(props_json, "r") as file:
+        #         model_props = json.load(file)
 
         cmd_name = "MDL.cmd"
         commands = ["@echo off", f"cd /d {textools.drive}", f"cd {textools}", "echo Please don't close this window..."]
 
-        Path.mkdir(self.output_dir, exist_ok=True)
         cmd_path = self.output_dir / cmd_name
 
         cmds_added  = 0
         total_files = len(to_convert)
-        for file in to_convert:
+        for file, game_path in to_convert:
             commands.append(f"echo ({cmds_added + 1}/{total_files}) Converting: {file.stem}")
-            source = str(self.output_dir / file.name)
-            dest = str(self.output_dir / file.stem)
+            source = str(file)
+            dest   = str(file.parent / file.stem)
             
             if file.stem in model_props:
                 commands.append("echo Writing model to database...")
@@ -99,7 +97,7 @@ class ModelConverter(Operator):
 
             cmds_added += 1
         
-        commands.append("pause")
+        # commands.append("pause")
 
         with open(cmd_path, 'w') as file:
             for cmd in commands:
@@ -109,6 +107,25 @@ class ModelConverter(Operator):
 
         return mdl_status, cmd_path
     
+    def get_folders(self):
+        for group in self.props.pmp_mod_groups:
+            if not group.use_folder:
+                continue
+            
+            folder_stats, has_fbx = group.get_folder_stats()
+            if not has_fbx:
+                continue
+
+            if not group.valid_path:
+                self.report({'ERROR'}, f'Group "{group.name}": Verify that the model is an actual FFXIV path')
+                return {'CANCELLED'}
+
+            folder = group.final_folder()
+            if not folder:
+                continue
+            
+            self.folders[folder] = group.game_path
+
     def delete_cmd_file(context, cmd:Path, mdl_status: subprocess.Popen) -> None:
         if mdl_status is not None and mdl_status.poll() != 0:
             return 0.5

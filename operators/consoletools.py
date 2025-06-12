@@ -48,7 +48,7 @@ class ConsoleToolsDirectory(Operator):
         return {'FINISHED'}
     
 class ConsoleTools(Operator):
-    bl_idname = "ya.file_console_tools"
+    bl_idname = "ya.consoletools"
     bl_label = "Modpacker"
     bl_description = "Checks for a valid TexTools install with ConsoleTools"
 

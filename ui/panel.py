@@ -1,5 +1,6 @@
 import re
 import bpy
+import platform
 
 from .draw         import aligned_row, get_conditional_icon, operator_button
 from pathlib       import Path   
@@ -989,6 +990,11 @@ class FileManager(Panel):
         layout.separator(factor=0.5)
 
     def draw_modpack(self, layout:UILayout):
+        self.checked_folders = {}
+        option_indent:float  = 0.21
+
+        self.get_file_stats()
+
         row = aligned_row(layout, "Output:", "modpack_output_display_dir", self.prefs)
         row.operator("ya.modpack_dir_selector", icon="FILE_FOLDER", text="").category = "OUTPUT_PMP" 
 
@@ -1031,28 +1037,8 @@ class FileManager(Panel):
         col3.label(text="")
         col3.prop(self.file_props, "modpack_author", text="by", emboss=True)
 
-        if self.file_props.modpack_replace and Path(self.file_props.modpack_dir).is_file():
-            box.separator(factor=0.5,type="LINE")
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text=f"{Path(self.file_props.modpack_dir).name} is loaded.", icon="INFO")
+        self.status_info(box)
 
-        elif self.file_props.modpack_replace:
-            box.separator(factor=0.5,type="LINE")
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="No modpack is loaded.", icon="INFO")
-
-        elif not self.file_props.modpack_replace and (Path(self.prefs.modpack_output_dir) / Path(self.file_props.modpack_display_dir + ".pmp")).is_file():
-            box.separator(factor=0.5,type="LINE")
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text=f"{self.file_props.modpack_display_dir + '.pmp'} already exists!", icon="ERROR")
-        else:
-            box.separator(factor=0.1,type="SPACE")
-
-        self.checked_folders = {}
-        option_indent:float = 0.21
         for group_idx, group in enumerate(self.file_props.pmp_mod_groups):
             group: BlendModGroup
             box = layout.box()
@@ -1124,10 +1110,40 @@ class FileManager(Panel):
 
                     self.entry_container(columns[1], correction, group_idx, correction_idx)
 
-        # row = layout.row(align=True)
-        # if platform.system() == "Windows":
-            # row.operator("ya.file_converter", text="Convert")
-           
+    def status_info(self, layout:UILayout):
+        if self.file_props.modpack_replace and Path(self.file_props.modpack_dir).is_file():
+            layout.separator(factor=0.5,type="LINE")
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text=f"{Path(self.file_props.modpack_dir).name} is loaded.", icon="INFO")
+
+        elif self.file_props.modpack_replace:
+            layout.separator(factor=0.5,type="LINE")
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="No modpack is loaded.", icon="INFO")
+
+        elif not self.file_props.modpack_replace and (Path(self.prefs.modpack_output_dir) / Path(self.file_props.modpack_display_dir + ".pmp")).is_file():
+            layout.separator(factor=0.5,type="LINE")
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text=f"{self.file_props.modpack_display_dir + '.pmp'} already exists!", icon="ERROR")
+
+        if platform.system() == "Windows" and any(has_fbx for folder_stats, has_fbx in self.checked_folders.items()):
+            layout.separator(factor=0.5,type="LINE")
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            plural  = "s" if len(self.checked_folders) > 1 else ""
+            concord = "" if len(self.checked_folders) > 1 else "s"
+            row.label(text=f"Folder{plural} contain{concord} .fbx files.", icon="INFO")
+            
+            row.operator("ya.fbx_converter", text="Convert")
+
+            layout.separator(factor=0.1,type="SPACE")
+
+        else:
+            layout.separator(factor=0.1,type="SPACE")
+
     def group_header(self, layout:UILayout, group:BlendModGroup, group_idx:int):
         button = group.show_group
 
@@ -1304,7 +1320,42 @@ class FileManager(Panel):
             self.xiv_path_category(layout, container, "GROUP", group_idx, option_idx)
         
             if container.get_folder_stats(model_check=True):
-                self.get_file_stats(layout, container)
+                layout.separator(factor=2,type="LINE")
+
+                button = container.show_folder
+                icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+                row = layout.row(align=True)
+                row.alignment = "LEFT"
+                row.prop(container, "show_folder", text="Model Stats", icon=icon, emboss=False)
+
+                if button:
+                    layout.separator(factor=2,type="LINE")
+                    
+                    row = layout.row(align=True)
+                    row.label(icon="BLANK1")
+                    split = row.split(factor=0.4)
+                    split.label(text="Name:")
+                    split.label(text="MDL:")
+                    split.label(text="FBX:")
+
+                    folder = container.final_folder()
+                    folder_stats = self.checked_folders[folder][0]
+
+                    for file_name, file_type in folder_stats.items():
+                        file_name:str
+                        file_type:dict[str, bool]
+
+                        row = layout.row(align=True)
+                        row.label(icon="BLANK1")
+                        split = row.split(factor=0.4)
+                        split.label(text=file_name)
+                        split.label(text="  X" if not file_type["mdl"] or file_type["mdl"] < file_type["fbx"] else "  ✓")
+                        split.label(text="  X" if not file_type["fbx"] or file_type["mdl"] > file_type["fbx"] else "  ✓")
+                    
+                    layout.separator(factor=2,type="LINE")
+                    row = layout.row(align=True)
+                    row.alignment = "CENTER"
+                    row.label(text="Checkmarks indicate the most recent file.", icon="INFO")
         
         layout.separator(factor=0.1,type="SPACE")
 
@@ -1389,47 +1440,12 @@ class FileManager(Panel):
 
             layout.separator(factor=1.5,type="LINE")
     
-    def get_file_stats(self, layout:UILayout, container:BlendModGroup | BlendModOption):
-
-        layout.separator(factor=2,type="LINE")
-
-        button = container.show_folder
-        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        row = layout.row(align=True)
-        row.alignment = "LEFT"
-        row.prop(container, "show_folder", text="Model Stats", icon=icon, emboss=False)
-
-        if button:
-            layout.separator(factor=2,type="LINE")
-            
-            row = layout.row(align=True)
-            row.label(icon="BLANK1")
-            split = row.split(factor=0.4)
-            split.label(text="Name:")
-            split.label(text="MDL:")
-            split.label(text="FBX:")
-
-            folder = container.final_folder()
+    def get_file_stats(self):
+        folders = [(group.final_folder(), group) for group in self.file_props.pmp_mod_groups if group.use_folder]
+        for folder, group in folders:
             if folder not in self.checked_folders:
-                folder_stats = container.get_folder_stats()
-            else: 
-                folder_stats = self.checked_folders[folder]
-
-            for file_name, file_type in folder_stats.items():
-                file_name:str
-                file_type:dict[str, bool]
-
-                row = layout.row(align=True)
-                row.label(icon="BLANK1")
-                split = row.split(factor=0.4)
-                split.label(text=file_name)
-                split.label(text="  X" if not file_type["mdl"] or file_type["mdl"] < file_type["fbx"] else "  ✓")
-                split.label(text="  X" if not file_type["fbx"] or file_type["mdl"] > file_type["fbx"] else "  ✓")
-            
-            layout.separator(factor=2,type="LINE")
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="Checkmarks indicate the most recent file.", icon="INFO")
+                folder_stats, has_fbx = group.get_folder_stats()
+                self.checked_folders[folder] = (folder_stats, has_fbx)
 
     def dynamic_column_buttons(self, columns, box:UILayout, section_prop, labels, category, button_type):
         if category == "Chest":
