@@ -1,4 +1,4 @@
-def menu_emptyvgroup_append(self, context):
+def menu_vertex_group_append(self, context):
     self.layout.separator(type="LINE")
     self.layout.operator("ya.add_yas_vgroups", text= "Add YAS Groups")
     self.layout.separator(type="LINE")

@@ -31,5 +31,6 @@ paths_exclude_pattern = [
   "__pycache__/",
   "/.*",
   "/*.zip",
+  "testing/",
   "repo.json"
 ]
