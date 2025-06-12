@@ -7,6 +7,7 @@ from bpy.props          import StringProperty, IntProperty
 from ...properties      import BlendModOption, BlendModGroup, ModFileEntry, get_file_properties
 from ...preferences     import get_prefs
 
+
 class PMPSelector(Operator):
     bl_idname = "ya.pmp_selector"
     bl_label = "Select Modpack"
@@ -18,7 +19,8 @@ class PMPSelector(Operator):
     filepath: StringProperty() # type: ignore
 
     category: StringProperty(options={'HIDDEN'}) # type: ignore
-    filter_glob: bpy.props.StringProperty(
+    
+    filter_glob: StringProperty(
         default='*.pmp',
         options={'HIDDEN'}) # type: ignore
     
@@ -120,15 +122,20 @@ class ModpackFileSelector(Operator):
         self.container:BlendModGroup | BlendModOption | ModFileEntry
         props = get_file_properties()
 
-        mod_group = props.pmp_mod_groups[self.group]
-        group_options:list[BlendModOption] = mod_group.mod_options
-   
+        mod_group: BlendModGroup = props.pmp_mod_groups[self.group]
+
+        if self.category.endswith("COMBI"):
+            group_options:list[BlendModOption] = mod_group.corrections
+        else:
+            group_options:list[BlendModOption] = mod_group.mod_options
+
+        
         self.container = group_options[self.option].file_entries[self.entry]
 
         self.filter_glob = "*.mdl;*.phyb;*.tex"
 
         if event.ctrl and event.type == "LEFTMOUSE":
-            bpy.ops.ya.modpacker_ui_containers(
+            bpy.ops.ya.modpack_manager(
             'EXEC_DEFAULT',
             delete=True,
             category=self.category,
@@ -162,7 +169,7 @@ class ModpackDirSelector(Operator):
     
     directory: StringProperty(subtype="DIR_PATH") # type: ignore
 
-    category: StringProperty(options={'HIDDEN'}) # type: ignore
+    category: StringProperty(options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
     group : IntProperty(default=0, options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
 
     filter_glob: bpy.props.StringProperty(
@@ -185,7 +192,7 @@ class ModpackDirSelector(Operator):
                 attribute      = "file_path"
 
             case "OUTPUT_PMP":
-                self.folder    = self.container.modpack_output_dir
+                self.folder    = self.prefs.modpack_output_dir
                 attribute      = "modpack_output_dir"
 
         self.filter_glob = "DIR_PATH"
@@ -209,8 +216,7 @@ class ModpackDirSelector(Operator):
             bpy.ops.ya.directory_copy(
                 "EXEC_DEFAULT", 
                 category=self.category,
-                group=self.group,
-                option=self.option)
+                group=self.group,)
         else:
             context.window_manager.fileselect_add(self)
 
@@ -230,6 +236,7 @@ class ModpackDirSelector(Operator):
             self.report({"ERROR"}, "Not a valid path!")
         
         return {'FINISHED'}
+
 
 CLASSES = [
     PMPSelector,
