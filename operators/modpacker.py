@@ -5,17 +5,17 @@ import shutil
 import tempfile
 import subprocess
 
-from pathlib            import Path
-from itertools          import chain
-from functools          import partial
-from datetime           import datetime
-from bpy.types          import Operator, Context, UILayout
-from bpy.props          import StringProperty, IntProperty
+from pathlib                import Path
+from itertools              import chain
+from functools              import partial, singledispatchmethod
+from datetime               import datetime
+from bpy.types              import Operator, Context, UILayout
+from bpy.props              import StringProperty, IntProperty
 
-from ..properties       import get_file_properties, modpack_data, BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, ModMetaEntry
-from ..preferences      import get_prefs
-from ..utils.penumbra    import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
-from ..utils.logging     import ModpackFileError, ModpackGamePathError, ModpackValidationError
+from ..properties           import get_file_properties, modpack_data, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
+from ..preferences          import get_prefs
+from ..utils.penumbra       import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
+from ..utils.ya_exception   import ModpackFileError, ModpackGamePathError, ModpackValidationError
     
 
 class ModelConverter(Operator):
@@ -115,8 +115,8 @@ class ModelConverter(Operator):
         
         Path.unlink(cmd, missing_ok=True)
         
-class Modpacker(Operator):
-    bl_idname = "ya.file_modpacker"
+class ModPackager(Operator):
+    bl_idname = "ya.mod_packager"
     bl_label = "Modpacker"
     bl_description = "Penumbra modpack creator"
 
@@ -134,7 +134,6 @@ class Modpacker(Operator):
         self.props = get_file_properties()
         self.prefs = get_prefs()
 
-        scene = bpy.context.scene
         time  = datetime.now().strftime("%H%M%S")
         
         self.pmp_source       = Path(self.props.modpack_dir)
@@ -142,11 +141,11 @@ class Modpacker(Operator):
         self.author    : str  = self.props.modpack_author
         self.version   : str  = self.props.modpack_version
         
-        self.output_dir: Path = Path(self.props.modpack_output_dir)
+        self.output_dir: Path = Path(self.prefs.modpack_output_dir)
         self.temp_dir  : Path = self.output_dir / f"temp_pmp_{time}"
         self.update    : bool = self.props.modpack_replace
         
-        if not self.props.is_property_set("modpack_output_dir") or not self.output_dir.is_dir():
+        if not self.prefs.is_property_set("modpack_output_dir") or not self.output_dir.is_dir():
             self.report({'ERROR'}, "Please select an output directory.")
             return {'CANCELLED'}
         
@@ -183,60 +182,11 @@ class Modpacker(Operator):
         
         self.checked_files: dict[Path, str] = {}
         for blend_group in self.blender_groups:
+            self.blend_group = blend_group
             self.validate_container(blend_group)
 
-            if blend_group.idx == "New":
-                new_group = True
-                mod_group = ModGroup()
-                old_group = None
-            else:
-                new_group = False
-                mod_group = pmp.groups[int(blend_group.idx)]
-                old_group = copy.deepcopy(mod_group)
-
-            mod_group.Name     = blend_group.name
-            mod_group.Priority = blend_group.priority
-            mod_group.Type     = blend_group.group_type
-            mod_group.Options  = []
-
-            if blend_group.use_folder:
-                self.options_from_folder(mod_group, blend_group, old_group=old_group)
-
-            elif blend_group.group_type != "Combining":
-                for option_idx, option in enumerate(blend_group.mod_options):
-                    try:
-                        self.create_option(mod_group, option, option_idx, blend_group, old_group=old_group)
-                    except (ModpackFileError, ModpackGamePathError, ModpackValidationError) as e: 
-                        raise type(e)(f'Group "{blend_group.name}": {e}') from e
-            else:
-                combinations   = blend_group.get_combinations()
-                container_list = [GroupContainer() for combo in combinations]
-                
-                for option in blend_group.mod_options:
-                    try:
-                        self.create_combination_group(blend_group, mod_group, option, combinations, container_list)
-                    except (ModpackFileError, ModpackGamePathError, ModpackValidationError) as e: 
-                        raise type(e)(f'Group "{blend_group.name}": {e}') from e
-
-                for correction in blend_group.corrections:
-                    correction: CorrectionEntry
-
-                    correction_indices = [
-                    idx for idx, combo in enumerate(combinations) 
-                    if set(correction.names.split("_")) <= set(combo)
-                    ]
-        
-                    for idx in correction_indices:
-                        self.update_container(blend_group, container_list[idx], correction)
-
-                mod_group.Containers = container_list
-                    
-            if int(blend_group.page) != mod_group.Page or new_group:
-                pmp.update_group_page(int(blend_group.page), mod_group, new_group)
-            elif new_group:
-                pmp.groups.append(mod_group)
-            else:
-                pmp.groups[int(blend_group.idx)] = mod_group
+            # Modpack instance is passed on and manipulated in this function chain
+            self.create_group(pmp)
 
         with tempfile.TemporaryDirectory(prefix=f"modpack_{self.pmp_name}_", ignore_cleanup_errors=True) as temp_dir:
             temp_path = Path(temp_dir)
@@ -278,6 +228,205 @@ class Modpacker(Operator):
         context.window_manager.popup_menu(draw_popup, title=f"{pmp_name}.pmp created succesfully!", icon='CHECKMARK')
         return {"FINISHED"}
    
+    def create_group(self, pmp: Modpack):
+        if self.blend_group.idx == "New":
+                new_group = True
+                mod_group = ModGroup()
+                old_group = None
+        else:
+            new_group = False
+            mod_group = pmp.groups[int(self.blend_group.idx)]
+            old_group = copy.deepcopy(mod_group)
+
+        mod_group.Name     = self.blend_group.name
+        mod_group.Priority = self.blend_group.priority
+        mod_group.Type     = self.blend_group.group_type
+        mod_group.Options  = []
+
+        if self.blend_group.use_folder:
+            self.options_from_folder(mod_group, old_group=old_group)
+
+        else:
+            self.resolve_option_structure(mod_group, old_group)
+                
+        if int(self.blend_group.page) != mod_group.Page or new_group:
+            pmp.update_group_page(int(self.blend_group.page), mod_group, new_group)
+        elif new_group:
+            pmp.groups.append(mod_group)
+        else:
+            pmp.groups[int(self.blend_group.idx)] = mod_group
+
+    def resolve_option_structure(self, mod_group: ModGroup, old_group: ModGroup):
+        combining_group = self.blend_group.group_type == "Combining"
+        combinations    = self.blend_group.get_combinations()
+        container_list  = [GroupContainer() for combo in combinations] if combining_group else []
+
+        for option_idx, option in enumerate(self.blend_group.mod_options):
+            self.option_name = option.name
+            self.validate_container(option)
+
+            new_option = self.create_option(option)
+
+            if old_group is not None and not option.description.strip():
+                self.try_keep_description(option, container_list[idx], old_group, idx)
+
+            if combining_group:
+                mod_group.Options.append(new_option)
+            else:
+                container_list.append(new_option)
+        
+            container_indices  = [
+                idx for idx, combo in enumerate(combinations) 
+                if option.name in combo
+                ]
+
+            for idx in container_indices:
+                for entry in chain(option.file_entries, option.meta_entries):
+                    self.update_container(entry, container_list[idx])
+
+        if combining_group:
+            for correction in self.blend_group.corrections:
+
+                correction_indices = [
+                idx for idx, combo in enumerate(combinations) 
+                if set(correction.names.split("_")) <= set(combo)
+                ]
+                for idx in correction_indices:
+                    for entry in chain(correction.file_entries, correction.meta_entries):
+                        self.update_container(entry, container_list[idx])
+
+            mod_group.Containers = container_list
+        else:
+            mod_group.Options = container_list
+
+    def create_option(self, option:BlendModOption) -> GroupOption:
+        new_option               = GroupOption()
+        new_option.Name          = option.name
+        new_option.Description   = option.description
+
+        new_option.Priority = option.priority if self.blend_group.group_type == "Multi" else None
+
+        return new_option
+    
+    def try_keep_description(self, option:BlendModOption, new_option:GroupOption, old_group: ModGroup, option_idx:int):
+        # Checks to see if the Options at the same indices match via name.
+        if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == option.name:
+            new_option.Description = old_group.Options[option_idx].Description
+
+    @singledispatchmethod
+    def update_container(self, 
+                         entry: ModMetaEntry | ModFileEntry, 
+                         new_option : GroupOption | GroupContainer,
+                         ): ...
+                       
+    @update_container.register
+    def file_entry(self, entry: ModFileEntry, new_option: GroupOption | GroupContainer):
+        file                = Path(entry.file_path)
+        corrected_game_path = entry.game_path.replace("/", "\\")
+        
+        if file in self.checked_files:
+            relative_path = self.checked_files[file]
+        else:
+            relative_path = f"{sanitise_path(self.blend_group.name)}\\{sanitise_path(self.option_name)}\\{corrected_game_path}"
+            self.checked_files[file] = relative_path
+        
+        new_option.Files[entry.game_path] = relative_path
+
+    @update_container.register
+    def meta_entry(self, entry: ModMetaEntry, new_option: GroupOption | GroupContainer):
+        new_manip = ManipulationType()
+        new_entry = ManipulationEntry()
+
+        new_entry.Entry               = entry.enable
+        new_entry.Slot                = entry.slot
+        new_entry.Id                  = None if entry.model_id == -1 else entry.model_id
+        new_entry.GenderRaceCondition = int(entry.race_condition)
+
+        if entry.type == "SHP":
+            new_manip.Type = "Shp"
+
+            new_entry.Shape = entry.manip_ref
+            new_entry.ConnectorCondition  = entry.connector_condition
+
+        if entry.type == "ATR":
+            new_manip.Type = "Atr"
+
+            new_entry.Attribute = entry.manip_ref
+            
+        new_manip.Manipulation = new_entry
+        new_option.Manipulations.append(new_manip)
+
+    def options_from_folder(self, mod_group:ModGroup, old_group:ModGroup=None):
+        ''' Takes a folder and sorts files into mod options'''
+        game_path:str       = self.blend_group.game_path
+        file_format         = Path(game_path).suffix
+        corrected_game_path = game_path.replace("/", "\\")
+        
+        file_folder = Path(self.blend_group.folder_path) if self.blend_group.subfolder == "None" else Path(self.blend_group.folder_path) / Path(self.blend_group.subfolder)
+        files = [file for file in file_folder.glob(f"*{file_format}") if file.is_file()]
+
+        if file_format == ".mdl" and self.prefs.ya_sort:
+            files = self.yet_another_sort(files)
+
+        option_idx = 0
+        if self.blend_group.group_type == "Single":
+            new_option              = GroupOption()
+            new_option.Name         = "None"
+            new_option.Description  = ""
+            new_option.Priority     = 0 
+            new_option.Files        = {}
+
+            mod_group.Options.append(new_option)
+            option_idx += 1
+
+        for file in files:
+            new_option              = GroupOption()
+            new_option.Name         = file.stem
+            new_option.Priority     = option_idx if self.blend_group.group_type == "Multi" else None
+            new_option.Files        = {}
+
+            if old_group:
+                if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == file.stem:
+                    new_option.Description = old_group.Options[option_idx].Description
+
+            if file in self.checked_files:
+                relative_path = self.checked_files[file]
+            else:
+                relative_path = f"{sanitise_path(self.blend_group.name)}\\{sanitise_path(file.stem)}\\{corrected_game_path}"
+                self.checked_files[file] = relative_path
+            
+            new_option.Files[self.blend_group.game_path] = relative_path
+            mod_group.Options.append(new_option)
+            option_idx = 1
+
+    def validate_container(self, container):
+        match container:
+            case BlendModGroup():
+                if container.name.strip() == "":
+                    raise ModpackValidationError("A Group is missing a name.")
+                if container.use_folder and not container.valid_path:
+                    raise ModpackGamePathError(f'Group "{container.name}": XIV path is not valid.')
+                
+            case BlendModOption():
+                if container.name.strip() == "":
+                    raise ModpackValidationError(f'Group "{self.blend_group.name}": An option is missing a name.')
+                
+            case ModMetaEntry():
+                if container.type == "SHP" and not container.manip_ref.startswith("shp"):
+                    raise ModpackValidationError(f'Group "{self.blend_group.name}": SHP entry expected reference to start with "shp".')
+                if container.type == "ATR" and not container.manip_ref.startswith("atrx_"):
+                    raise ModpackValidationError(f'Group "{self.blend_group.name}": ATR entry expected reference to start with "atrx_".')
+
+            case ModFileEntry():
+                file      = Path(container.file_path)
+                game_path = Path(container.game_path)
+                if not file.is_file():
+                    raise ModpackFileError(f"{file} is not a invalid file path.")
+                if file.suffix not in game_path.suffix:
+                    raise ModpackFileError(f'Group "{self.blend_group.name}": {file.name} type does not match in-game file. Expected an {game_path.suffix}.')
+                if not container.valid_path:
+                    raise ModpackGamePathError(f'Group "{self.blend_group.name}": XIV path is not valid.')
+
     def yet_another_sort(self, items:list[Path]) -> list[Path]:
         '''It's stupid but it works.'''
         ranking: dict[Path, int] = {}
@@ -339,159 +488,6 @@ class Modpacker(Operator):
 
         return final_sort
 
-    def create_option(self, mod_group:ModGroup, option:BlendModOption, option_idx:int, blend_group:BlendModGroup, old_group:ModGroup=None):
-        self.validate_container(option)
-
-        new_option               = GroupOption()
-        new_option.Name          = option.name
-        new_option.Description   = option.description
-
-        new_option.Priority = option.priority if blend_group.group_type == "Multi" else None
-
-        if old_group is not None:
-            if not option.description and option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == option.name:
-                new_option.Description = old_group.Options[option_idx].Description
-
-        self.update_container(self, blend_group, new_option, option)
-        
-        if new_option.Files == {}:
-            new_option.Files = None
-        if new_option.Manipulations == []:
-            new_option.Manipulations = None
-
-        mod_group.Options.append(new_option)
-   
-    def update_container(self, blend_group:BlendModGroup, new_option:GroupOption | GroupContainer, option:BlendModOption):
-        for entry in chain(option.file_entries, option.meta_entries):
-            self.validate_container(entry)
-            match entry:
-                case ModMetaEntry():
-                    new_manip = ManipulationType()
-                    new_entry = ManipulationEntry()
-
-                    new_entry.Entry               = entry.enable
-                    new_entry.Slot                = entry.slot
-                    new_entry.Id                  = None if entry.model_id == -1 else entry.model_id
-                    new_entry.GenderRaceCondition = int(entry.race_condition)
-
-                    if entry.type == "SHP":
-                        new_manip.Type = "Shp"
-
-                        new_entry.Shape = entry.manip_ref
-                        new_entry.ConnectorCondition  = entry.connector_condition
-
-                    if entry.type == "ATR":
-                        new_manip.Type = "Atr"
-
-                        new_entry.Attribute = entry.manip_ref
-                        
-                    
-                    new_manip.Manipulation = new_entry
-                    new_option.Manipulations.append(new_manip)
-
-                case ModFileEntry():
-                    file                = Path(entry.file_path)
-                    corrected_game_path = entry.game_path.replace("/", "\\")
-                    
-                    if file in self.checked_files:
-                        relative_path = self.checked_files[file]
-                    else:
-                        relative_path = f"{sanitise_path(blend_group.name)}\\{sanitise_path(option.name)}\\{corrected_game_path}"
-                        self.checked_files[file] = relative_path
-                    
-                    new_option.Files[entry.game_path] = relative_path
-
-    def create_combination_group(self, blend_group:BlendModGroup, mod_group:ModGroup, option:BlendModOption, combinations:list, container_list:list[GroupContainer]):
-            self.validate_container(option)
-            option: BlendModOption
-
-            new_option             = GroupOption()
-            new_option.Name        = option.name
-            new_option.Description = option.description
-
-            container_indices  = [idx for idx, combo in enumerate(combinations) if option.name in combo]
-
-            for idx in container_indices:
-                self.update_container(blend_group, container_list[idx], option)
-
-            if new_option.Files == {}:
-                new_option.Files = None
-            if new_option.Manipulations == []:
-                new_option.Manipulations = None
-            
-            mod_group.Options.append(new_option)
-
-    def options_from_folder(self, mod_group:ModGroup, blend_group:BlendModGroup, old_group:ModGroup=None):
-        ''' Takes a folder and sorts files into mod options'''
-        game_path:str       = blend_group.game_path
-        file_format         = Path(game_path).suffix
-        corrected_game_path = game_path.replace("/", "\\")
-        
-        file_folder = Path(blend_group.folder_path) if blend_group.subfolder == "None" else Path(blend_group.folder_path) / Path(blend_group.subfolder)
-        files = [file for file in file_folder.glob(f"*{file_format}") if file.is_file()]
-
-        if file_format == ".mdl" and self.prefs.ya_sort:
-            files = self.yet_another_sort(files)
-
-        option_idx = 0
-        if blend_group.group_type == "Single":
-            new_option              = GroupOption()
-            new_option.Name         = "None"
-            new_option.Description  = ""
-            new_option.Priority     = 0 
-            new_option.Files        = {}
-
-            mod_group.Options.append(new_option)
-            option_idx += 1
-
-        for file in files:
-            new_option              = GroupOption()
-            new_option.Name         = file.stem
-            new_option.Priority     = option_idx if blend_group.group_type == "Multi" else None
-            new_option.Files        = {}
-
-            if old_group:
-                if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == file.stem:
-                    new_option.Description = old_group.Options[option_idx].Description
-
-            if file in self.checked_files:
-                relative_path = self.checked_files[file]
-            else:
-                relative_path = f"{sanitise_path(blend_group.name)}\\{sanitise_path(file.stem)}\\{corrected_game_path}"
-                self.checked_files[file] = relative_path
-            
-            new_option.Files[blend_group.game_path] = relative_path
-            mod_group.Options.append(new_option)
-            option_idx = 1
-
-    def validate_container(self, container):
-        match type(container).__name__:
-            case "BlendModGroup":
-                if container.name.strip() == "":
-                    raise ModpackValidationError("Group is missing a name.")
-                if container.use_folder and not container.valid_path:
-                    raise ModpackGamePathError(f'Group "{container.name}": XIV path is not valid.')
-                
-            case "BlendModOption":
-                if container.name.strip() == "":
-                    raise ModpackValidationError("Option is missing a name.")
-                
-            case "ModMetaEntry":
-                if container.type == "SHP" and not container.manip_ref.startswith("shp"):
-                    raise ModpackValidationError('SHP entry expected reference to start with "shp".')
-                if container.type == "ATR" and not container.manip_ref.startswith("atrx_"):
-                    raise ModpackValidationError('ATR entry expected reference to start with "atrx_".')
-
-            case "ModFileEntry":
-                file      = Path(container.file_path)
-                game_path = Path(container.game_path)
-                if not file.is_file():
-                    raise ModpackFileError(f"{file} is not a invalid file path.")
-                if file.suffix not in game_path.suffix:
-                    raise ModpackFileError(f"{file.name} type does not match in-game file. Expected an {game_path.suffix}.")
-                if not container.valid_path:
-                    raise ModpackGamePathError(f"XIV path is not valid.")
-
     def rolling_backup(self) -> None:
         folder_bak = self.output_dir / "BACKUP"
         time = datetime.now().strftime("%Y-%m-%d - %H%M%S")
@@ -509,5 +505,5 @@ class Modpacker(Operator):
 
 CLASSES = [
     ModelConverter,
-    Modpacker
+    ModPackager
 ]
