@@ -1,13 +1,17 @@
 import os
+from typing import TYPE_CHECKING
 import bpy
 
-from itertools      import chain
-from pathlib        import Path
-from bpy.types      import PropertyGroup, Object, Context
-from bpy.props      import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
+from typing          import Iterable
+from pathlib         import Path
+from itertools       import chain
+from bpy.types       import PropertyGroup, Object, Context
+from bpy.props       import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
+from .utils.typings  import ObjIterable, BlendEnum
 from .utils.penumbra import Modpack
 
-def visible_meshobj() -> list[Object]:
+
+def visible_meshobj() -> ObjIterable:
     """Checks all visible objects and returns them if they contain a mesh."""
     context = bpy.context
     visible_meshobj = [obj for obj in context.scene.objects if obj.visible_get(view_layer=context.view_layer) and obj.type == "MESH"]
@@ -20,7 +24,7 @@ def get_object_from_mesh(mesh_name:str) -> Object | None:
             return obj
     return None
 
-def scene_armatures() -> list[tuple[str, str, str]]:
+def scene_armatures() -> BlendEnum:
         armatures = [("None", "None", ""), None]
         
         for obj in bpy.context.scene.objects:
@@ -66,7 +70,7 @@ class ModpackHelper(PropertyGroup):
         path:str        = self.game_path
         self.valid_path = path.startswith("chara") and path.endswith(tuple(props.GAME_SUFFIX))
 
-    def get_subfolder(self) -> list[tuple[str, str, str]]:
+    def get_subfolder(self) -> BlendEnum:
         group_folder = Path(self.folder_path)
         if group_folder.is_dir():
             slot_dir = ["Chest", "Legs", "Hands", "Feet", "Chest & Legs"]
@@ -185,26 +189,40 @@ class ModMetaEntry(ModpackHelper):
     model_id: IntProperty(default=-1, min=-1, max=65535, name="", description="XIV model ID. -1 means all models") # type: ignore
     enable  : BoolProperty(default=True, name="", description="Enable/Disable the manipulation") # type: ignore
 
+    if TYPE_CHECKING:
+        type                : str
+        manip_ref           : str
+        slot                : str
+        race_condition      : str
+        connector_condition : str
+        model_id            : int
+        enable              : bool
+
 class ModFileEntry(ModpackHelper):
     file_path: StringProperty(default="Select a file...", name="", description="Path to the local file you want to pack/convert") # type: ignore
     game_path: StringProperty(default="Paste path here...", name="", description="Path to the in-game file you want to replace", update=lambda self, context: self.check_valid_path()) # type: ignore
 
     valid_path: BoolProperty(default=False) # type: ignore
 
+    if TYPE_CHECKING:
+        file_path : str
+        game_path : str
+        valid_path: bool
+
 class CorrectionEntry(ModpackHelper):
-    group_idx: IntProperty(default=0) # type: ignore
+    group_idx   : IntProperty(default=0) # type: ignore
     meta_entries: CollectionProperty(type=ModMetaEntry) # type: ignore
     file_entries: CollectionProperty(type=ModFileEntry) # type: ignore
-
+    
     names: EnumProperty(
         name= "",
          default=0,
-        description= "When these two groups are in the same combination, you can specify another meta entry to add",
+        description= "When these two groups are in the same combination, you can specify another entry to add",
         items= lambda self, context: self.get_possible_corrections(context)
         )  # type: ignore
     
-    show_option     : BoolProperty(default=True) # type: ignore
-
+    show_option     : BoolProperty(default=True, name="", description="Show the contents of the option") # type: ignore
+    
     def get_possible_corrections(self, context:Context):
         props                = get_file_properties()
         group: BlendModGroup = props.pmp_mod_groups[self.group_idx]
@@ -220,6 +238,13 @@ class CorrectionEntry(ModpackHelper):
             for combo in combinations
             if 3 > len(combo) > 1 or "None" in combo
             ]
+    
+    if TYPE_CHECKING:
+        group_idx   : int
+        file_entries: Iterable[ModFileEntry]
+        meta_entries: Iterable[ModMetaEntry]
+        names       : str
+        show_option : bool 
 
 class BlendModOption(ModpackHelper):
     name       : StringProperty(default="", name="",) # type: ignore
@@ -229,33 +254,78 @@ class BlendModOption(ModpackHelper):
     meta_entries: CollectionProperty(type=ModMetaEntry) # type: ignore
     file_entries: CollectionProperty(type=ModFileEntry) # type: ignore
 
-    show_option : BoolProperty(default=True) # type: ignore
+    show_option : BoolProperty(default=True, name="", description="Show the contents of the option") # type: ignore
 
+    if TYPE_CHECKING:
+        name        : str
+        description : str
+        priority    : int
+        file_entries: Iterable[ModFileEntry]
+        meta_entries: Iterable[ModMetaEntry]
+        show_option : bool
+    
 class BlendModGroup(ModpackHelper):
-    idx        : EnumProperty(
-        name= "",
-         default=0,
-        update=lambda self, context: self.set_group_values(),
-        description= "Select an option to replace",
-        items= lambda self, context: self.get_modpack_groups(context)
-        )   # type: ignore   
-    page       : EnumProperty(
-        name= "",
-        default=0,
-        description= "Select a page for your group",
-        items= lambda self, context: self.get_groups_page(context)
-        )   # type: ignore 
-    group_type : EnumProperty(
-        name= "",
-        default="Single",
-        description= "Single, Multi or Combining",
-        update=lambda self, context: self.group_type_change(),
-        items= [
-            ("Single", "Single", "Exclusive options in a group"),
-            ("Multi", "Multi ", "Multiple selectable options in a group"),
-            ("Combining", "Combi ", "Combine multiple selectable groups")
-        ]
-        )   # type: ignore
+    idx             : EnumProperty(
+                        name= "",
+                        default=1,
+                        update=lambda self, context: self.set_group_values(),
+                        description= "Select an option to replace",
+                        items= lambda self, context: self.get_modpack_groups(context)
+                        )   # type: ignore   
+    page            : EnumProperty(
+                        name= "",
+                        default=0,
+                        description= "Select a page for your group",
+                        items= lambda self, context: self.get_groups_page(context)
+                        )   # type: ignore 
+    group_type      : EnumProperty(
+                        name= "",
+                        default="Single",
+                        description= "Single, Multi or Combining",
+                        update=lambda self, context: self.group_type_change(),
+                        items= [
+                            ("Single", "Single", "Exclusive options in a group"),
+                            ("Multi", "Multi ", "Multiple selectable options in a group"),
+                            ("Combining", "Combi ", "Combine multiple selectable groups")
+                        ]
+                        )   # type: ignore
+    
+    name            : StringProperty(default="New Group", name="", description="Name of the group", update=lambda self, context: self.set_name()) # type: ignore
+    description     : StringProperty(default="", name="", description="Write something silly") # type: ignore
+    game_path       : StringProperty(default="Paste path here...", name="", description="Path to the in-game file you want to replace", update=lambda self, context: self.check_valid_path()) # type: ignore
+    folder_path     : StringProperty(default="Select a folder...", name="" , description="Folder with files top pack/convert", ) # type: ignore
+    priority        : IntProperty(default=0, name="Priority", description="Decides which group takes precedence in the modpack if files conflict. Higher number wins") # type: ignore
+
+    mod_options     : CollectionProperty(type=BlendModOption) # type: ignore
+    corrections     : CollectionProperty(type=CorrectionEntry) # type: ignore
+
+    show_folder     : BoolProperty(default=True, name="", description="Show the contents of the target folder") # type: ignore
+    show_group      : BoolProperty(default=True, name="", description="Show the contents of the group") # type: ignore
+
+    use_folder      : BoolProperty(default=True, name="", description="Creates an option for each file in the folder", update=lambda self, context: self.use_folder_change()) # type: ignore
+    valid_path      : BoolProperty(default=False) # type: ignore
+    shared_game_path: BoolProperty(default=False) # type: ignore
+    name_set        : BoolProperty(default=False) # type: ignore
+
+    if TYPE_CHECKING:
+        idx             : str
+        page            : str
+        group_type      : str
+        name            : str
+        description     : str
+        game_path       : str
+        folder_path     : str
+        priority        : int
+        mod_options     : Iterable[BlendModOption]
+        corrections     : Iterable[CorrectionEntry]
+        show_folder     : bool
+        show_group      : bool
+        use_folder      : bool
+        valid_path      : bool
+        shared_game_path: bool
+        name_set        : bool
+        
+
     subfolder  : EnumProperty(
         name= "",
         default=0,
@@ -263,32 +333,16 @@ class BlendModGroup(ModpackHelper):
         items= lambda self, context: self.get_subfolder()
         )  # type: ignore
 
-    name       : StringProperty(default="New Group", name="", description="Name of the group", update=lambda self, context: self.set_name()) # type: ignore
-    description: StringProperty(default="", name="", description="Write something silly") # type: ignore
-    game_path  : StringProperty(default="Paste path here...", name="", description="Path to the in-game file you want to replace", update=lambda self, context: self.check_valid_path()) # type: ignore
-    folder_path: StringProperty(default="Select a folder...", name="" , description="Folder with files top pack/convert", ) # type: ignore
-    priority   : IntProperty(default=0, name="Priority", description="Decides which group takes precedence in the modpack if files conflict. Higher number wins") # type: ignore
-
-    mod_options: CollectionProperty(type=BlendModOption) # type: ignore
-    corrections: CollectionProperty(type=CorrectionEntry) # type: ignore
-
-    show_folder: BoolProperty(default=True, name="", description="Show the contents of the target folder") # type: ignore
-    show_group : BoolProperty(default=True, name="", description="Show the contents of the group") # type: ignore
-
-    use_folder      : BoolProperty(default=True, name="", description="Creates an option for each file in the folder", update=lambda self, context: self.use_folder_change()) # type: ignore
-    valid_path      : BoolProperty(default=False) # type: ignore
-    shared_game_path: BoolProperty(default=False) # type: ignore
-    name_set        : BoolProperty(default=False) # type: ignore
-
     def set_group_values(self):
         props                                  = get_file_properties()
         replace                                = props.modpack_replace
-        scene_groups: list[LoadedModpackGroup] = props.loaded_pmp_groups
+        modpack: list[LoadedModpackGroup] = props.loaded_pmp_groups
         
         if self.idx != "New":
-            group = scene_groups[int(self.idx)]
+            # idx = self.idx - 1
+            group = modpack[int(self.idx)]
             if self.name == "" or not self.name_set and replace:
-                self.name = scene_groups[int(self.idx)].group_name
+                self.name = group[int(self.idx)].group_name
 
             try:
                 self.page = str(group.group_page)
@@ -315,7 +369,7 @@ class BlendModGroup(ModpackHelper):
         else:
             self.name_set = True
 
-    def get_groups_page(self, context:Context) -> list[tuple[str, str, str]]:
+    def get_groups_page(self, context:Context) -> BlendEnum:
         props = get_file_properties()
         pages = set([option.group_page for option in props.loaded_pmp_groups])
 
@@ -324,7 +378,7 @@ class BlendModGroup(ModpackHelper):
         else:
             return [("0", f"Pg: 0", "")]
         
-    def get_modpack_groups(self, context:Context) -> list[tuple[str, str, str]]:
+    def get_modpack_groups(self, context:Context) -> BlendEnum:
         props   = get_file_properties()
         modpack = props.loaded_pmp_groups
         groups  = [("", "New:", ""), ("New", "New Group", "")]
@@ -335,6 +389,7 @@ class BlendModGroup(ModpackHelper):
                 groups.append(("", f"Page {page}:", ""))
                 page += 1
             groups.append((option.group_value, option.group_name, option.group_description))
+   
         return groups
 
     def use_folder_change(self):
@@ -346,20 +401,31 @@ class BlendModGroup(ModpackHelper):
             self.use_folder = False
 
     def get_combinations(self):
-        total_options = [option.name for option in self.mod_options[:8]]
-        combinations = [[]]
-    
-        for option in total_options:
-            combinations.extend([combo + [option] for combo in combinations])
+        if self.group_type == "Combining":
+            total_options = [option.name for option in self.mod_options[:8]]
+            combinations = [[]]
+        
+            for option in total_options:
+                combinations.extend([combo + [option] for combo in combinations])
 
-        return combinations
- 
+            return combinations
+        else:
+            return [[option.name] for option in self.mod_options]
+    
+
 class LoadedModpackGroup(PropertyGroup):
     group_value      : StringProperty() # type: ignore
     group_name       : StringProperty() # type: ignore
     group_description: StringProperty(default="") # type: ignore
     group_page       : IntProperty(default=0) # type: ignore
     group_priority   : IntProperty(default=0) # type: ignore
+
+    if TYPE_CHECKING:
+        group_value      : str
+        group_name       : str
+        group_description: str
+        group_page       : int
+        group_priority   : int
     
 class YAFileProps(PropertyGroup):
 
@@ -418,17 +484,15 @@ class YAFileProps(PropertyGroup):
 
     def update_mod_enums(self, context):
         if self.modpack_replace:
-
             modpack_data(context)
-        else:
-            blender_groups = context.scene.pmp_mod_groups
-            for blend_group in blender_groups:
-                # old_value = blend_group.name_set
-                # blend_group.name_set = True
 
+        else:
+            props = get_file_properties()
+            blender_groups = props.pmp_mod_groups
+            for blend_group in blender_groups:
                 blend_group.idx = "New"
-                # blend_group.name_set
-            bpy.context.scene.loaded_pmp_groups.clear()
+                
+            props.loaded_pmp_groups.clear()
             
     ui_size_category: StringProperty(
         name="",
@@ -576,8 +640,12 @@ class AnimationOptimise(PropertyGroup):
     triangulation: BoolProperty() # type: ignore
     show_armature: BoolProperty() # type: ignore
 
+    if TYPE_CHECKING:
+        triangulation: bool
+        show_armature: bool
+
 class YASVGroups(PropertyGroup):
-    name: StringProperty() # type: ignore
+    name       : StringProperty() # type: ignore
     lock_weight: BoolProperty(
         name="",
         default=False,
@@ -592,15 +660,23 @@ class YASVGroups(PropertyGroup):
             if group:
                 group.lock_weight = self.lock_weight
 
+    if TYPE_CHECKING:
+        name       : str
+        lock_weight: bool
+
 class ShapeModifiers(PropertyGroup):
     name: StringProperty() # type: ignore
     icon: StringProperty() # type: ignore
 
+    if TYPE_CHECKING:
+        name: str
+        icon: str
+
 class YAOutfitProps(PropertyGroup):
 
-    animation_optimise    : CollectionProperty(type=AnimationOptimise) # type: ignore
+    animation_optimise   : CollectionProperty(type=AnimationOptimise) # type: ignore
 
-    shape_modifiers_group : CollectionProperty(type=ShapeModifiers) # type: ignore
+    shape_modifiers_group: CollectionProperty(type=ShapeModifiers) # type: ignore
 
     yas_vgroups : CollectionProperty(type=YASVGroups) # type: ignore
 
@@ -776,13 +852,13 @@ class YAOutfitProps(PropertyGroup):
 
         key_blocks[props.shape_chest_base.upper()].mute = False
 
-    def get_vertex_groups(self, context:Context, obj:Object) -> list[tuple[str, str, str]]:
+    def get_vertex_groups(self, context:Context, obj:Object) -> BlendEnum:
         if obj and obj.type == "MESH":
             return [("None", "None", "")] + [(group.name, group.name, "") for group in obj.vertex_groups]
         else:
             return [("None", "Select a target", "")]
 
-    def scene_actions(self) -> list[tuple[str, str, str]]: 
+    def scene_actions(self) -> BlendEnum: 
         armature_actions = [("None", "None", ""), None]
     
         for action in bpy.data.actions:
@@ -790,8 +866,8 @@ class YAOutfitProps(PropertyGroup):
                 armature_actions.append((action.name , action.name, "Action"))
         return armature_actions
     
-    def get_deform_modifiers(self, context:Context) -> list[tuple[str, str, str]]:
-        modifiers = context.scene.shape_modifiers
+    def get_deform_modifiers(self, context:Context) -> BlendEnum:
+        modifiers = self.shape_modifiers_group
         if not modifiers:
             return [("None", "No Valid Modifiers", "")]
         return [(modifier.name, modifier.name, "", modifier.icon, index) for index, modifier in enumerate(modifiers)]
