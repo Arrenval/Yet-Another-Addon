@@ -1,5 +1,3 @@
-import bpy
-
 from bpy.types          import Operator, Context
 from bpy.props          import StringProperty
 from ...properties      import get_file_properties, get_outfit_properties

@@ -468,7 +468,6 @@ class MeshHandler:
 class FileExport:
 
     def __init__(self):
-        scene = bpy.context.scene
         self.props = get_file_properties
         self.gltf = self.props.file_gltf
         self.subfolder = self.props.create_subfolder

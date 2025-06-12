@@ -2,14 +2,13 @@ import bpy
 
 from .              import preferences
 from .              import properties
-from .ui.menu       import menu_emptyvgroup_append
+from .ui.menu       import menu_vertex_group_append
 from .handlers      import set_handlers, remove_handlers
 
 from pathlib        import Path
 from importlib      import import_module
 
 SUBFOLDERS = [
-    "utils",
     "operators",
     "ui/operators",
     "ui",
@@ -22,9 +21,7 @@ modules = [
 
 classes = []
 
-
 def load_modules():
-    
     addon_dir = Path(__file__).parent
 
     for folder in SUBFOLDERS:
@@ -47,7 +44,6 @@ def load_modules():
 load_modules()
     
 def register():
-
     for module in modules[:2]:
         for cls in module.CLASSES:
             bpy.utils.register_class(cls)
@@ -57,13 +53,12 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-  
     set_handlers()
     bpy.types.Scene.ya_addon_ver = (0, 15, 0)
-    bpy.types.MESH_MT_vertex_group_context_menu.append(menu_emptyvgroup_append)
+    bpy.types.MESH_MT_vertex_group_context_menu.append(menu_vertex_group_append)
 
 def unregister():
-    bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_emptyvgroup_append)
+    bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_vertex_group_append)
     del bpy.types.Scene.ya_addon_ver
     remove_handlers()
     

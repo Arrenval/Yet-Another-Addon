@@ -4,6 +4,7 @@ import bpy
 from bpy.types import Operator, Object
 from bpy.props import StringProperty, IntProperty, EnumProperty, BoolProperty
 
+
 class Attributes(Operator):
     bl_idname = "ya.attributes"
     bl_label = "Attributes"
@@ -209,6 +210,7 @@ class ChangeMaterial(Operator):
         #     new = f"{group}.{self.user_input}"
         #     obj.name = f"{obj.name[:-len(name_parts[-1])]}{new}"
         return {'FINISHED'}
+
 
 CLASSES = [
     Attributes,

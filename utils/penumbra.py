@@ -12,6 +12,7 @@ from pathlib     import Path
 from collections import defaultdict
 from dataclasses import dataclass, asdict, field, fields
 
+
 def sanitise_path(path:str) -> str:
         """Removes invalid characters from Windows paths. Used mostly for modpack paths."""
         invalid = '<>:"/\|?*'

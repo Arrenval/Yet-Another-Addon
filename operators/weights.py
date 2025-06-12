@@ -154,16 +154,21 @@ class AddYASGroups(Operator):
     def draw(self, context):
         layout = self.layout
         layout.label(text="Select categories:")
+
         row = layout.row(align=True)
         row.prop(self, "torso", icon="CHECKMARK" if self.torso else "X", text="Torso")
         row.prop(self, "fingers", icon="CHECKMARK" if self.fingers else "X", text="Fingers")
+
         row = layout.row(align=True)
         row.prop(self, "legs", icon="CHECKMARK" if self.legs else "X", text="Legs")
         row.prop(self, "toes", icon="CHECKMARK" if self.toes else "X", text="Toes")
+
         layout.separator(type="LINE")
+
         row = layout.row(align=True)
         row.prop(self, "anus", icon="CHECKMARK" if self.anus else "X", text="Anus")
         row.prop(self, "penis", icon="CHECKMARK" if self.penis else "X", text="Penis")
+
         row = layout.row(align=True)
         row.prop(self, "vagina", icon="CHECKMARK" if self.vagina else "X", text="Vagina")
     
