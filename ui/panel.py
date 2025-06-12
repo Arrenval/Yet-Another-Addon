@@ -1,11 +1,12 @@
 import re
 import bpy
-import platform
 
-from pathlib                import Path
-from bpy.types              import Panel, UILayout, Context, Object
-from ..preferences          import get_prefs
-from ..properties           import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, ModMetaEntry, get_file_properties, get_outfit_properties, get_object_from_mesh, visible_meshobj
+from .draw         import aligned_row, get_conditional_icon, operator_button
+from pathlib       import Path   
+from bpy.types     import Panel, UILayout, Context, Object
+from ..preferences import get_prefs
+from ..properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, ModMetaEntry, get_file_properties, get_outfit_properties, get_object_from_mesh, visible_meshobj
+
 
 class OutfitStudio(Panel):
     bl_idname = "VIEW3D_PT_YA_OutfitStudio"
@@ -374,11 +375,11 @@ class OutfitStudio(Panel):
                     col.separator(type="LINE", factor=2)
 
                 row = col.row(align=True)
-                icon = 'CHECKMARK' if getattr(section_prop, "seam_waist") else 'PANEL_CLOSE'
+                icon = get_conditional_icon(section_prop.seam_waist)
                 row.prop(section_prop, "seam_waist", text="Waist", icon=icon)
-                icon = 'CHECKMARK' if getattr(section_prop, "seam_wrist") else 'PANEL_CLOSE'
+                icon = get_conditional_icon(section_prop.seam_waist)
                 row.prop(section_prop, "seam_wrist", text="Wrist", icon=icon)
-                icon = 'CHECKMARK' if getattr(section_prop, "seam_ankle") else 'PANEL_CLOSE'
+                icon = get_conditional_icon(section_prop.seam_ankle)
                 row.prop(section_prop, "seam_ankle", text="Ankle", icon=icon)
 
                 col.separator(type="LINE", factor=2)
@@ -601,7 +602,7 @@ class OutfitStudio(Panel):
             prop_name = f"{button_type}_{slot_lower}_{key_lower}"
 
             if hasattr(section_prop, prop_name):
-                icon = 'CHECKMARK' if getattr(section_prop, prop_name) else 'PANEL_CLOSE'
+                icon = get_conditional_icon(getattr(section_prop, prop_name))
                 
                 col_index = index % columns 
                 emboss = False if (slot == "Legs" and name == self.outfit_props.shape_leg_base) or (slot == "Chest" and name == self.outfit_props.shape_chest_base) else True
@@ -988,24 +989,7 @@ class FileManager(Panel):
         layout.separator(factor=0.5)
 
     def draw_modpack(self, layout:UILayout):
-        if platform.system() == "Windows":
-            row = layout.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            icon = "CHECKMARK" if self.prefs.consoletools_status else "X"
-            text = "ConsoleTools Ready!" if self.prefs.consoletools_status else "ConsoleTools missing."
-            split.alignment = "RIGHT"
-            split.label(text="")
-            split.label(text=text, icon=icon)
-            split.operator("ya.file_console_tools", text="Check")
-            row.operator("ya.consoletools_dir", icon="FILE_FOLDER", text="")
-
-            layout.separator(factor=0.5,type="LINE")
-        
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Output:")
-        split.prop(self.prefs, "modpack_output_display_dir", text="")
+        row = aligned_row(layout, "Output:", "modpack_output_display_dir", self.prefs)
         row.operator("ya.modpack_dir_selector", icon="FILE_FOLDER", text="").category = "OUTPUT_PMP" 
 
         box = layout.box()
@@ -1016,7 +1000,7 @@ class FileManager(Panel):
             "group":    0,
             }
             
-        self.operator_button(row, "ya.file_modpacker", icon="FILE_PARENT", attributes=op_atr)
+        operator_button(row, "ya.mod_packager", icon="FILE_PARENT", attributes=op_atr)
         row.prop(self.file_props, "modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
         row.prop(self.file_props, "modpack_replace", text="Update", icon="CURRENT_FILE",)
 
@@ -1026,8 +1010,8 @@ class FileManager(Panel):
             "option":   0
             }
             
-        self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
-        self.operator_button(row, "ya.pmp_selector", icon="FILE")
+        operator_button(row, "ya.modpack_manager", icon="ADD", attributes=op_atr)
+        operator_button(row, "ya.pmp_selector", icon="FILE")
 
         box.separator(factor=0.5,type="LINE")
 
@@ -1116,7 +1100,7 @@ class FileManager(Panel):
                 self.option_header(columns[1], group, option, group_idx, option_idx)
 
                 if option.show_option:
-                    row = self.right_align_prop(columns[1], "Description", "description", option)
+                    row = aligned_row(columns[1], "Description:", "description", option)
 
                     columns[1].separator(factor=2,type="LINE")
 
@@ -1134,7 +1118,7 @@ class FileManager(Panel):
                 self.correction_header(columns[1], group, correction, group_idx, correction_idx)
 
                 if correction.show_option:
-                    self.right_align_prop(columns[1], "Options", "names", correction)
+                    aligned_row(columns[1], "Options:", "names", correction)
 
                     columns[1].separator(factor=2,type="LINE")
 
@@ -1164,8 +1148,15 @@ class FileManager(Panel):
             "group":    group_idx,
             }
             
-        self.operator_button(row, "ya.file_modpacker", icon="FILE_PARENT", attributes=op_atr)
-        row.prop(group, "name", text="", icon="GROUP")
+        operator_button(row, "ya.mod_packager", icon="FILE_PARENT", attributes=op_atr)
+
+        op_atr = {
+        "group":    group_idx,
+        }
+        
+        operator_button(row, "ya.modpack_presets", icon="FILE_TICK", attributes=op_atr)
+
+        row.prop(group, "name", text="")
         subrow = row.row(align=True)
         subrow.scale_x = 0.4
         subrow.prop(group, "priority", text="")
@@ -1174,9 +1165,6 @@ class FileManager(Panel):
         row.alignment = "RIGHT"
         row.label(icon="BLANK1")
 
-        # if group.group_type == "Combining":
-            # row.label(text="", icon="NEWFOLDER")
-        # else:
         row.prop(group, "use_folder", text="", icon="NEWFOLDER", emboss=True)
         
         if group.use_folder and group.group_type != "Combining":
@@ -1188,7 +1176,7 @@ class FileManager(Panel):
             "option":   0
             }
             
-            self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
+            operator_button(row, "ya.modpack_manager", icon="ADD", attributes=op_atr)
 
         op_atr = {
         "delete":   True,
@@ -1196,38 +1184,22 @@ class FileManager(Panel):
         "group":    group_idx,
         }
         
-        self.operator_button(row, "ya.modpacker_ui_containers", icon="TRASH", attributes=op_atr)
+        operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
     def group_container(self, layout:UILayout, group:BlendModGroup, idx:int):
-            row = layout.row(align=True)
-            split = row.split(factor=0.25)
-            col = split.column()
-            subrow = col.row(align=True)
-            subrow.alignment = "RIGHT"
-            subrow.label(text="Replace:")
+            
+            text = "Create:" if group.idx == "New" else "Replace:"
+            row = aligned_row(layout, text, "idx", group)
 
-            col2 = split.column()
-            col2.prop(group, "idx")
+            subrow = row.row(align=True)
+            subrow.scale_x = 0.5
+            subrow.prop(group, "page", text="")
 
-            split2 = row.split(factor=1)
-            col3 = split2.column()
-            col3.alignment = "CENTER"
-            col3.prop(group, "page", text="", emboss=True)
-
-            row = layout.row(align=True)
-            split = row.split(factor=0.25)
-            col = split.column()
-            subrow = col.row(align=True)
-            subrow.alignment = "RIGHT"
-            subrow.label(text="Description:")
-
-            col2 = split.column()
-            col2.prop(group, "description", text="")
-
-            split2 = row.split(factor=1)
-            col3 = split2.column(align=True)
-            col3.alignment = "CENTER"
-            col3.prop(group, "group_type", text="", emboss=True)
+            row = aligned_row(layout, "Description:", "description", group)
+        
+            subrow = row.row(align=True)
+            subrow.scale_x = 0.5
+            subrow.prop(group, "group_type", text="")
 
             if not group.use_folder:
                 layout.separator(factor=0.1, type="SPACE")
@@ -1261,7 +1233,7 @@ class FileManager(Panel):
             "option":   option_idx
             }
             
-        self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
+        operator_button(row, "ya.modpack_manager", icon="ADD", attributes=op_atr)
         
         op_atr = {
             "delete":   True,
@@ -1270,7 +1242,7 @@ class FileManager(Panel):
             "option":   option_idx
             }
             
-        self.operator_button(row, "ya.modpacker_ui_containers", icon="TRASH", attributes=op_atr)
+        operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
     
     def correction_header(self, layout:UILayout, group:BlendModGroup, option:CorrectionEntry, group_idx:int, option_idx:int):
         row = layout.box().row(align=True)
@@ -1297,7 +1269,7 @@ class FileManager(Panel):
             "option":   option_idx
             }
             
-        self.operator_button(row, "ya.modpacker_ui_containers", icon="ADD", attributes=op_atr)
+        operator_button(row, "ya.modpack_manager", icon="ADD", attributes=op_atr)
         
         op_atr = {
             "delete":   True,
@@ -1306,38 +1278,27 @@ class FileManager(Panel):
             "option":   option_idx
             }
             
-        self.operator_button(row, "ya.modpacker_ui_containers", icon="TRASH", attributes=op_atr)
+        operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
     def folder_container(self, layout:UILayout, container:BlendModGroup, group_idx:int, option_idx:int):
         layout.separator(factor=0.1,type="SPACE")
 
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Folder:")
-
-        # This is stupid
         path = str(Path(*Path(container.folder_path).parts[-3:])) if Path(container.folder_path).is_dir else container.folder_path
-        split.alignment = "LEFT"
-        split.label(text=f"{path}")
+        row = aligned_row(layout, "Folder:", path)
 
         op_atr = {
             "category": "GROUP",
             "group": group_idx,
             }
 
-        self.operator_button(row, "ya.modpack_dir_selector", icon="FILE_FOLDER", attributes=op_atr)
+        operator_button(row, "ya.modpack_dir_selector", icon="FILE_FOLDER", attributes=op_atr)
 
         if len(container.get_subfolder()) > 1:
-            row = layout.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="")
-            split.prop(container, "subfolder", text="Subfolder")
+            row = aligned_row(layout, "Subfolder:", "subfolder", prop=container, factor=0.5)
             row.label(icon="FOLDER_REDIRECT")
 
         if container.use_folder:
-            row = self.right_align_prop(layout, "XIV Path", "game_path", container)
+            row = aligned_row(layout, "XIV Path:", "game_path", container)
             icon = "CHECKMARK" if container.valid_path else "X"
             row.label(icon=icon)
             self.xiv_path_category(layout, container, "GROUP", group_idx, option_idx)
@@ -1350,33 +1311,26 @@ class FileManager(Panel):
     def entry_container(self, layout:UILayout, container:BlendModOption | CorrectionEntry, group_idx:int, option_idx:int):
          
         for file_idx, file in enumerate(container.file_entries):
-            file: ModFileEntry
-
-            row = layout.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="File:")
-            split.alignment = "LEFT"
-            split.label(text=f"{Path(file.file_path).name}")
+            category = "FILE_ENTRY" if isinstance(container, BlendModOption) else "FILE_COMBI"
+            row = aligned_row(layout, "File:", Path(file.file_path).name)
 
             op_atr = {
-                "category": "FILE_ENTRY",
+                "category": category,
                 "group": group_idx,
                 "option": option_idx,
                 "entry": file_idx,
             }
     
-            self.operator_button(row, "ya.modpack_file_selector", icon="FILE_FOLDER", attributes=op_atr)
+            operator_button(row, "ya.modpack_file_selector", icon="FILE_FOLDER", attributes=op_atr)
             
-            row = self.right_align_prop(layout, "XIV Path", "game_path", file)
+            row = aligned_row(layout, "XIV Path:", "game_path", file)
             icon = "CHECKMARK" if file.valid_path else "X"
             row.label(icon=icon)
-            self.xiv_path_category(layout, file, "FILE_ENTRY", group_idx, option_idx, file_idx)
+            self.xiv_path_category(layout, file, category, group_idx, option_idx, file_idx)
 
             layout.separator(factor=1.5,type="LINE")
 
         for entry_idx, entry in enumerate(container.meta_entries):
-            entry: ModMetaEntry
 
             match entry.type:
                 case "ATR":
@@ -1391,16 +1345,25 @@ class FileManager(Panel):
             row.alignment = "EXPAND"
             row.label(text="", icon=icon)
 
+            slot_scale = 0.6
+            name_scale = 0.8
+            model_scale = 0.65
+            
+            if entry.type == "SHP":
+                race_scale =  0.6
+            else:
+                race_scale =  0.85
+
             subrow = row.row(align=True)
-            subrow.scale_x = 0.6
+            subrow.scale_x = slot_scale
             subrow.prop(entry, "slot", text="")
 
             subrow = row.row(align=True)
-            subrow.scale_x = 0.8
+            subrow.scale_x = name_scale
             subrow.prop(entry, "manip_ref", text="")
 
             subrow = row.row(align=True)
-            subrow.scale_x = 0.6
+            subrow.scale_x = model_scale
             subrow.prop(entry, "model_id", text="")
 
             if entry.type == "SHP":
@@ -1409,7 +1372,7 @@ class FileManager(Panel):
                 subrow.prop(entry, "connector_condition", text="")
 
             subrow = row.row(align=True)
-            subrow.scale_x = 0.6
+            subrow.scale_x = race_scale
             subrow.prop(entry, "race_condition", text="")
 
             row.prop(entry, "enable", text="", icon= "CHECKMARK" if entry.enable else "X")
@@ -1422,7 +1385,7 @@ class FileManager(Panel):
                 "entry":    entry_idx,
             }
     
-            self.operator_button(row, "ya.modpacker_ui_containers", icon="TRASH", attributes=op_atr)
+            operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
             layout.separator(factor=1.5,type="LINE")
     
@@ -1437,7 +1400,7 @@ class FileManager(Panel):
         row.prop(container, "show_folder", text="Model Stats", icon=icon, emboss=False)
 
         if button:
-            layout.separator(factor=0.5,type="LINE")
+            layout.separator(factor=2,type="LINE")
             
             row = layout.row(align=True)
             row.label(icon="BLANK1")
@@ -1526,24 +1489,7 @@ class FileManager(Panel):
         
         return box
 
-    def right_align_prop(self, layout:UILayout, label:str, prop:str, obj, factor:float=0.25) -> UILayout:
-        """Get simple, customisable, right aligned prop with label on a new row. Returns the row if you want to append extra items.
-        Args:
-            label: Row name.
-            prop: Prop referenced.
-            container: Object that contains the necessary props.
-            factor: Split row ratio.
-           """
-        
-        row = layout.row(align=True)
-        split = row.split(factor=factor, align=True)
-        split.alignment = "RIGHT"
-        split.label(text=f"{label}:")
-        split.prop(obj, prop, text="")
-        
-        return row
-
-    def operator_button(self, layout:UILayout, operator:str, icon:str, text:str="", attributes:dict={}):
+    def operator_button(layout:UILayout, operator:str, icon:str, text:str="", attributes:dict={}):
         """Operator as a simple button."""
 
         op = layout.operator(operator, icon=icon, text=text)
