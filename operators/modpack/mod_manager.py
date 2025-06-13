@@ -1,10 +1,15 @@
-from bpy.types          import Operator, Context, OperatorProperties
+import json
+import gzip
+import base64
+
+from typing             import Any
+from bpy.types          import Operator, Context
 from bpy.props          import StringProperty, EnumProperty, BoolProperty, IntProperty
-from ..ui.draw          import aligned_row, get_conditional_icon
-from ..properties       import BlendModOption, BlendModGroup, get_file_properties
-from ..preferences      import get_prefs
-from ..utils.typings    import Preset
-from ..utils.serialiser import RNAPropertySerialiser, dict_to_json, json_to_dict
+from ...ui.draw          import aligned_row, get_conditional_icon
+from ...properties       import BlendModOption, BlendModGroup, get_file_properties
+from ...preferences      import get_prefs
+from ...utils.typings    import Preset
+from ...utils.serialiser import RNAPropertyIO
 
 
 class ModpackManager(Operator):
@@ -94,7 +99,7 @@ class ModpackManager(Operator):
         self.prefs = get_prefs()
         self.props = get_file_properties()
         self.mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
-        
+
         if self.category == "ENTRY":
             self.category = self.user_input
         self.group: int
@@ -105,7 +110,7 @@ class ModpackManager(Operator):
             group_options:list[BlendModOption] = mod_group.mod_options
         
         if self.delete:
-            manager = RNAPropertySerialiser()
+            manager = RNAPropertyIO()
 
         match self.category:
             case "GROUP":
@@ -159,13 +164,14 @@ class ModpackManager(Operator):
         return {'FINISHED'}
     
 class ModpackPresets(Operator):
-    bl_idname = "ya.modpack_presets"
+    bl_idname = "ya.preset_manager"
     bl_label = ""
     bl_description = ""
 
     bl_options = {'UNDO'}
 
     preset_name: StringProperty(default="Enter preset name...", options={"SKIP_SAVE"}) # type: ignore
+    format     : StringProperty(options={"SKIP_SAVE", "OUTPUT_PATH"}) # type: ignore
     new_preset : BoolProperty(default=True, options={"SKIP_SAVE"}) # type: ignore
     
     settings  : BoolProperty(default=False, options={"SKIP_SAVE"}) # type: ignore
@@ -184,7 +190,6 @@ class ModpackPresets(Operator):
     SHIFT click to apply from clipboard.
     ALT click to copy to clipboard"""
 
-
     def invoke(self, context: Context, event):
         if self.delete and not event.ctrl:
             return {"FINISHED"}
@@ -201,29 +206,14 @@ class ModpackPresets(Operator):
             return self.execute(context)
         
         if event.shift or event.alt:
-            manager = RNAPropertySerialiser()
+            manager = RNAPropertyIO()
             if event.alt:
-                option_data     = manager.extract(self.mod_group.mod_options)
-                correction_data = manager.extract(self.mod_group.corrections)
-                preset: Preset  = manager.to_clipboard([option_data, correction_data], self.format)
-
-                context.window_manager.clipboard = preset
+                return self.to_clipboard(context, manager)
 
             elif event.shift:
-                try:
-                    preset = json_to_dict(context.window_manager.clipboard)
-                except:
-                    self.report({"ERROR"}, "Not a valid modpack preset!")
-                    return {"CANCELLED"}
-
-                if preset.get("_version") == 1 and preset.get("_format") == "modpack":
-                    manager.add(preset["preset"], self.mod_group.mod_options)
-                    manager.add(preset["corrections"], self.mod_group.corrections)
-
-                else:
-                    self.report({"ERROR"}, "Not a valid modpack preset!")
-                    return {"CANCELLED"}
-
+                preset = self.load_preset(context, context.window_manager.clipboard.strip())
+                return self.add_preset(preset, manager)
+            
         else:
             context.window_manager.invoke_props_dialog(self, confirm_text="Confirm", title="Preset Manager", width=200)
             return {"RUNNING_MODAL"}
@@ -231,7 +221,7 @@ class ModpackPresets(Operator):
         return {"FINISHED"}
     
     def execute(self, context):
-        manager = RNAPropertySerialiser()
+        manager = RNAPropertyIO()
         presets = self.prefs.modpack_presets
 
         if self.delete:
@@ -242,25 +232,22 @@ class ModpackPresets(Operator):
                 self.report({"ERROR"}, "Preset needs a name!")
                 return {"CANCELLED"}
             
-            option_data     = manager.extract(self.mod_group.mod_options)
-            correction_data = manager.extract(self.mod_group.corrections)
-            preset: Preset  = manager.to_clipboard([option_data, correction_data], self.format)
+            self.to_clipboard(context, manager)
 
             new_preset        = presets.add()
             new_preset.name   = self.preset_name
-            new_preset.preset = preset
+            new_preset.preset = context.window_manager.clipboard
             new_preset.format = self.format
 
             self.sort_presets(presets, manager)
         
         else:
-            idx           = int(self.prefs.modpack_preset_select)
-            preset:Preset = json_to_dict(presets[idx].preset)
+            idx            = int(self.prefs.modpack_preset_select)
+            preset :Preset = self.load_preset(context, presets[idx].preset)
 
-            manager.add(preset["preset"], self.mod_group.mod_options)
-            manager.add(preset["corrections"], self.mod_group.corrections)
+            context.window_manager.clipboard = presets[idx].preset
 
-            context.window_manager.clipboard = preset
+            return self.add_preset(preset, manager)
 
         return {"FINISHED"}
     
@@ -275,7 +262,47 @@ class ModpackPresets(Operator):
         else:
             aligned_row(layout, "Preset:", "modpack_preset_select", self.prefs)
 
-    def sort_presets(self, presets, manager: RNAPropertySerialiser):
+    def to_clipboard(self, context: Context, manager: RNAPropertyIO) -> set:
+        option_data     = manager.extract(self.mod_group.mod_options)
+        correction_data = manager.extract(self.mod_group.corrections)
+
+        preset_json: str = self.get_wrapper([option_data, correction_data], self.format)
+        preset_bytes     = gzip.compress(preset_json.encode("utf-8"))                  
+        b64_string       = base64.b64encode(preset_bytes).decode("utf-8")
+        
+        context.window_manager.clipboard = b64_string
+        return {"FINISHED"}
+
+    def add_preset(self, preset: Preset, manager: RNAPropertyIO) -> set:
+        if preset.get("_version") == 1 and preset.get("_format") == "modpack":
+            manager.add(preset["preset"][0], self.mod_group.mod_options)
+            manager.add(preset["preset"][1], self.mod_group.corrections)
+        else:
+            self.report({"ERROR"}, "Not a valid modpack preset!")
+            return {"CANCELLED"}
+        return {"FINISHED"}
+    
+    def load_preset(self, context: Context, source: str) -> Preset:
+        print(source)
+        preset_bytes   = base64.b64decode(source)
+        preset_data    = gzip.decompress(preset_bytes) 
+        preset: Preset = json.loads(preset_data.decode("utf-8"))
+
+        # print(preset)
+
+        return preset
+    
+    def get_wrapper(self, preset: Any):
+
+        wrapper: Preset = {
+            "_version":    1,
+            "_format":     self.format.lower(),
+            "preset":      preset,
+
+        }
+        return json.dumps(wrapper)
+    
+    def sort_presets(self, presets, manager: RNAPropertyIO):
         data = manager.extract(presets)
         sorted_presets = sorted(data, key=lambda preset: (preset["format"], preset["name"]))
         manager.restore(sorted_presets, presets)
