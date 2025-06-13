@@ -1,39 +1,18 @@
 import os
-from typing import TYPE_CHECKING
 import bpy
 
-from typing          import Iterable
+from typing          import Iterable, TYPE_CHECKING, Literal
 from pathlib         import Path
 from itertools       import chain
-from bpy.types       import PropertyGroup, Object, Context
+from bpy.types       import PropertyGroup, Object, Context, Armature
 from bpy.props       import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
-from .utils.typings  import ObjIterable, BlendEnum
+
+from .utils.objects  import get_object_from_mesh
+from .utils.typings  import BlendEnum, DevkitProps
 from .utils.penumbra import Modpack
 
 
-def visible_meshobj() -> ObjIterable:
-    """Checks all visible objects and returns them if they contain a mesh."""
-    context = bpy.context
-    visible_meshobj = [obj for obj in context.scene.objects if obj.visible_get(view_layer=context.view_layer) and obj.type == "MESH"]
-
-    return sorted(visible_meshobj, key=lambda obj: obj.name)
-
-def get_object_from_mesh(mesh_name:str) -> Object | None:
-    for obj in bpy.context.scene.objects:
-        if obj.type == "MESH" and obj.data.name == mesh_name:
-            return obj
-    return None
-
-def scene_armatures() -> BlendEnum:
-        armatures = [("None", "None", ""), None]
-        
-        for obj in bpy.context.scene.objects:
-            if obj.type == 'ARMATURE':
-                armatures.append((obj.name, obj.name, "Armature"))
-        
-        return armatures
-
-def modpack_data(context) -> None:
+def modpack_data() -> None:
     props = get_file_properties()
     props.loaded_pmp_groups.clear()
 
@@ -84,20 +63,23 @@ class ModpackHelper(PropertyGroup):
         else:
             return [("None", "None", "")]
 
-    def final_folder(self):
+    def final_folder(self) -> Path | Literal[False]:
         if self.subfolder != "None":
             folder = Path(self.folder_path) / Path(self.subfolder)
         else:
             folder = Path(self.folder_path)
 
-        return str(folder)
+        if str(folder).strip() != "" and folder.is_dir():
+            return folder
+        else:
+            return False
 
     def get_folder_stats(self, model_check:bool=False) -> bool | dict:
         """Checks folder contents, if model_check is True, it only checks if there are any relevant model files."""
 
         model_suffix = [".fbx", ".mdl"]
-        
         folder_stats = {}
+        has_fbx      = False
 
         if self.subfolder == "None":
             folder = Path(self.folder_path)
@@ -112,11 +94,12 @@ class ModpackHelper(PropertyGroup):
             for file in files:
                 folder_stats.setdefault(file.stem, {"fbx": 0, "mdl": 0})
                 if file.suffix == ".fbx":
+                    has_fbx = True
                     folder_stats[file.stem]["fbx"] = file.stat().st_mtime
                 elif file.suffix == ".mdl":
                     folder_stats[file.stem]["mdl"] = file.stat().st_mtime
 
-            return folder_stats
+            return folder_stats, has_fbx
 
     def check_gamepath_category(self) -> None:
         if self.valid_path:
@@ -307,25 +290,6 @@ class BlendModGroup(ModpackHelper):
     shared_game_path: BoolProperty(default=False) # type: ignore
     name_set        : BoolProperty(default=False) # type: ignore
 
-    if TYPE_CHECKING:
-        idx             : str
-        page            : str
-        group_type      : str
-        name            : str
-        description     : str
-        game_path       : str
-        folder_path     : str
-        priority        : int
-        mod_options     : Iterable[BlendModOption]
-        corrections     : Iterable[CorrectionEntry]
-        show_folder     : bool
-        show_group      : bool
-        use_folder      : bool
-        valid_path      : bool
-        shared_game_path: bool
-        name_set        : bool
-        
-
     subfolder  : EnumProperty(
         name= "",
         default=0,
@@ -413,6 +377,26 @@ class BlendModGroup(ModpackHelper):
             return [[option.name] for option in self.mod_options]
     
 
+    if TYPE_CHECKING:
+        idx             : str
+        page            : str
+        group_type      : str
+        name            : str
+        description     : str
+        game_path       : str
+        folder_path     : str
+        priority        : int
+        mod_options     : Iterable[BlendModOption]
+        corrections     : Iterable[CorrectionEntry]
+        show_folder     : bool
+        show_group      : bool
+        use_folder      : bool
+        valid_path      : bool
+        shared_game_path: bool
+        name_set        : bool
+        subfolder       : str
+       
+
 class LoadedModpackGroup(PropertyGroup):
     group_value      : StringProperty() # type: ignore
     group_name       : StringProperty() # type: ignore
@@ -431,23 +415,12 @@ class YAFileProps(PropertyGroup):
 
     GAME_SUFFIX = {".mdl", ".tex", ".phyb"}
 
-    pmp_mod_groups: CollectionProperty(
-        type=BlendModGroup
-        ) # type: ignore
-    
-    loaded_pmp_groups: CollectionProperty(
-        type=LoadedModpackGroup
-        ) # type: ignore
-
     # Used to define operator behaviour.
     #   Keyword      Keyword       Default  Description
     extra_options = [
         ("create",   "backfaces",  True,   "Creates backface meshes on export based on existing vertex groups"),
         ("check",    "tris",       True,   "Verify that the meshes are triangulated"),
         ("force",    "yas",        False,  "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
-        ("remove",   "nonmesh",    True,   "Removes objects without any meshes. Cleans up unnecessary files from TT imports"),
-        ("reorder",  "mesh_id",    True,   "Moves mesh identifier to the front of the object name"),
-        ("update",   "material",   True,   "Changes material rendering and enables backface culling. Tries to normalise metallic and roughness values of TT materials"),
         ("keep",     "shapekeys",  True,   "Preserves vanilla clothing shape keys"),
         ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),
         ("rue",      "export",     True,   "Controls whether Rue is exported as a standalone body and variant, or only as a variant for Lava/Masc"),
@@ -458,6 +431,14 @@ class YAFileProps(PropertyGroup):
         ("feet",     "g_category", False,  "Changes gamepath category"),
     ]
 
+    pmp_mod_groups: CollectionProperty(
+        type=BlendModGroup
+        ) # type: ignore
+    
+    loaded_pmp_groups: CollectionProperty(
+        type=LoadedModpackGroup
+        ) # type: ignore
+    
     @staticmethod
     def set_extra_options() -> None:
         for (name, category, default, description) in YAFileProps.extra_options:
@@ -491,7 +472,7 @@ class YAFileProps(PropertyGroup):
             blender_groups = props.pmp_mod_groups
             for blend_group in blender_groups:
                 blend_group.idx = "New"
-                
+
             props.loaded_pmp_groups.clear()
             
     ui_size_category: StringProperty(
@@ -510,16 +491,12 @@ class YAFileProps(PropertyGroup):
         ]
         )  # type: ignore
 
-
-
-
-    armatures: EnumProperty(
-        name="Armatures",
-        description="Select an armature from the scene to parent meshes to",
-        items=lambda self, context: scene_armatures(),
-        default= 0,
-    ) # type: ignore
-
+    armatures: PointerProperty(
+        type= Armature,
+        name= "",
+        description= "New armature for imports"
+        )  # type: ignore
+    
     import_display_dir: StringProperty(
         name="Export Folder",
         default="Select Export Directory",  
@@ -540,8 +517,6 @@ class YAFileProps(PropertyGroup):
         default=False,
         ) # type: ignore
     
-
-
 
     export_body_slot: EnumProperty(
         name= "",
@@ -566,8 +541,6 @@ class YAFileProps(PropertyGroup):
         default="",  
         maxlen=255,
         ) # type: ignore
-
-
 
 
     modpack_replace: BoolProperty(default=False, name="", description="Make new or update existing mod", update=lambda self, context: self.update_mod_enums(context)) # type: ignore
@@ -627,14 +600,49 @@ class YAFileProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-def selected_yas_vgroup() -> None:
-    props = get_outfit_properties
-    obj = bpy.context.active_object
-    if props.yas_vgroups[0].name != "Mesh has no YAS Groups":
-        try:
-            obj.vertex_groups.active = obj.vertex_groups.get(props.yas_vgroups[props.yas_vindex].name)
-        except:
-            pass
+    if TYPE_CHECKING:
+        pmp_mod_groups      : Iterable[BlendModGroup]
+        loaded_pmp_groups   : Iterable[LoadedModpackGroup]
+        
+        ui_size_category    : str
+        import_display_dir  : str
+        rename_import       : str
+        export_file_name    : str
+        modpack_display_dir : str
+        modpack_dir         : str
+        modpack_version     : str
+        modpack_author      : str
+        modpack_rename_group: str
+        new_mod_name        : str
+        new_mod_version     : str
+        author_name         : str
+        
+        file_man_ui         : str
+        armatures           : str
+        export_body_slot    : str
+        
+        file_gltf           : bool
+        modpack_replace     : bool
+        
+        export_total        : int
+        export_progress     : float
+        export_step         : int
+        export_time         : float
+        
+        create_backfaces    : bool
+        check_tris          : bool
+        force_yas           : bool
+        remove_nonmesh      : bool
+        reorder_mesh_id     : bool
+        update_material     : bool
+        keep_shapekeys      : bool
+        create_subfolder    : bool
+        rue_export          : bool
+        body_names          : bool
+        chest_g_category    : bool
+        hands_g_category    : bool
+        legs_g_category     : bool
+        feet_g_category     : bool
 
 class AnimationOptimise(PropertyGroup):
     triangulation: BoolProperty() # type: ignore
@@ -679,6 +687,15 @@ class YAOutfitProps(PropertyGroup):
     shape_modifiers_group: CollectionProperty(type=ShapeModifiers) # type: ignore
 
     yas_vgroups : CollectionProperty(type=YASVGroups) # type: ignore
+
+    def selected_yas_vgroup() -> None:
+        props = get_outfit_properties()
+        obj = bpy.context.active_object
+        if props.yas_vgroups[0].name != "Mesh has no YAS Groups":
+            try:
+                obj.vertex_groups.active = obj.vertex_groups.get(props.yas_vgroups[props.yas_vindex].name)
+            except:
+                pass
 
     yas_vindex: IntProperty(name="YAS Group Index", description="Index of the YAS groups on the active object", update=lambda self, context:selected_yas_vgroup()) # type: ignore
 
@@ -943,12 +960,13 @@ class YAOutfitProps(PropertyGroup):
     shapes_source: PointerProperty(
         type= Object,
         name= "",
-        description= "Select an overview",
+        description= "Shape key/driver source",
         )  # type: ignore
     
     shapes_target: PointerProperty(
         type= Object,
         name= "",
+        description= "Shape key/driver source"
         )  # type: ignore
 
     shapes_source_enum: EnumProperty(
@@ -1030,12 +1048,11 @@ class YAOutfitProps(PropertyGroup):
         items=lambda self, context: self.get_deform_modifiers(context)
         )  # type: ignore
     
-    armatures: EnumProperty(
-        name="Armatures",
-        description="Select an armature from the scene",
-        items=lambda self, context: scene_armatures(),
-        default= 0,
-    ) # type: ignore
+    armatures: PointerProperty(
+        type= Armature,
+        name= "",
+        description= "Select an armature from the scene"
+        )  # type: ignore
 
     actions: EnumProperty(
         name="Animations",
@@ -1058,26 +1075,67 @@ class YAOutfitProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
+    if TYPE_CHECKING:
+        animation_optimise     : Iterable[AnimationOptimise]
+        shape_modifiers_group  : Iterable[ShapeModifiers]
+        yas_vgroups            : Iterable[YASVGroups]
+        
+        yas_vindex             : int
+        animation_frame        : int  
+        
+        pose_display_directory : str
+        
+        shapes_method          : str
+        shapes_source_enum     : str
+        shapes_target_enum     : str
+        shapes_corrections     : str
+        shape_chest_base       : str
+        shape_leg_base         : str
+        shape_seam_base        : str
+        obj_vertex_groups      : str
+        exclude_vertex_groups  : str
+        shape_modifiers        : str
+        armatures              : str
+        actions                : str
+        
+        shapes_source          : Object
+        shapes_target          : Object
+        
+        # Created at runtime
+        overview_category      : bool
+        shapes_category        : bool
+        mesh_category          : bool
+        weights_category       : bool
+        armature_category      : bool
+        scaling_armature       : bool
+        keep_modifier          : bool
+        filter_vgroups         : bool
+        all_keys               : bool
+        include_deforms        : bool
+        existing_only          : bool
+        adjust_overhang        : bool
+        add_shrinkwrap         : bool
+        seam_waist             : bool
+        seam_wrist             : bool
+        seam_ankle             : bool
+        sub_shape_keys         : bool
+        
+        button_backfaces_expand: bool
+        button_modifiers_expand: bool
+        button_transp_expand   : bool
+
+
 def get_file_properties() -> YAFileProps:
     return bpy.context.scene.ya_file_props
 
 def get_outfit_properties() -> YAOutfitProps:
     return bpy.context.scene.ya_outfit_props
 
-CLASSES = [    
-    ModpackHelper,
-    ModMetaEntry,
-    ModFileEntry,
-    CorrectionEntry,
-    BlendModOption,
-    BlendModGroup,
-    LoadedModpackGroup,
-    YAFileProps,
-    AnimationOptimise,
-    YASVGroups,
-    ShapeModifiers,
-    YAOutfitProps
-]
+def get_devkit_properties() -> DevkitProps | Literal[False]:
+    if hasattr(bpy.context.scene, "devkit_props"):
+        return bpy.context.scene.devkit_props
+    else:
+        return False
 
 def set_addon_properties() -> None:
     bpy.types.Scene.ya_file_props = PointerProperty(
@@ -1093,6 +1151,22 @@ def set_addon_properties() -> None:
 def remove_addon_properties() -> None:
     del bpy.types.Scene.ya_file_props
     del bpy.types.Scene.ya_outfit_props
+
+
+CLASSES = [    
+    ModpackHelper,
+    ModMetaEntry,
+    ModFileEntry,
+    CorrectionEntry,
+    BlendModOption,
+    BlendModGroup,
+    LoadedModpackGroup,
+    YAFileProps,
+    AnimationOptimise,
+    YASVGroups,
+    ShapeModifiers,
+    YAOutfitProps
+]
 
 
 
