@@ -2,7 +2,7 @@ import re
 import bpy
 import time
 
-from bpy.types     import Operator, ArmatureModifier
+from bpy.types     import Operator, ArmatureModifier, Context
 from bpy.props     import StringProperty
 from ..properties  import get_file_properties, get_window_properties
 from ..preferences import get_prefs
@@ -17,7 +17,7 @@ class SimpleImport(Operator):
     preset: StringProperty() # type: ignore
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, context: Context):
         return context.mode == "OBJECT"
     
     def invoke(self, context, event):
@@ -28,31 +28,29 @@ class SimpleImport(Operator):
         gltf = get_file_properties().file_gltf
 
         if gltf:
-            bpy.ops.import_scene.gltf('INVOKE_DEFAULT')
+            bpy.ops.import_scene.gltf("INVOKE_DEFAULT")
         else:
-            bpy.ops.import_scene.fbx('INVOKE_DEFAULT', ignore_leaf_bones=True)
+            bpy.ops.import_scene.fbx("INVOKE_DEFAULT", ignore_leaf_bones=True)
         
         if self.cleanup:
             bpy.ops.object.select_all(action="DESELECT")
             self.pre_import_objects = len(context.scene.objects)
             self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
             context.window_manager.modal_handler_add(self)
-
             setattr(self.props, "waiting_import", True)
             bpy.context.view_layer.update()
             
         return {"RUNNING_MODAL"}
 
-    def modal(self, context, event):
-        if event.type == 'TIMER':
+    def modal(self, context: Context, event):
+        if event.type == "TIMER":
             if len(context.scene.objects) > self.pre_import_objects:
                 context.window_manager.event_timer_remove(self._timer)
                 return self.execute(context)
     
-        elif event.type == 'ESC':
+        elif event.type == "ESC" and event.value == "PRESS":
             context.window_manager.event_timer_remove(self._timer)
             setattr(self.props, "waiting_import", False)
-            bpy.context.view_layer.update()
             return {"CANCELLED"}
         
         return {"PASS_THROUGH"}

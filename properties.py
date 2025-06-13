@@ -450,8 +450,11 @@ class YAWindowProps(PropertyGroup):
             ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.")]
         )  # type: ignore
 
+    def update_ui(self, context:Context):
+        for area in context.screen.areas:
+            area.tag_redraw()
 
-    waiting_import: BoolProperty(default=False, options={"SKIP_SAVE"}) # type: ignore
+    waiting_import: BoolProperty(default=False, options={"SKIP_SAVE"}, update=update_ui) # type: ignore
 
     @staticmethod
     def extra_options() -> None:
