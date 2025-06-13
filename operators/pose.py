@@ -4,18 +4,19 @@ import json
 import gzip
 import base64
 
-from math          import pi
-from pathlib       import Path
-from mathutils     import Quaternion
-from bpy.types     import Operator, Object, PoseBone, Context, Modifier
-from bpy.props     import StringProperty, BoolProperty
-from ..properties  import get_outfit_properties, visible_meshobj
+from math            import pi
+from pathlib         import Path
+from mathutils       import Quaternion
+from bpy.types       import Operator, Object, Armature, PoseBone, Context, Modifier
+from bpy.props       import StringProperty, BoolProperty
+from ..properties    import get_outfit_properties
+from ..utils.objects import visible_meshobj
 
 
 class PoseApply(Operator):
     bl_idname = "ya.pose_apply"
     bl_label = ""
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO", "REGISTER"}
 
     filepath:       StringProperty() # type: ignore
     filter_glob:    StringProperty(
@@ -48,27 +49,31 @@ class PoseApply(Operator):
     @classmethod
     def poll(cls, context):
         props = get_outfit_properties()
-        return props.armatures != "None" or props.armatures != ""
+        return not props.armature
     
     def invoke(self, context, event):
         self.actual_file = Path(self.filepath)
 
         if self.reset or self.use_clipboard:
             return self.execute(context)
+        
         elif event.alt and event.type == "LEFTMOUSE" and self.actual_file.is_file():
             actual_dir = self.actual_file.parent
             os.startfile(str(actual_dir))
+
         elif event.shift and event.type == "LEFTMOUSE" and self.actual_file.is_file():
             self.execute(context)
+
         elif event.type == "LEFTMOUSE":
             context.window_manager.fileselect_add(self)
+
         else:
              self.report({"ERROR"}, "Not a valid pose file!")
     
         return {"RUNNING_MODAL"}
     
     def execute(self, context):
-        self.props        = get_outfit_properties
+        self.props        = get_outfit_properties()
         self.scaling      = self.props.scaling_armature
         self.old_bone_map = {
             "j_asi_e_l": "ToesLeft",
@@ -159,12 +164,15 @@ class PoseApply(Operator):
             "n_ear_b_r": "EarringBRight"
             }
     
-        pose_file         = Path(self.filepath)
-        skeleton: Object  = bpy.data.objects[self.props.armatures]
+        pose_file          = Path(self.filepath)
+        skeleton: Armature = self.props.armature
+
         visibility = skeleton.hide_get()
         skeleton.hide_set(state=False)
+
         if self.reset:
             self.reset_armature(context, skeleton)
+
         elif self.use_clipboard or (pose_file.exists() and pose_file.suffix == ".pose"):
             if not self.use_clipboard:
                 self.props.pose_display_directory = pose_file.stem
@@ -172,13 +180,14 @@ class PoseApply(Operator):
             if apply_status == "JSON":
                 self.report({"ERROR"}, "Not a valid C+ preset.")
             self.report({'INFO'}, f"{pose_file.stem} selected!")  
+
         else:
             self.report({'ERROR'}, "Not a valid pose file!")
+
         skeleton.hide_set(state=visibility)
         return {'FINISHED'}
     
-    def reset_armature(self, context:Context, skeleton:Object):
-        skeleton: Object = bpy.data.objects[self.props.armatures]
+    def reset_armature(self, context: Context, skeleton: Armature):
         context.view_layer.objects.active = skeleton
         bpy.ops.object.mode_set(mode='POSE')
         bpy.ops.pose.select_all(action='SELECT')
@@ -190,7 +199,7 @@ class PoseApply(Operator):
         bpy.ops.pose.select_all(action='DESELECT')
         bpy.ops.object.mode_set(mode='OBJECT')
 
-    def apply(self, context:Context, skeleton:Object, pose_file:Path) -> str:
+    def apply(self, context: Context, skeleton: Armature, pose_file: Path) -> str:
         if self.use_clipboard:
             try:
                 clipboard = bpy.context.window_manager.clipboard
@@ -238,7 +247,7 @@ class PoseApply(Operator):
             
             return ""
     
-    def convert_rotation_space(self, skeleton:Object, source_bone_rotations:dict[str, str], bone:PoseBone) -> None:
+    def convert_rotation_space(self, skeleton: Armature, source_bone_rotations: dict[str, str], bone: PoseBone) -> None:
         bone_name = bone.name
         if bone_name not in source_bone_rotations:
             if bone_name not in self.old_bone_map:
@@ -271,7 +280,7 @@ class PoseApply(Operator):
         bone.rotation_mode = 'QUATERNION'
         bone.rotation_quaternion = bone_rotation.to_quaternion()
 
-    def scale_bones(self, source_bone_scaling:dict[str, str], bone:PoseBone):
+    def scale_bones(self, source_bone_scaling: dict[str, str], bone: PoseBone):
         bone_name = bone.name
         if bone_name not in source_bone_scaling:
             if bone_name not in self.old_bone_map:
@@ -293,7 +302,7 @@ class PoseApply(Operator):
             bone.scale[1] = float(scaling_dict["Y"])
             bone.scale[2] = float(scaling_dict["Z"])     
 
-    def get_bone_hierarchy_levels(self, skeleton: Object) -> dict[int, list]:
+    def get_bone_hierarchy_levels(self, skeleton: Armature) -> dict[int, list]:
         bone_levels: dict[int, list] = {}
         
         def calculate_bone_level(bone: PoseBone, level: int):

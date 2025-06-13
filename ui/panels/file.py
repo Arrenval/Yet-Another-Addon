@@ -1,12 +1,12 @@
 import bpy
 import platform
 
-from ..draw         import aligned_row, get_conditional_icon, operator_button
 from pathlib        import Path   
 from bpy.types      import Panel, UILayout, Context
-from ...preferences import get_prefs
-from ...properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_file_properties, get_outfit_properties
 
+from ..draw         import aligned_row, get_conditional_icon, operator_button
+from ...properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_file_properties, get_devkit_properties, get_window_properties
+from ...preferences import get_prefs
 
 class FileManager(Panel):
     bl_idname = "VIEW3D_PT_YA_FileManager"
@@ -18,12 +18,11 @@ class FileManager(Panel):
     bl_order = 3
 
     def draw(self, context:Context):
-        self.prefs       = get_prefs()
-        self.file_props  = get_file_properties()
-        self.outfit_prop = get_outfit_properties()
+        self.prefs        = get_prefs()
+        self.window_props = get_window_properties()
+        self.file_props   = get_file_properties()
+        self.devkit_props = get_devkit_properties()
 
-        if hasattr(context.scene, "devkit_props"):
-            self.devkit_props = context.scene.devkit_props
         layout = self.layout
 
         options ={
@@ -34,14 +33,14 @@ class FileManager(Panel):
 
         box = layout.box()
         row = box.row(align=True)
-        row.label(icon=options[self.file_props.file_man_ui])
-        row.label(text=f"  {self.file_props.file_man_ui.capitalize()}")
+        row.label(icon=options[self.window_props.file_man_ui])
+        row.label(text=f"  {self.window_props.file_man_ui.capitalize()}")
         button_row = row.row(align=True)
         
-        self.ui_category_buttons(button_row, self.file_props, options)
+        self.ui_category_buttons(button_row, options)
 
         # IMPORT
-        button = self.file_props.file_man_ui
+        button = self.window_props.file_man_ui
         if button == "IMPORT":
             self.draw_import(layout)
 
@@ -94,7 +93,7 @@ class FileManager(Panel):
             col = row.column(align=True)
             col.operator("ya.simple_export", text="Simple Export")
 
-            if hasattr(bpy.context.scene, "devkit_props"):
+            if self.devkit_props:
                 col2 = row.column(align=True)
                 col2.operator("ya.batch_queue", text="Batch Export")
             
@@ -104,13 +103,13 @@ class FileManager(Panel):
             col3.alignment = "RIGHT"
             col3.prop(self.file_props, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
 
-        if hasattr(bpy.context.scene, "devkit_props"):
+        if self.devkit_props:
             box = layout.box()
             row = box.row(align=True)
-            if self.file_props.export_body_slot == "Chest & Legs":
+            if self.window_props.export_body_slot == "Chest & Legs":
                 row.label(text=f"Body Part: Chest")
             else:
-                row.label(text=f"Body Part: {self.file_props.export_body_slot}")
+                row.label(text=f"Body Part: {self.window_props.export_body_slot}")
 
             options =[
                 ("Chest", "MOD_CLOTH"),
@@ -120,14 +119,14 @@ class FileManager(Panel):
                 ("Chest & Legs", "ARMATURE_DATA")
                 ]
             
-            self.body_category_buttons(row, self.file_props, options)
+            self.body_category_buttons(row, options)
     
             
             # CHEST EXPORT  
         
             button_type = "export"
         
-            if self.file_props.export_body_slot == "Chest" or self.file_props.export_body_slot == "Chest & Legs":
+            if self.window_props.export_body_slot == "Chest" or self.window_props.export_body_slot == "Chest & Legs":
 
                 category = "Chest"
 
@@ -167,11 +166,11 @@ class FileManager(Panel):
                 
             # LEG EXPORT  
             
-            if self.file_props.export_body_slot == "Legs" or self.file_props.export_body_slot == "Chest & Legs":
+            if self.window_props.export_body_slot == "Legs" or self.window_props.export_body_slot == "Chest & Legs":
                 
                 category = "Legs"
 
-                if self.file_props.export_body_slot == "Chest & Legs":
+                if self.window_props.export_body_slot == "Chest & Legs":
                     layout.separator(factor=1, type="LINE")
                     row = layout.row(align=True)
                     row.label(text=f"Body Part: Legs")
@@ -212,7 +211,7 @@ class FileManager(Panel):
 
             # HAND EXPORT  
             
-            if self.file_props.export_body_slot == "Hands":
+            if self.window_props.export_body_slot == "Hands":
                 
                 category = "Hands"
                 labels = {
@@ -252,7 +251,7 @@ class FileManager(Panel):
 
             # FEET EXPORT  
             
-            if self.file_props.export_body_slot == "Feet":
+            if self.window_props.export_body_slot == "Feet":
                 
                 category = "Feet"
                 labels = {
@@ -286,19 +285,19 @@ class FileManager(Panel):
         split = row.split(factor=0.33)
         col = split.column(align=True)
         col.alignment = "RIGHT"
-        if hasattr(context.scene, "devkit_props"):
+        if self.devkit_props:
             col.label(text="Force YAS:")
             col.label(text="Body Names:")
             col.label(text="Rue Export:")
         col.label(text="Check Tris:")
         col.label(text="Shape Keys:")
         col.label(text="Backfaces:")
-        if hasattr(context.scene, "devkit_props"):
+        if self.devkit_props:
             col.label(text="Subfolder:")
 
         col2 = split.column(align=True)
         col2.alignment = "RIGHT"
-        if hasattr(context.scene, "devkit_props"):
+        if self.devkit_props:
             icon = 'CHECKMARK' if self.file_props.force_yas else 'PANEL_CLOSE'
             text = 'Enabled' if self.file_props.force_yas else 'Disabled'
             col2.prop(self.file_props, "force_yas", text=text, icon=icon)
@@ -317,7 +316,7 @@ class FileManager(Panel):
         icon = 'CHECKMARK' if self.file_props.create_backfaces else 'PANEL_CLOSE'
         text = 'Create' if self.file_props.create_backfaces else 'Ignore'
         col2.prop(self.file_props, "create_backfaces", text=text, icon=icon)
-        if hasattr(context.scene, "devkit_props"):
+        if self.devkit_props:
             icon = 'CHECKMARK' if self.file_props.create_subfolder else 'PANEL_CLOSE'
             text = 'Create' if self.file_props.create_subfolder else 'Ignore'
             col2.prop(self.file_props, "create_subfolder", text=text, icon=icon)
@@ -327,7 +326,16 @@ class FileManager(Panel):
     def draw_import(self, layout:UILayout):
         layout = self.layout
         row = layout.row(align=True)
-        
+
+        if self.window_props.waiting_import:
+            row.alignment = "CENTER"
+            row.label(text="Waiting for import to complete...", icon='IMPORT')
+            
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="Press ESC to cancel", icon='CANCEL')
+            return
+       
         subrow = row.row(align=True)
         subrow.alignment = "LEFT"
         subrow.prop(self.prefs, "auto_cleanup", icon=get_conditional_icon(self.prefs.auto_cleanup), text="Auto")
@@ -365,7 +373,7 @@ class FileManager(Panel):
         text = 'Remove' if self.prefs.remove_nonmesh else 'Keep'
         aligned_row(col, "Non-Mesh:", "remove_nonmesh", self.prefs, prop_str=text, attr_icon=icon)
 
-        aligned_row(col, "Armature:", "armatures", self.file_props)
+        aligned_row(col, "Armature:", "armature", self.file_props)
 
         layout.separator(factor=0.5)
 
@@ -914,16 +922,16 @@ class FileManager(Panel):
                 setattr(op, "entry", entry_idx)
                 setattr(op, "category", category)
         
-    def body_category_buttons(self, layout:UILayout, section_prop, options):
+    def body_category_buttons(self, layout:UILayout, options):
         row = layout
 
         for slot, icon in options:
-            depress = True if section_prop.export_body_slot == slot else False
+            depress = True if self.window_props.export_body_slot == slot else False
             row.operator("ya.set_body_part", text="", icon=icon, depress=depress).body_part = slot
 
-    def ui_category_buttons(self, layout:UILayout, section_prop, options):
+    def ui_category_buttons(self, layout:UILayout, options):
             row = layout
-            ui_selector = getattr(section_prop, "file_man_ui")
+            ui_selector = getattr(self.window_props, "file_man_ui")
 
             for slot, icon in options.items():
                 depress = True if ui_selector == slot else False

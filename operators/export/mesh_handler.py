@@ -6,15 +6,21 @@ from bpy.types        import Object, ShapeKey, TriangulateModifier
 from bmesh.types      import BMFace
 from collections      import Counter
 
-from ...properties    import get_file_properties
+from ...properties    import get_file_properties, get_devkit_properties
 from ...utils.objects import visible_meshobj
 
 
 def verify_target(obj: Object) -> None:
-            bpy.ops.object.select_all(action="DESELECT")
-            bpy.context.view_layer.objects.active = obj
-            obj.select_set(state=True)
-            bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(state=True)
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+def activate_shape_key(obj: Object, key: ShapeKey) -> None:
+    obj.data.shape_keys.key_blocks[key.name].driver_remove("mute")
+    obj.data.shape_keys.key_blocks[key.name].driver_remove("value")
+    obj.data.shape_keys.key_blocks[key.name].mute  = False
+    obj.data.shape_keys.key_blocks[key.name].value = 1.0
 
 def ivcs_mune(obj: Object) -> None:
     right = obj.vertex_groups.get("j_mune_r", False)
@@ -45,7 +51,6 @@ class MeshHandler:
         self.yas         : bool            = False
         self.reset       : list[Object]    = []
         self.delete      : list[Object]    = []
-        self.rename      : list[Object]    = []
         self.tri_method  : tuple[str, str] = ('BEAUTY', 'BEAUTY')
         self.handler_list: list[dict[str, Object | list | bool]] = []                       
     
@@ -56,10 +61,14 @@ class MeshHandler:
         rue    = False
         buff   = False
         torso  = False
-        devkit = hasattr(bpy.context.scene, "devkit_props")
+        devkit = get_devkit_properties()
         
         if devkit:
+            self.yas = devkit.controller_yas_chest
             for obj in visible_obj:
+                if not obj.data.shape_keys:
+                    continue
+                print(obj.name)
                 rue_key  = obj.data.shape_keys.key_blocks.get("Rue")
                 buff_key = obj.data.shape_keys.key_blocks.get("Buff")
                 if rue_key and rue_key.mute == False and rue_key.value == 1.0:
@@ -97,14 +106,26 @@ class MeshHandler:
                         # If waist and torso are present we then remove the yab key.
                         if buff and key.name.endswith("_yab"):
                             continue
+        
+                    print((obj.name, key.name))
                     shape_key.append(key)
-                if obj.modifiers.get("YAS Chest") and obj.modifiers["YAS Chest"].show_viewport:
-                    self.yas = True
+
+        
 
             verify_target(obj)
 
             bpy.ops.object.duplicate()
             dupe = bpy.context.active_object
+            
+            if re.search(r"^\d+.\d+\s", obj.name):
+                name_parts = obj.name.split(" ")
+                dupe.name = " ".join(["ExportMesh"] + name_parts[1:] + name_parts[0:1])
+            else:
+                dupe.name = "ExportMesh " + obj.name
+                
+            if dupe.data.shape_keys:
+                for key in dupe.data.shape_keys.key_blocks:
+                    key.lock_shape = False
             
             self.handler_list.append({
                 'dupe'        : dupe, 
@@ -113,51 +134,24 @@ class MeshHandler:
                 'transparency': transparency, 
                 'backfaces'   : backfaces})
             
-            if re.search(r"^\d+.\d+\s", dupe.name):
-                name_parts = dupe.name.split(" ")
-                dupe.name = " ".join(name_parts[1:] + name_parts[0:1])
-            
-            dupe.name = "ExportMesh " + obj.name
-                
-            if dupe.data.shape_keys:
-                for key in dupe.data.shape_keys.key_blocks:
-                    key.lock_shape = False
-            
             self.reset.append(obj)
             self.delete.append(dupe)
                      
     def process_meshes(self):
 
-        def triangulation_check(obj:Object)-> bool:
-            bpy.ops.object.select_all(action="DESELECT")
-            bpy.context.view_layer.objects.active = obj
-            obj.select_set(state=True)
-            bpy.ops.object.mode_set(mode='OBJECT')
-
-            self.tri_method = ('BEAUTY', 'BEAUTY')
-            for modifier in reversed(obj.modifiers):
-                if modifier.type == "TRIANGULATE" and modifier.show_viewport:
-                    modifier: TriangulateModifier
-                    self.tri_method = (modifier.quad_method, modifier.ngon_method)
-                    bpy.ops.object.modifier_remove(modifier=modifier.name)
-                    break
-            
-            triangulated = all(len(poly.vertices) <= 3 for poly in obj.data.polygons)
-
-            return triangulated
-
         for entry in self.handler_list:
             obj = entry['dupe']
-            
             if entry['transparency']:
-                if not triangulation_check(obj):
+                if not self.triangulation_check(obj):
                     verify_target(obj)
                     self.sequential_faces(obj)
 
             if entry['shape']:
                 verify_target(obj)
+                # print((obj.name, obj.data.shape_keys))
                 self.shape_key_keeper(obj, entry["shape"])
             else:
+                verify_target(obj)
                 self.apply_modifiers(obj)
             
             if entry['backfaces']:
@@ -169,6 +163,20 @@ class MeshHandler:
             if self.yas:
                 ivcs_mune(obj)
 
+    def triangulation_check(self, obj:Object)-> bool:
+            verify_target(obj)
+            self.tri_method = ('BEAUTY', 'BEAUTY')
+            for modifier in reversed(obj.modifiers):
+                if modifier.type == "TRIANGULATE" and modifier.show_viewport:
+                    modifier: TriangulateModifier
+                    self.tri_method = (modifier.quad_method, modifier.ngon_method)
+                    bpy.ops.object.modifier_remove(modifier=modifier.name)
+                    break
+            
+            triangulated = all(len(poly.vertices) <= 3 for poly in obj.data.polygons)
+
+            return triangulated
+    
     def apply_modifiers(self, obj:Object, data_transfer=True) -> None:
         # We initially look for inactive modifiers so we can assume the remaining ones should be retained.
         # This is done to avoid any unforeseen behaviour when removing a driver.
@@ -249,36 +257,31 @@ class MeshHandler:
         to_join     :list[tuple[Object, str]] = []
 
         for key in xiv_key:
-            bpy.context.view_layer.objects.active = obj
-            obj.select_set(state=True)
+            verify_target(obj)
             bpy.ops.object.duplicate()
-            bpy.ops.object.mode_set(mode='OBJECT')
+ 
             shapekey_dupe = bpy.context.selected_objects[0]
-            shapekey_dupe.data.shape_keys.key_blocks[key.name].mute  = False
-            shapekey_dupe.data.shape_keys.key_blocks[key.name].value = 1.0
+            activate_shape_key(shapekey_dupe, key)
             to_join.append((shapekey_dupe, key.name))
-            bpy.ops.object.select_all(action="DESELECT")
 
         if to_join:
-            bpy.context.view_layer.objects.active = obj
-            obj.select_set(state=True)
-            bpy.ops.object.mode_set(mode='OBJECT')
+            verify_target(obj)
             self.apply_modifiers(obj)
+
             for dupe, key_name in to_join:
                 if len(obj.data.vertices) != len(dupe.data.vertices):
-                    bpy.ops.object.select_all(action="DESELECT")
-                    bpy.context.view_layer.objects.active = dupe
-                    dupe.select_set(state=True)
+                    verify_target(dupe)
                     self.apply_modifiers(dupe, data_transfer=False)
+
                     bpy.context.view_layer.objects.active = obj
                     obj.select_set(state=True)
 
                 else:
                     dupe.select_set(state=True)
+
                 bpy.ops.object.join_shapes()
                 obj.data.shape_keys.key_blocks[-1].name = key_name
                 bpy.data.objects.remove(dupe, do_unlink=True, do_id_user=True, do_ui_user=True)
-            bpy.ops.object.select_all(action="DESELECT")
 
     def create_backfaces(self, obj:Object) -> None: 
         obj.vertex_groups.active = obj.vertex_groups["BACKFACES"]
@@ -301,7 +304,4 @@ class MeshHandler:
             except:
                 pass
 
-        for obj in self.rename:
-            name_parts = obj.name.split(" ")
-            obj.name = " ".join(name_parts[-1:] + name_parts[0:-1])
  

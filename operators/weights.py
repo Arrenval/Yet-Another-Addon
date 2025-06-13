@@ -9,7 +9,7 @@ class RemoveEmptyVGroups(Operator):
     bl_idname = "ya.remove_empty_vgroups"
     bl_label = ""
     bl_description = "Removes Vertex Groups with no weights. Ignores locked groups"
-    bl_options = {'UNDO'}
+    bl_description = "Transfers and links shape keys to your target mesh"
 
     @classmethod
     def poll(cls, context):
@@ -49,7 +49,8 @@ class RemoveSelectedVGroups(Operator):
     bl_idname = "ya.remove_select_vgroups"
     bl_label = ""
     bl_description = "Removes selected group and adds the weights to the parent group"
-    bl_options = {'UNDO'}
+    bl_description = "Transfers and links shape keys to your target mesh"
+
 
     preset: StringProperty() # type: ignore
 
@@ -124,7 +125,8 @@ class AddYASGroups(Operator):
     bl_idname = "ya.add_yas_vgroups"
     bl_label = ""
     bl_description = "Add YAS related Vertex Groups"
-    bl_options = {'UNDO'}
+    bl_description = "Transfers and links shape keys to your target mesh"
+
 
     user_input: EnumProperty(
         name="",

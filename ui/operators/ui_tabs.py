@@ -1,6 +1,6 @@
 from bpy.types          import Operator, Context
 from bpy.props          import StringProperty
-from ...properties      import get_file_properties, get_outfit_properties
+from ...properties      import get_file_properties, get_outfit_properties, get_window_properties
 
  
 class BodyPartSlot(Operator):
@@ -11,7 +11,7 @@ class BodyPartSlot(Operator):
     body_part: StringProperty() # type: ignore
 
     def execute(self, context):
-        get_file_properties().export_body_slot = self.body_part
+        get_window_properties().export_body_slot = self.body_part
         return {'FINISHED'}
     
 class PanelCategory(Operator):
@@ -22,7 +22,7 @@ class PanelCategory(Operator):
     menu: StringProperty() # type: ignore
 
     def execute(self, context):
-        get_file_properties().file_man_ui = self.menu
+        get_window_properties().file_man_ui = self.menu
         return {'FINISHED'}
 
 class OutfitCategory(Operator):
@@ -36,7 +36,7 @@ class OutfitCategory(Operator):
     panel: StringProperty() # type: ignore
 
     def invoke(self, context, event):
-        props = get_outfit_properties()
+        props = get_window_properties()
         categories = ["overview", "shapes", "mesh", "weights", "armature"]
         if event.shift:
             state = getattr(props, f"{self.menu.lower()}_category")

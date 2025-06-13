@@ -8,7 +8,7 @@ class TagBackfaces(Operator):
     bl_idname = "ya.tag_backfaces"
     bl_label = "Backfaces"
     bl_description = "Tags faces you want to create backfaces for on export"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO", "REGISTER"}
 
     preset: StringProperty() # type: ignore
 
@@ -93,7 +93,7 @@ class CreateBackfaces(Operator):
     bl_idname = "ya.create_backfaces"
     bl_label = "Backfaces"
     bl_description = "Creates backfaces for selected meshes. Use this if you don't plan on creating them on export"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO", "REGISTER"}
 
     @classmethod
     def poll(cls, context):

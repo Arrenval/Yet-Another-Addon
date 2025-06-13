@@ -7,7 +7,7 @@ from bpy.props    import StringProperty
 class TransparencyOverview(Operator):
     bl_idname = "ya.transparency"
     bl_label = "Transparency"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO", "REGISTER"}
     bl_description ="Tag mesh as being transparent ingame for extra handling on export. Adjust rendering in Blender when using 'BLENDED'"
 
     render: StringProperty(default="") # type: ignore

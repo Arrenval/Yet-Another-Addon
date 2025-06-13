@@ -1,14 +1,14 @@
 import bpy   
 
 from bpy.types     import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
-from ..properties  import get_outfit_properties
+from ..properties  import get_outfit_properties, get_devkit_properties
     
     
 class ShapeKeyTransfer(Operator):
     bl_idname = "ya.transfer_shape_keys"
     bl_label = "Shape Keys"
     bl_description = "Transfers and links shape keys to your target mesh"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO"}
 
     sub_keys     :bool = False
     shrinkwrap   :bool = False
@@ -88,7 +88,7 @@ class ShapeKeyTransfer(Operator):
     
     def get_shape_keys(self) -> dict:
         options = {}
-        prop = bpy.context.scene.devkit_props
+        prop = get_devkit_properties()
         leg_corrections = ["Rue/Lava", "Rue/Mini"]
         target = self.object_target
 

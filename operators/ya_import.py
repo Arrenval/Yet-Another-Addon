@@ -1,16 +1,18 @@
 import re
 import bpy
+import time
 
-from bpy.types    import Operator, ArmatureModifier
-from bpy.props    import StringProperty
-from ..properties import get_file_properties
+from bpy.types     import Operator, ArmatureModifier
+from bpy.props     import StringProperty
+from ..properties  import get_file_properties, get_window_properties
+from ..preferences import get_prefs
 
 
 class SimpleImport(Operator):
     bl_idname = "ya.simple_import"
     bl_label = "Open Import Window"
     bl_description = "Import a file in the selected format"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO", "REGISTER"}
 
     preset: StringProperty() # type: ignore
 
@@ -18,20 +20,54 @@ class SimpleImport(Operator):
     def poll(cls, context):
         return context.mode == "OBJECT"
     
-    def execute(self, context):
+    def invoke(self, context, event):
+        self.cleanup = get_prefs().auto_cleanup
+        self.props   = get_window_properties()
+        setattr(self.props, "waiting_import", False)
+
         gltf = get_file_properties().file_gltf
+
         if gltf:
             bpy.ops.import_scene.gltf('INVOKE_DEFAULT')
         else:
             bpy.ops.import_scene.fbx('INVOKE_DEFAULT', ignore_leaf_bones=True)
+        
+        if self.cleanup:
+            bpy.ops.object.select_all(action="DESELECT")
+            self.pre_import_objects = len(context.scene.objects)
+            self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
+            context.window_manager.modal_handler_add(self)
 
+            setattr(self.props, "waiting_import", True)
+            bpy.context.view_layer.update()
+            
+        return {"RUNNING_MODAL"}
+
+    def modal(self, context, event):
+        if event.type == 'TIMER':
+            if len(context.scene.objects) > self.pre_import_objects:
+                context.window_manager.event_timer_remove(self._timer)
+                return self.execute(context)
+    
+        elif event.type == 'ESC':
+            context.window_manager.event_timer_remove(self._timer)
+            setattr(self.props, "waiting_import", False)
+            bpy.context.view_layer.update()
+            return {"CANCELLED"}
+        
+        return {"PASS_THROUGH"}
+
+    def execute(self, context):
+        bpy.ops.ya.simple_cleanup("EXEC_DEFAULT")
+        setattr(self.props, "waiting_import", False)
+        bpy.context.view_layer.update()
         return {"FINISHED"}
     
 class SimpleCleanUp(Operator):
     bl_idname = "ya.simple_cleanup"
     bl_label = "Open Import Window"
     bl_description = "Cleanup the selected files"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO", "REGISTER"}
 
     preset: StringProperty() # type: ignore
 
@@ -41,15 +77,22 @@ class SimpleCleanUp(Operator):
     
     def execute(self, context):
         self.props = get_file_properties()
+        self.prefs = get_prefs()
         self.selected = bpy.context.selected_objects
-        armature = self.props.armatures
-        if armature != "None":
-            self.fix_parent(armature)
-        if self.props.update_material:
+
+        if not self.selected:
+            return {"CANCELLED"}
+        
+        if self.props.armature:
+            self.fix_parent(self.props.armature)
+
+        if self.prefs.update_material:
             self.update_material()
-        if self.props.rename_import != "":
+
+        if self.props.rename_import.strip() != "":
             self.rename_import()
-        if self.props.reorder_mesh_id:
+
+        if self.prefs.reorder_meshid:
             # This just looks for the default TT naming convention and corrects it
             for obj in self.selected:
                 if re.search(r"\s\d+.\d+$", obj.name):
@@ -59,8 +102,9 @@ class SimpleCleanUp(Operator):
                     else:
                         end_idx = -1
                     obj.name = " ".join(name_parts[-1:] + name_parts[0:end_idx])
-        if self.props.remove_nonmesh:
+        if self.prefs.remove_nonmesh:
             self.remove()
+
         return {"FINISHED"}
 
     def update_material(self) -> None:
@@ -85,19 +129,19 @@ class SimpleCleanUp(Operator):
         for obj in self.selected:
             if obj.type != "MESH":
                 continue
-            if obj.parent == bpy.data.objects[armature]:
+            if obj.parent == armature:
                 continue
             bpy.ops.object.select_all(action="DESELECT")
             bpy.context.view_layer.objects.active = obj
             obj.select_set(state=True)
             bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
-            obj.parent = bpy.data.objects[armature]
+            obj.parent = armature
             bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
             
             for modifier in obj.modifiers:
                 if modifier.type == "ARMATURE":
                     modifier: ArmatureModifier
-                    modifier.object = bpy.data.objects[armature]
+                    modifier.object = armature
                     modifier.name = "Armature"
 
     def remove(self):
@@ -105,6 +149,8 @@ class SimpleCleanUp(Operator):
             if obj.type == "MESH":
                 continue
             bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
+        
+        # bpy.ops.outliner.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 
     def rename_import(self) -> None:
         for obj  in self.selected:

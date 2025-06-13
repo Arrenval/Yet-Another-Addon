@@ -10,7 +10,7 @@ from bpy.props import StringProperty, IntProperty, BoolProperty, CollectionPrope
 class ModpackOptionPreset(PropertyGroup):
     name   : StringProperty(name="", description="Name of preset") # type: ignore
     format : StringProperty(name="", description="Type of preset") # type: ignore
-    options: StringProperty(name="", description="JSON serialised preset") # type: ignore
+    preset: StringProperty(name="", description="JSON serialised preset") # type: ignore
 
 class YetAnotherPreference(AddonPreferences):
     # This must match the add-on name, use `__package__`
@@ -87,6 +87,30 @@ class YetAnotherPreference(AddonPreferences):
         description="When enabled the modpacker sorts model YAB sizes according to my regular packing format",
         default=True,
         ) # type: ignore
+    
+    auto_cleanup: BoolProperty(
+        name="Auto Cleanup",
+        description="Cleans up imported files automatically with your current settings",
+        default=True,
+        ) # type: ignore
+    
+    remove_nonmesh: BoolProperty(
+        name="Cleanup",
+        description="Removes objects without any meshes. Cleans up unnecessary files from TT imports",
+        default=True,
+        ) # type: ignore
+    
+    update_material: BoolProperty(
+        name="Cleanup",
+        description="Changes material rendering and enables backface culling. Tries to normalise metallic and roughness values of TT materials",
+        default=True,
+        ) # type: ignore
+    
+    reorder_meshid: BoolProperty(
+        name="Cleanup",
+        description="Moves mesh identifier to the front of the object name",
+        default=True,
+        ) # type: ignore
 
     def draw(self, context: Context):
         layout = self.layout
@@ -119,9 +143,9 @@ class YetAnotherPreference(AddonPreferences):
         layout.separator(type="LINE")
 
         if platform.system() == "Windows":
-            text = "✓  ConsoleTools Ready!" if self.consoletools_status else "✕  ConsoleTools missing."
+            text = "✓  ConsoleTools Ready!" if self.consoletools_status else "X  ConsoleTools missing."
             row = aligned_row(layout, "", text)
-            row.operator("ya.file_console_tools", text="Check")
+            row.operator("ya.consoletools", text="Check")
 
             row = aligned_row(layout, "ConsoleTools:", "textools_directory", self)
             row.operator("ya.consoletools_dir", text="", icon="FILE_FOLDER")

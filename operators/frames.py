@@ -9,7 +9,7 @@ class FrameJump(Operator):
     bl_idname = "ya.frame_jump"
     bl_label = "Jump to Endpoint"
     bl_description = "Jump to first/last frame in frame range"
-    bl_options = {'REGISTER'}
+    bl_options = {"UNDO", "REGISTER"}
 
     end: BoolProperty() # type: ignore
  
@@ -23,7 +23,7 @@ class KeyframeJump(Operator):
     bl_idname = "ya.keyframe_jump"
     bl_label = "Jump to Keyframe"
     bl_description = "Jump to previous/next keyframe"
-    bl_options = {'REGISTER'}
+    bl_options = {"UNDO", "REGISTER"}
 
     next: BoolProperty() # type: ignore
 

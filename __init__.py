@@ -10,8 +10,11 @@ from importlib      import import_module
 
 SUBFOLDERS = [
     "operators",
+    "operators/export",
+    "operators/modpack",
     "ui/operators",
     "ui",
+    "ui/panels",
 ]
 
 modules = [

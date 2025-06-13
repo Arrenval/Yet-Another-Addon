@@ -11,11 +11,10 @@ class ModifierShape(Operator):
     """
     bl_idname = "ya.apply_modifier"
     bl_label = "Backfaces"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO"}
 
     @classmethod
     def poll(cls, context):
-        obj = context.active_object
         modifier:str = get_outfit_properties().shape_modifiers
         return context.mode == "OBJECT" and modifier != "None"
     

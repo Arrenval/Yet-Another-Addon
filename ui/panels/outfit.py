@@ -1,10 +1,12 @@
 import re
 import bpy
+   
+from bpy.types        import Panel, UILayout, Context, Object
 
-from ..draw         import aligned_row, get_conditional_icon, operator_button   
-from bpy.types      import Panel, UILayout, Context, Object
-from ...preferences import get_prefs
-from ...properties  import get_file_properties, get_outfit_properties, get_object_from_mesh, visible_meshobj
+from ..draw           import aligned_row, get_conditional_icon, operator_button
+from ...properties    import get_outfit_properties, get_devkit_properties, get_window_properties
+from ...preferences   import get_prefs
+from ...utils.objects import visible_meshobj, get_object_from_mesh
 
 
 class OutfitStudio(Panel):
@@ -17,6 +19,8 @@ class OutfitStudio(Panel):
 
     def draw(self, context:Context):
         self.outfit_props = get_outfit_properties()
+        self.window_props = get_window_properties()
+        self.devkit_props = get_devkit_properties()
         layout = self.layout
 
         self.options ={
@@ -29,27 +33,27 @@ class OutfitStudio(Panel):
 
         row = layout.row()
         colui = row.column()
-        self.ui_category_buttons(colui, self.outfit_props, self.options)
+        self.ui_category_buttons(colui, self.window_props, self.options)
         col = row.column()
         
-        if self.outfit_props.overview_category:
+        if self.window_props.overview_category:
             columns = ["OBJECT", "PART", "ATTR"]
 
-            self.draw_overview(col, self.outfit_props, columns)
+            self.draw_overview(col, columns)
             
-        if self.outfit_props.shapes_category:
-            self.draw_shapes(col, self.outfit_props)
+        if self.window_props.shapes_category:
+            self.draw_shapes(col)
             
-        if self.outfit_props.mesh_category:
-            self.draw_mesh(col, self.outfit_props)
+        if self.window_props.mesh_category:
+            self.draw_mesh(col)
 
-        if self.outfit_props.weights_category:
-            self.draw_weights(col, self.outfit_props)
+        if self.window_props.weights_category:
+            self.draw_weights(col)
 
-        if self.outfit_props.armature_category:
-            self.draw_armature(col, self.outfit_props)
+        if self.window_props.armature_category:
+            self.draw_armature(col)
 
-    def draw_overview(self, layout:UILayout, section_prop, columns):
+    def draw_overview(self, layout:UILayout, columns):
 
         def get_entries(visible:list[Object]) -> dict[int, dict[Object, dict[str, tuple[str | int, int | None]]]]:
             data_entries = {}
@@ -136,7 +140,7 @@ class OutfitStudio(Panel):
                         else:
                             col.alignment = "RIGHT"
                         for attr in value:
-                            text = section_prop.attr_dict[attr] if attr in section_prop.attr_dict else attr
+                            text = self.outfit_props.attr_dict[attr] if attr in self.outfit_props.attr_dict else attr
                             op = col.operator("ya.attributes", text=f"{text}")
                             op.attr = attr
                             op.obj = obj.name
@@ -182,9 +186,7 @@ class OutfitStudio(Panel):
         row.alignment = "RIGHT"
         row.label(text=f"Triangles: {count}    ")
 
-    def draw_shapes(self, layout:UILayout, section_prop):
-        if hasattr(bpy.context.scene, "devkit_props"):
-            devkit_prop = bpy.context.scene.devkit_props
+    def draw_shapes(self, layout:UILayout):
         box = layout.box()
         button_type = "shpk"
         row = box.row(align=True)
@@ -195,10 +197,10 @@ class OutfitStudio(Panel):
         split = col.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Method:")
-        split.prop(section_prop, "shapes_method", text="", icon="OBJECT_DATA")
+        split.prop(self.outfit_props, "shapes_method", text="", icon="OBJECT_DATA")
         col.separator(type="LINE", factor=2)
 
-        if not hasattr(bpy.context.scene, "devkit_props") and section_prop.shapes_method != "Selected":
+        if not self.devkit_props and self.outfit_props.shapes_method != "Selected":
             row = col.row(align=True)
             row.alignment = "CENTER"
             row.label(text="Yet Another Devkit required.", icon="INFO")
@@ -208,65 +210,65 @@ class OutfitStudio(Panel):
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
             split.label(text="Smoothing:")
-            split.prop(section_prop, "shapes_corrections", text="")
-            if section_prop.shapes_method == "Legs" or section_prop.shapes_method == "Seams":
-                split.prop(section_prop, "add_shrinkwrap", text="Shrinkwrap")
+            split.prop(self.outfit_props, "shapes_corrections", text="")
+            if self.outfit_props.shapes_method == "Legs" or self.outfit_props.shapes_method == "Seams":
+                split.prop(self.outfit_props, "add_shrinkwrap", text="Shrinkwrap")
             
-            if section_prop.shapes_method == "Selected":
+            if self.outfit_props.shapes_method == "Selected":
                 col.separator(type="SPACE", factor=1)
                 
                 row = col.row(align=True)
                 split = row.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
                 split.label(text="Options:")
-                split.prop(section_prop, "all_keys", text="All Keys")
-                split.prop(section_prop, "add_shrinkwrap", text="Shrinkwrap")
+                split.prop(self.outfit_props, "all_keys", text="All Keys")
+                split.prop(self.outfit_props, "add_shrinkwrap", text="Shrinkwrap")
                 
                 row = col.row(align=True)
                 split = row.split(factor=0.25, align=True)
                 split.label(text="")
-                split.prop(section_prop, "existing_only", text="Existing")
-                split.prop(section_prop, "include_deforms", text="Deforms")
+                split.prop(self.outfit_props, "existing_only", text="Existing")
+                split.prop(self.outfit_props, "include_deforms", text="Deforms")
 
                 col.separator(type="LINE", factor=2)
             
-                if section_prop.shapes_corrections != "None":
+                if self.outfit_props.shapes_corrections != "None":
                     split = col.split(factor=0.25, align=True)
                     split.alignment = "RIGHT"
                     split.label(text="Pin:")
-                    split.prop(section_prop, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
-                if section_prop.add_shrinkwrap:
+                    split.prop(self.outfit_props, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
+                if self.outfit_props.add_shrinkwrap:
                     split = col.split(factor=0.25, align=True)
                     split.alignment = "RIGHT"
                     split.label(text="Exclude:")
-                    split.prop(section_prop, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
+                    split.prop(self.outfit_props, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
 
-                if section_prop.add_shrinkwrap or section_prop.shapes_corrections != "None":
+                if self.outfit_props.add_shrinkwrap or self.outfit_props.shapes_corrections != "None":
                     col.separator(type="LINE", factor=2)
 
                 row = col.row(align=True)
                 split = row.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
                 split.label(text="Source:")
-                split.prop(section_prop, "shapes_source", text="")
-                if not section_prop.all_keys and section_prop.include_deforms:
-                    split.prop(section_prop, "shapes_source_enum", text="")
+                split.prop(self.outfit_props, "shapes_source", text="")
+                if not self.outfit_props.all_keys and self.outfit_props.include_deforms:
+                    split.prop(self.outfit_props, "shapes_source_enum", text="")
 
-            elif section_prop.shapes_method == "Chest":
+            elif self.outfit_props.shapes_method == "Chest":
                 col.separator(type="SPACE", factor=1)
 
                 row = col.row(align=True)
                 split = row.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
                 split.label(text="Options:")
-                split.prop(section_prop, "sub_shape_keys", text="Sub Keys")
-                split.prop(section_prop, "add_shrinkwrap", text="Shrinkwrap")
+                split.prop(self.outfit_props, "sub_shape_keys", text="Sub Keys")
+                split.prop(self.outfit_props, "add_shrinkwrap", text="Shrinkwrap")
 
                 row = col.row(align=True)
                 split = row.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
                 split.label(text="")
-                split.prop(section_prop, "adjust_overhang", text="Overhang")
+                split.prop(self.outfit_props, "adjust_overhang", text="Overhang")
                 ctrl = bpy.data.objects["Chest"].visible_get(view_layer=bpy.context.view_layer)
                 icon = "HIDE_ON" if not ctrl else "HIDE_OFF"
                 adj_op = split.operator("yakit.apply_visibility", text="Source", icon=icon, depress=ctrl)
@@ -277,17 +279,17 @@ class OutfitStudio(Panel):
                 split = col.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
                 split.label(text="Base:")
-                split.prop(section_prop, "shape_chest_base", text="", icon="SHAPEKEY_DATA")
-                if section_prop.shapes_corrections != "None":
+                split.prop(self.outfit_props, "shape_chest_base", text="", icon="SHAPEKEY_DATA")
+                if self.outfit_props.shapes_corrections != "None":
                     split = col.split(factor=0.25, align=True)
                     split.alignment = "RIGHT"
                     split.label(text="Pin:")
-                    split.prop(section_prop, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
-                if section_prop.add_shrinkwrap:
+                    split.prop(self.outfit_props, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
+                if self.outfit_props.add_shrinkwrap:
                     split = col.split(factor=0.25, align=True)
                     split.alignment = "RIGHT"
                     split.label(text="Exclude:")
-                    split.prop(section_prop, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
+                    split.prop(self.outfit_props, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
 
                 col.separator(type="LINE", factor=2)
 
@@ -301,33 +303,33 @@ class OutfitStudio(Panel):
                         "Rue":        "Rue",        
                     }
                 
-                # del labels[section_prop.shape_chest_base]
+                # del labels[self.outfit_props.shape_chest_base]
                 row = col.row(align=True)
-                col.prop(devkit_prop, "key_pushup_large_ctrl", text="Push-Up Adjustment:")
-                col.prop(devkit_prop, "key_squeeze_large_ctrl", text="Squeeze Adjustment:")
+                col.prop(self.devkit_prop, "key_pushup_large_ctrl", text="Push-Up Adjustment:")
+                col.prop(self.devkit_prop, "key_squeeze_large_ctrl", text="Squeeze Adjustment:")
 
-                self.dynamic_column_buttons(2, col, devkit_prop, labels, slot, button_type)
+                self.dynamic_column_buttons(2, col, self.devkit_prop, labels, slot, button_type)
                 
                 col.separator(type="LINE", factor=2)
 
-            if section_prop.shapes_method == "Legs":
+            if self.outfit_props.shapes_method == "Legs":
 
                 col.separator(type="LINE", factor=2)
             
                 split = col.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
                 split.label(text="Base:")
-                split.prop(section_prop, "shape_leg_base", text="", icon="SHAPEKEY_DATA")
-                if section_prop.shapes_corrections != "None":
+                split.prop(self.outfit_props, "shape_leg_base", text="", icon="SHAPEKEY_DATA")
+                if self.outfit_props.shapes_corrections != "None":
                     split = col.split(factor=0.25, align=True)
                     split.alignment = "RIGHT"
                     split.label(text="Pin:")
-                    split.prop(section_prop, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
-                if section_prop.add_shrinkwrap:
+                    split.prop(self.outfit_props, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
+                if self.outfit_props.add_shrinkwrap:
                     split = col.split(factor=0.25, align=True)
                     split.alignment = "RIGHT"
                     split.label(text="Exclude:")
-                    split.prop(section_prop, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
+                    split.prop(self.outfit_props, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
 
                 col.separator(type="LINE", factor=2)
 
@@ -345,41 +347,41 @@ class OutfitStudio(Panel):
                         "Soft Butt":  "Soft Butt",
                     }
                 
-                # del labels[section_prop.shape_leg_base]
-                self.dynamic_column_buttons(2, col, devkit_prop, labels, slot, button_type)
+                # del labels[self.outfit_props.shape_leg_base]
+                self.dynamic_column_buttons(2, col, self.devkit_prop, labels, slot, button_type)
 
                 col.separator(type="LINE", factor=2)
 
-            if section_prop.shapes_method == "Seams":
+            if self.outfit_props.shapes_method == "Seams":
 
                 col.separator(type="LINE", factor=2)
                 
                 split = col.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
                 split.label(text="Base:")
-                split.prop(section_prop, "shape_seam_base", text="", icon="SHAPEKEY_DATA")
+                split.prop(self.outfit_props, "shape_seam_base", text="", icon="SHAPEKEY_DATA")
 
-                if section_prop.shapes_corrections != "None":
+                if self.outfit_props.shapes_corrections != "None":
                     split = col.split(factor=0.25, align=True)
                     split.alignment = "RIGHT"
                     split.label(text="Pin:")
-                    split.prop(section_prop, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
-                if section_prop.add_shrinkwrap:
+                    split.prop(self.outfit_props, "obj_vertex_groups", text="", icon="GROUP_VERTEX")
+                if self.outfit_props.add_shrinkwrap:
                     split = col.split(factor=0.25, align=True)
                     split.alignment = "RIGHT"
                     split.label(text="Exclude:")
-                    split.prop(section_prop, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
+                    split.prop(self.outfit_props, "exclude_vertex_groups", text="", icon="GROUP_VERTEX")
 
-                if section_prop.add_shrinkwrap or section_prop.shapes_corrections != "None":
+                if self.outfit_props.add_shrinkwrap or self.outfit_props.shapes_corrections != "None":
                     col.separator(type="LINE", factor=2)
 
                 row = col.row(align=True)
-                icon = get_conditional_icon(section_prop.seam_waist)
-                row.prop(section_prop, "seam_waist", text="Waist", icon=icon)
-                icon = get_conditional_icon(section_prop.seam_waist)
-                row.prop(section_prop, "seam_wrist", text="Wrist", icon=icon)
-                icon = get_conditional_icon(section_prop.seam_ankle)
-                row.prop(section_prop, "seam_ankle", text="Ankle", icon=icon)
+                icon = get_conditional_icon(self.outfit_props.seam_waist)
+                row.prop(self.outfit_props, "seam_waist", text="Waist", icon=icon)
+                icon = get_conditional_icon(self.outfit_props.seam_waist)
+                row.prop(self.outfit_props, "seam_wrist", text="Wrist", icon=icon)
+                icon = get_conditional_icon(self.outfit_props.seam_ankle)
+                row.prop(self.outfit_props, "seam_ankle", text="Ankle", icon=icon)
 
                 col.separator(type="LINE", factor=2)
 
@@ -387,9 +389,9 @@ class OutfitStudio(Panel):
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
             split.label(text="Target:")
-            split.prop(section_prop, "shapes_target", text="")
-            if section_prop.shapes_method == "Selected" and not section_prop.all_keys and section_prop.include_deforms:
-                split.prop(section_prop, "shapes_target_enum", text="")
+            split.prop(self.outfit_props, "shapes_target", text="")
+            if self.outfit_props.shapes_method == "Selected" and not self.outfit_props.all_keys and self.outfit_props.include_deforms:
+                split.prop(self.outfit_props, "shapes_target_enum", text="")
             
             col.separator(type="LINE", factor=2)
 
@@ -399,16 +401,16 @@ class OutfitStudio(Panel):
             row = col.row(align=True)
             col.operator("ya.transfer_shape_keys", text="Transfer")
           
-    def draw_mesh(self, layout:UILayout, section_prop):
+    def draw_mesh(self, layout:UILayout):
         box = layout.box()
         row = box.row(align=True)
         row.alignment = "CENTER"
         row.label(text="Mesh", icon=self.options["Mesh"])
         
         row = box.row(align=True)
-        button = section_prop.button_backfaces_expand
+        button = self.window_props.button_backfaces_expand
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        row.prop(section_prop, "button_backfaces_expand", text="", icon=icon, emboss=False)
+        row.prop(self.window_props, "button_backfaces_expand", text="", icon=icon, emboss=False)
         row.label(text="Backfaces")
         
         if button:
@@ -424,9 +426,9 @@ class OutfitStudio(Panel):
             
 
         row = box.row(align=True)
-        button = section_prop.button_modifiers_expand
+        button = self.window_props.button_modifiers_expand
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        row.prop(section_prop, "button_modifiers_expand", text="", icon=icon, emboss=False)
+        row.prop(self.window_props, "button_modifiers_expand", text="", icon=icon, emboss=False)
         row.label(text="Modifiers")
         
         obj = bpy.context.active_object
@@ -435,13 +437,13 @@ class OutfitStudio(Panel):
             if obj.modifiers and obj.data.shape_keys:
                 row = box.row(align=True)
                 split = row.split(factor=0.75, align=True)
-                split.prop(section_prop, "shape_modifiers")
+                split.prop(self.outfit_props, "shape_modifiers")
                 split.operator("ya.apply_modifier", text="Apply")
-                icon = "PINNED" if section_prop.keep_modifier else "UNPINNED"
-                row.prop(section_prop, "keep_modifier", text="", icon=icon)
-                if section_prop.shape_modifiers == "None" or section_prop.shape_modifiers == "":
+                icon = "PINNED" if self.outfit_props.keep_modifier else "UNPINNED"
+                row.prop(self.outfit_props, "keep_modifier", text="", icon=icon)
+                if self.outfit_props.shape_modifiers == "None" or self.outfit_props.shape_modifiers == "":
                     pass
-                elif  obj.modifiers[section_prop.shape_modifiers].type == "DATA_TRANSFER":
+                elif  obj.modifiers[self.outfit_props.shape_modifiers].type == "DATA_TRANSFER":
                     row = box.row(align=True)
                     row.alignment = "CENTER"
                     row.label(text="Will be applied to mix of current shape keys.", icon="INFO")
@@ -463,7 +465,7 @@ class OutfitStudio(Panel):
             elif not obj.data.shape_keys:
                 row.alignment = "CENTER"
                 row.label(text="Object has no shape keys.", icon="INFO")
-            if obj.type == 'MESH' and section_prop.shape_modifiers == 'None':
+            if obj.type == 'MESH' and self.outfit_props.shape_modifiers == 'None':
                 row = box.row(align=True)
                 row.operator("wm.call_menu", text="Add Modifier", icon="ADD").name = "OBJECT_MT_modifier_add"
         elif button:
@@ -472,9 +474,9 @@ class OutfitStudio(Panel):
             row.label(text="No Object Selected.", icon="INFO")
         
         row = box.row(align=True)
-        button = section_prop.button_transp_expand
+        button = self.window_props.button_transp_expand
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        row.prop(section_prop, "button_transp_expand", text="", icon=icon, emboss=False)
+        row.prop(self.window_props, "button_transp_expand", text="", icon=icon, emboss=False)
         row.label(text="Transparency")
         if button:
             obj = bpy.context.active_object
@@ -495,7 +497,7 @@ class OutfitStudio(Panel):
                 row.alignment = "CENTER"
                 row.label(text="No Object Selected.", icon="INFO")
             
-    def draw_weights(self, layout:UILayout, section_prop):
+    def draw_weights(self, layout:UILayout):
         box = layout.box()
         row = box.row()
         row.alignment = "CENTER"
@@ -504,7 +506,7 @@ class OutfitStudio(Panel):
         obj = bpy.context.active_object
         row = box.row()
         col = row.column(align=True)
-        if section_prop.filter_vgroups:
+        if self.window_props.filter_vgroups:
             col.template_list(
                 "MESH_UL_yas", "", 
                 get_outfit_properties(), "yas_vgroups", 
@@ -523,9 +525,9 @@ class OutfitStudio(Panel):
         row = col.row(align=True)
         row.operator("ya.remove_select_vgroups", text= "Remove Selected").preset = "PANEL"
         row.operator("ya.remove_empty_vgroups", text= "Remove Empty")
-        row.prop(section_prop, "filter_vgroups", text="", icon="FILTER")
+        row.prop(self.window_props, "filter_vgroups", text="", icon="FILTER")
                     
-    def draw_armature(self, layout:UILayout, section_prop):
+    def draw_armature(self, layout:UILayout):
         box = layout.box()
         row = box.row()
         row.alignment = "CENTER"
@@ -534,9 +536,9 @@ class OutfitStudio(Panel):
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Armature:")
-        split.prop(section_prop, "armatures", text="", icon="ARMATURE_DATA")
+        split.prop(self.outfit_props, "armature", text="", icon="ARMATURE_DATA")
         box.separator(factor=0.5, type="LINE")
-        if section_prop.armatures == "None":
+        if not self.outfit_props.armature:
             row = box.row()
             row.alignment = "CENTER"
             row.label(text="Please select an Armature.", icon="INFO")
@@ -544,19 +546,19 @@ class OutfitStudio(Panel):
             row = box.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
-            split.label(text="Scaling:" if section_prop.scaling_armature else "Pose:")
+            split.label(text="Scaling:" if self.outfit_props.scaling_armature else "Pose:")
             split.label(text=self.outfit_props.pose_display_directory)
             buttonrow = split.row(align=True)
             op = buttonrow.operator("ya.pose_apply", text="Apply")
       
-            buttonrow.prop(section_prop, "scaling_armature", text="", icon="FIXED_SIZE")
+            buttonrow.prop(self.outfit_props, "scaling_armature", text="", icon="FIXED_SIZE")
             op = buttonrow.operator("ya.pose_apply", text="", icon="FILE_REFRESH")
             op.reset = True
 
             row = box.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
-            split.label(text="" if section_prop.scaling_armature else "Scaling:")
+            split.label(text="" if self.outfit_props.scaling_armature else "Scaling:")
             op = split.operator("ya.pose_apply", text="Import from Clipboard")
             op.use_clipboard = True
 
@@ -565,17 +567,17 @@ class OutfitStudio(Panel):
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
             split.label(text="Animation:")
-            split.prop(section_prop, "actions", text="", icon="ACTION")
+            split.prop(self.outfit_props, "actions", text="", icon="ACTION")
 
             
-            if section_prop.armatures != "None" and section_prop.actions != "None":
+            if not self.outfit_props.armature and self.outfit_props.actions != "None":
                 # box.separator(factor=0.5, type="LINE")
                 row = box.row(align=True)
                 col = row.column(align=True)
                 row = col.row(align=True)
                 row.alignment = "CENTER"
                 row.label(text="Animation Frame:")
-                col.prop(section_prop, "animation_frame", text="")
+                col.prop(self.outfit_props, "animation_frame", text="")
                 row = box.row(align=True)
                 row.alignment = "CENTER"
                 row.operator("ya.frame_jump", text="", icon="FRAME_PREV").end = False

@@ -7,7 +7,7 @@ def get_conditional_icon(condition: bool, invert: bool=False, if_true: str="CHEC
     else:
         return if_true if condition else if_false
 
-def aligned_row(layout: UILayout, label: str, attr: str, prop=None, label_icon: str="NONE", attr_icon: str="NONE", factor:float=0.25, emboss: bool=True, alignment: Literal["RIGHT", "LEFT", "EXPAND", "CENTER"]="RIGHT") -> UILayout:
+def aligned_row(layout: UILayout, label: str, attr: str, prop=None, prop_str: str="", label_icon: str="NONE", attr_icon: str="NONE", factor:float=0.25, emboss: bool=True, alignment: Literal["RIGHT", "LEFT", "EXPAND", "CENTER"]="RIGHT") -> UILayout:
     """
     Create a row with a label in the main split and a prop or text label in the second split. Returns the row if you want to append extra items.
     Args:
@@ -27,7 +27,7 @@ def aligned_row(layout: UILayout, label: str, attr: str, prop=None, label_icon: 
         row.label(text=attr)
     else:
         row = split.row(align=True)
-        row.prop(prop, attr, text="", emboss=emboss, icon=attr_icon)
+        row.prop(prop, attr, text=prop_str, emboss=emboss, icon=attr_icon)
     
     return row
 

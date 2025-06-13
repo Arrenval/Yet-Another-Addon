@@ -9,7 +9,7 @@ class Attributes(Operator):
     bl_idname = "ya.attributes"
     bl_label = "Attributes"
     bl_description = ""
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO"}
 
     obj: StringProperty() # type: ignore
     attr: StringProperty() # type: ignore
@@ -77,7 +77,7 @@ class ChangeObjectName(Operator):
     bl_idname = "ya.overview_name"
     bl_label = "Name"
     bl_description = "Change name of the object"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO"}
 
     obj: StringProperty() # type: ignore
     type: StringProperty() # type: ignore
@@ -105,7 +105,7 @@ class ChangeGroupPart(Operator):
     bl_idname = "ya.overview_group"
     bl_label = "Group/Part"
     bl_description = "Change group/part of the object"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO"}
 
     obj: StringProperty() # type: ignore
     type: StringProperty() # type: ignore
@@ -172,7 +172,7 @@ class ChangeMaterial(Operator):
     bl_idname = "ya.overview_material"
     bl_label = "Material"
     bl_description = "Tags faces you want to create backfaces for on export"
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO"}
 
     obj: StringProperty() # type: ignore
     type: StringProperty() # type: ignore

@@ -4,6 +4,7 @@ import bpy
 from pathlib            import Path
 from bpy.types          import Operator, Context
 from bpy.props          import StringProperty, IntProperty
+
 from ...properties      import BlendModOption, BlendModGroup, ModFileEntry, get_file_properties
 from ...preferences     import get_prefs
 
@@ -73,7 +74,7 @@ class DirSelector(Operator):
         options={'HIDDEN'}) # type: ignore
     
     def invoke(self, context: Context, event):
-        self.props = get_file_properties()
+        self.props = get_prefs()
         actual_dir = getattr(self.props, f"{self.category}_dir", "")     
 
         if event.alt and event.type == "LEFTMOUSE" and os.path.isdir(actual_dir):

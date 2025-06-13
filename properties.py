@@ -410,7 +410,98 @@ class LoadedModpackGroup(PropertyGroup):
         group_description: str
         group_page       : int
         group_priority   : int
+
+class YAWindowProps(PropertyGroup):
     
+    outfit_roulette = [
+        ("overview",  "category",   True,    "Enables part overview"),
+        ("shapes",    "category",   False,   "Enables shape transfer menu"),
+        ("mesh",      "category",   False,   "Enables mesh editing menu"),
+        ("weights",   "category",   False,   "Enables weight editing menu"),
+        ("armature",  "category",   False,   "Enables animation playback and pose/scaling menu"),
+        ("filter",    "vgroups",    True,    "Switches between showing all vertex groups or just YAS groups"),
+        ]
+    
+    ui_buttons_list = [
+        ("backfaces",   "expand",     "Opens the category"),
+        ("modifiers",   "expand",     "Opens the category"),
+        ("transp",      "expand",     "Opens the category"),
+        
+        ]
+    
+    file_man_ui: EnumProperty(
+        name= "",
+        description= "Select a manager",
+        items= [
+            ("IMPORT", "Import", "Import Files"),
+            ("EXPORT", "Export", "Export models"),
+            ("MODPACK", "Modpack", "Package mods"),
+        ]
+        )  # type: ignore
+    
+    export_body_slot: EnumProperty(
+        name= "",
+        description= "Select a body slot",
+        items= [
+            ("Chest", "Chest", "Chest export options."),
+            ("Legs", "Legs", "Leg export options."),
+            ("Hands", "Hands", "Hand export options."),
+            ("Feet", "Feet", "Feet export options."),
+            ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.")]
+        )  # type: ignore
+
+
+    waiting_import: BoolProperty(default=False, options={"SKIP_SAVE"}) # type: ignore
+
+    @staticmethod
+    def extra_options() -> None:
+        for (name, category, default, description) in YAWindowProps.outfit_roulette:
+            category_lower = category.lower()
+            name_lower = name.lower()
+            
+            prop_name = f"{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
+                )
+            setattr(YAWindowProps, prop_name, prop)
+    
+    @staticmethod
+    def ui_buttons() -> None:
+        for (name, category, description) in YAWindowProps.ui_buttons_list:
+            category_lower = category.lower()
+            name_lower = name.lower()
+
+            default = False
+            if name_lower == "advanced":
+                default = True
+            
+            prop_name = f"button_{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
+                )
+            setattr(YAWindowProps, prop_name, prop)
+
+    if TYPE_CHECKING:
+        file_man_ui     : str
+        export_body_slot: str
+        waiting_import  : bool
+
+        # Created at registration
+        overview_category: bool
+        shapes_category  : bool
+        mesh_category    : bool
+        weights_category : bool
+        armature_category: bool
+        filter_vgroups   : bool
+
+        button_backfaces_expand: bool
+        button_modifiers_expand: bool
+        button_transp_expand   : bool
+
 class YAFileProps(PropertyGroup):
 
     GAME_SUFFIX = {".mdl", ".tex", ".phyb"}
@@ -481,17 +572,7 @@ class YAFileProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-    file_man_ui: EnumProperty(
-        name= "",
-        description= "Select a manager",
-        items= [
-            ("IMPORT", "Import", "Import Files"),
-            ("EXPORT", "Export", "Export models"),
-            ("MODPACK", "Modpack", "Package mods"),
-        ]
-        )  # type: ignore
-
-    armatures: PointerProperty(
+    armature: PointerProperty(
         type= Armature,
         name= "",
         description= "New armature for imports"
@@ -517,17 +598,6 @@ class YAFileProps(PropertyGroup):
         default=False,
         ) # type: ignore
     
-
-    export_body_slot: EnumProperty(
-        name= "",
-        description= "Select a body slot",
-        items= [
-            ("Chest", "Chest", "Chest export options."),
-            ("Legs", "Legs", "Leg export options."),
-            ("Hands", "Hands", "Hand export options."),
-            ("Feet", "Feet", "Feet export options."),
-            ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.")]
-        )  # type: ignore
 
     export_total: IntProperty(default=0) # type: ignore
 
@@ -617,8 +687,7 @@ class YAFileProps(PropertyGroup):
         new_mod_version     : str
         author_name         : str
         
-        file_man_ui         : str
-        armatures           : str
+        armature           : Armature
         export_body_slot    : str
         
         file_gltf           : bool
@@ -786,14 +855,8 @@ class YAOutfitProps(PropertyGroup):
     }
 
     outfit_buttons = [
-        ("overview",  "category",   True,    "Enables part overview"),
-        ("shapes",    "category",   False,   "Enables shape transfer menu"),
-        ("mesh",      "category",   False,   "Enables mesh editing menu"),
-        ("weights",   "category",   False,   "Enables weight editing menu"),
-        ("armature",  "category",   False,   "Enables animation playback and pose/scaling menu"),
         ("scaling",   "armature",   False,   "Applies scaling to armature"),
         ("keep",      "modifier",   False,   "Keeps the modifier after applying. Unable to keep Data Transfers"),
-        ("filter",    "vgroups",    True,    "Switches between showing all vertex groups or just YAS groups"),
         ("all",       "keys",       False,   "Transfers all shape keys from source to target"),
         ("include",   "deforms",    False,   "Enable this to include deforms. If disabled only the shape key entries are added"),
         ("existing",  "only",       False,   "Only updates deforms of shape keys that already exist on the target"),
@@ -809,13 +872,6 @@ class YAOutfitProps(PropertyGroup):
         - Sag
         - Nip Nops"""),
         ]
-    
-    ui_buttons_list = [
-    ("backfaces",   "expand",     "Opens the category"),
-    ("modifiers",   "expand",     "Opens the category"),
-    ("transp",      "expand",     "Opens the category"),
-    
-    ]
     
     attr_dict = {
            "atr_nek": "Neck",
@@ -843,24 +899,6 @@ class YAOutfitProps(PropertyGroup):
                 )
             setattr(YAOutfitProps, prop_name, prop)
     
-    @staticmethod
-    def ui_buttons() -> None:
-        for (name, category, description) in YAOutfitProps.ui_buttons_list:
-            category_lower = category.lower()
-            name_lower = name.lower()
-
-            default = False
-            if name_lower == "advanced":
-                default = True
-            
-            prop_name = f"button_{name_lower}_{category_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=default, 
-                )
-            setattr(YAOutfitProps, prop_name, prop)
-
     def chest_controller_update(self, context:Context) -> None:
         props = context.scene.outfit_props
         key_blocks = get_object_from_mesh("Chest Controller").data.shape_keys.key_blocks
@@ -890,17 +928,17 @@ class YAOutfitProps(PropertyGroup):
         return [(modifier.name, modifier.name, "", modifier.icon, index) for index, modifier in enumerate(modifiers)]
 
     def set_action(self, context:Context) -> None:
-        if self.armatures == "None":
+        if not self.armature:
             return
         if self.actions == "None":
-            bpy.data.objects[self.armatures].animation_data.action = None
+            self.armature.animation_data.action = None
             return
     
         action = bpy.data.actions.get(self.actions)
 
-        bpy.data.objects[self.armatures].animation_data.action = action
+        self.armature.animation_data.action = action
         if bpy.app.version >= (4, 4, 0):
-            bpy.data.objects[self.armatures].animation_data.action_slot = action.slots[0]
+            self.armature.animation_data.action_slot = action.slots[0]
         context.scene.frame_end = int(action.frame_end)
 
         if hasattr(YAOutfitProps, "animation_frame"):
@@ -1048,7 +1086,7 @@ class YAOutfitProps(PropertyGroup):
         items=lambda self, context: self.get_deform_modifiers(context)
         )  # type: ignore
     
-    armatures: PointerProperty(
+    armature: PointerProperty(
         type= Armature,
         name= "",
         description= "Select an armature from the scene"
@@ -1095,21 +1133,15 @@ class YAOutfitProps(PropertyGroup):
         obj_vertex_groups      : str
         exclude_vertex_groups  : str
         shape_modifiers        : str
-        armatures              : str
+        armature              : Armature
         actions                : str
         
         shapes_source          : Object
         shapes_target          : Object
         
-        # Created at runtime
-        overview_category      : bool
-        shapes_category        : bool
-        mesh_category          : bool
-        weights_category       : bool
-        armature_category      : bool
+        # Created at registration
         scaling_armature       : bool
         keep_modifier          : bool
-        filter_vgroups         : bool
         all_keys               : bool
         include_deforms        : bool
         existing_only          : bool
@@ -1119,11 +1151,10 @@ class YAOutfitProps(PropertyGroup):
         seam_wrist             : bool
         seam_ankle             : bool
         sub_shape_keys         : bool
-        
-        button_backfaces_expand: bool
-        button_modifiers_expand: bool
-        button_transp_expand   : bool
 
+
+def get_window_properties() -> YAWindowProps:
+    return bpy.context.window_manager.ya_window_props
 
 def get_file_properties() -> YAFileProps:
     return bpy.context.scene.ya_file_props
@@ -1132,7 +1163,9 @@ def get_outfit_properties() -> YAOutfitProps:
     return bpy.context.scene.ya_outfit_props
 
 def get_devkit_properties() -> DevkitProps | Literal[False]:
-    if hasattr(bpy.context.scene, "devkit_props"):
+    if hasattr(bpy.context.scene, "ya_devkit_props"):
+        return bpy.context.scene.ya_devkit_props
+    elif hasattr(bpy.context.scene, "devkit_props"):
         return bpy.context.scene.devkit_props
     else:
         return False
@@ -1140,16 +1173,21 @@ def get_devkit_properties() -> DevkitProps | Literal[False]:
 def set_addon_properties() -> None:
     bpy.types.Scene.ya_file_props = PointerProperty(
         type=YAFileProps)
+    
+    bpy.types.WindowManager.ya_window_props = PointerProperty(
+        type=YAWindowProps)
 
     bpy.types.Scene.ya_outfit_props = PointerProperty(
         type=YAOutfitProps)
 
+    YAWindowProps.extra_options()
+    YAWindowProps.ui_buttons()
     YAFileProps.set_extra_options()
     YAOutfitProps.extra_options()
-    YAOutfitProps.ui_buttons()
-
+    
 def remove_addon_properties() -> None:
     del bpy.types.Scene.ya_file_props
+    del bpy.types.WindowManager.ya_window_props
     del bpy.types.Scene.ya_outfit_props
 
 
@@ -1161,6 +1199,7 @@ CLASSES = [
     BlendModOption,
     BlendModGroup,
     LoadedModpackGroup,
+    YAWindowProps,
     YAFileProps,
     AnimationOptimise,
     YASVGroups,

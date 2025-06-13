@@ -2,9 +2,9 @@ import json
 import gzip
 import base64
 
-from typing             import Any
-from bpy.types          import Operator, Context
-from bpy.props          import StringProperty, EnumProperty, BoolProperty, IntProperty
+from typing              import Any
+from bpy.types           import Operator, Context
+from bpy.props           import StringProperty, EnumProperty, BoolProperty, IntProperty
 from ...ui.draw          import aligned_row, get_conditional_icon
 from ...properties       import BlendModOption, BlendModGroup, get_file_properties
 from ...preferences      import get_prefs
@@ -16,7 +16,7 @@ class ModpackManager(Operator):
     bl_idname = "ya.modpack_manager"
     bl_label = ""
     bl_description = ""
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO"}
 
     category: StringProperty() # type: ignore
 
@@ -168,7 +168,7 @@ class ModpackPresets(Operator):
     bl_label = ""
     bl_description = ""
 
-    bl_options = {'UNDO'}
+    bl_options = {"UNDO"}
 
     preset_name: StringProperty(default="Enter preset name...", options={"SKIP_SAVE"}) # type: ignore
     format     : StringProperty(options={"SKIP_SAVE", "OUTPUT_PATH"}) # type: ignore

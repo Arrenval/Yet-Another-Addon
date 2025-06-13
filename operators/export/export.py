@@ -1,19 +1,18 @@
 import bpy
 import time
 import json
-import bmesh
 import random
-import numpy as np
 
 from pathlib          import Path
 from functools        import partial
 from itertools        import combinations
 from bpy.props        import StringProperty
-from bpy.types        import Operator, Object, Context, ShapeKey, LayerCollection, Armature
+from bpy.types        import Operator, Object, Context, ShapeKey, LayerCollection
 
 from .mesh_handler    import MeshHandler
-from ...properties    import get_file_properties, get_object_from_mesh
-from ...utils.objects import visible_meshobj
+from ...properties    import get_file_properties, get_devkit_properties, get_window_properties, get_outfit_properties
+from ...preferences   import get_prefs
+from ...utils.objects import visible_meshobj, get_object_from_mesh
 
 
 def add_driver(shape_key:ShapeKey, source:Object) -> None:
@@ -66,9 +65,10 @@ def armature_visibility(export=False) -> None:
     # Makes sure armatures are enabled in scene's space data
     # Will not affect armatures that are specifically hidden
     context = bpy.context
+    outfit = get_outfit_properties()
     if export:
-        context.scene.animation_optimise.clear()
-        optimise = bpy.context.scene.animation_optimise.add()
+        outfit.animation_optimise.clear()
+        optimise = outfit.animation_optimise.add()
         optimise.show_armature = context.space_data.show_object_viewport_armature
         context.space_data.show_object_viewport_armature = True
     else:
@@ -82,7 +82,7 @@ def armature_visibility(export=False) -> None:
             pass
 
 def save_sizes() -> dict[str, dict[str, float]]:
-        devkit_props = bpy.context.scene.devkit_props
+        devkit_props = get_devkit_properties()
         obj          = get_object_from_mesh("Torso").data.shape_keys.key_blocks
         saved_sizes  = [{"Large":  {}, "Medium": {}, "Small":  {}, "Masc": {}} for i in range(2)]
        
@@ -113,8 +113,8 @@ def save_sizes() -> dict[str, dict[str, float]]:
         return saved_sizes
 
 def reset_chest_values(saved_sizes) -> None:
-    devkit       = bpy.context.scene.devkit
-    devkit_props = bpy.context.scene.devkit_props
+    devkit       = bpy.context.scene.ya_devkit
+    devkit_props = get_devkit_properties()
     obj          = get_object_from_mesh("Torso").data.shape_keys.key_blocks
     base_size    = ["Large", "Medium", "Small", "Masc"]
 
@@ -138,10 +138,11 @@ def reset_chest_values(saved_sizes) -> None:
 class FileExport:
 
     def __init__(self):
-        self.props = get_file_properties
+        self.props = get_file_properties()
+        self.prefs = get_prefs()
         self.gltf = self.props.file_gltf
         self.subfolder = self.props.create_subfolder
-        self.selected_directory = Path(self.props.export_directory)
+        self.selected_directory = Path(self.prefs.export_dir)
 
     def export_template(self, file_name:str, body_slot:str):
         if self.subfolder:
@@ -232,7 +233,7 @@ class SimpleExport(Operator):
     bl_idname = "ya.simple_export"
     bl_label = "Simple Export"
     bl_description = "Exports single model based on visible objects"
-    bl_options = {'REGISTER'}
+    bl_options = {"UNDO", "REGISTER"}
 
     user_input: StringProperty(name="File Name", default="") # type: ignore
     
@@ -244,7 +245,7 @@ class SimpleExport(Operator):
         self.props              = get_file_properties()
         self.check_tris         = self.props.check_tris
         self.force_yas          = self.props.force_yas
-        self.directory          = Path(self.props.export_directory)
+        self.directory          = Path(get_prefs().export_dir)
 
         if not self.directory.is_dir():
             self.report({'ERROR'}, "No export directory selected.")
@@ -260,22 +261,23 @@ class SimpleExport(Operator):
         return {'RUNNING_MODAL'}
 
     def execute(self, context):
+        devkit = get_devkit_properties()
         mesh_handler = MeshHandler()
         armature_visibility(export=True)
 
-        if hasattr(context.scene, "devkit_props"):
-            collection_state = bpy.context.scene.devkit_props.collection_state
+        if devkit:
+            collection_state = devkit.collection_state
             self.save_current_state(context, collection_state)
             bpy.ops.yakit.collection_manager(preset="Export")
-            obj = get_object_from_mesh("Controller")
-            yas = obj.modifiers["YAS Chest"].show_viewport
 
         mesh_handler.prepare_meshes()
         try:
             mesh_handler.process_meshes()
         except Exception as e:
             mesh_handler.restore_meshes()
-            raise e
+            self.report({"ERROR"}, f"Mesh handler failed: {e}")
+            return {"CANCELLED"}
+        
         FileExport().export_template(self.user_input, "")
         mesh_handler.restore_meshes()
 
@@ -324,11 +326,13 @@ class BatchQueue(Operator):
         bpy.context.view_layer.update()
 
         props                        = get_file_properties()
+        window                       = get_window_properties()
+        prefs                        = get_prefs()
         self.check_tris:bool         = props.check_tris
         self.force_yas:bool          = props.force_yas
         self.subfolder:bool          = props.create_subfolder
-        self.export_directory        = Path(props.export_directory)
-        self.body_slot:str           = props.export_body_slot
+        self.export_directory        = Path(prefs.export_dir)
+        self.body_slot:str           = window.export_body_slot
         self.size_options            = self.get_size_options()
 
         self.leg_sizes = {
@@ -346,13 +350,14 @@ class BatchQueue(Operator):
             if not_triangulated:
                 self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}")
                 return {'CANCELLED'} 
-        if self.subfolder:
-            Path.mkdir(self.export_directory / self.body_slot, exist_ok=True)
         
         if not Path.is_dir(self.export_directory):
             self.report({'ERROR'}, "No directory selected for export!")
             return {'CANCELLED'} 
-
+        
+        if self.subfolder:
+            Path.mkdir(self.export_directory / self.body_slot, exist_ok=True)
+        
         if self.body_slot == "Chest & Legs":
             self.actual_combinations = self.shape_combinations("Chest")
             self.calculate_queue("Chest")
@@ -382,7 +387,8 @@ class BatchQueue(Operator):
     # before handing all variables over to queue processing
 
     def collection_state(self) -> None:
-        collection_state = bpy.context.scene.devkit_props.collection_state
+        devkit_props = get_devkit_properties()
+        collection_state = devkit_props.collection_state
         collection_state.clear()
         collections = []
         match self.body_slot:
@@ -415,9 +421,8 @@ class BatchQueue(Operator):
 
     def get_size_options(self) -> dict[str, bool]:
         options = {}
-        devkit = bpy.context.scene.devkit_props
+        devkit = get_devkit_properties()
         
-
         for shape, (name, slot, shape_category, description, body, key) in devkit.ALL_SHAPES.items():
             slot_lower = slot.lower().replace("/", " ")
             name_lower = name.lower().replace(" ", "_")
@@ -471,7 +476,7 @@ class BatchQueue(Operator):
                 else:
                     self.queue.append((name, options, size, gen, target))
                 
-        devkit          = bpy.context.scene.devkit_props
+        devkit          = get_devkit_properties()
         mesh            = self.ob_mesh_dict[body_slot]
         rue_export      = get_file_properties().rue_export
         target          = get_object_from_mesh(mesh).data.shape_keys.key_blocks
@@ -505,7 +510,7 @@ class BatchQueue(Operator):
                         exception_handling(size, gen, gen_options)
                       
     def shape_combinations(self, body_slot:str) -> dict[str, set[tuple]]:
-        devkit              = bpy.context.scene.devkit_props
+        devkit              = get_devkit_properties()
         possible_parts      = [ 
             "Small Butt", "Soft Butt", "Hip Dips", "Rue Legs",
             "Buff", "Rue",
@@ -543,7 +548,7 @@ class BatchQueue(Operator):
         return actual_combinations
                        
     def name_generator(self, options:tuple[str, ...], size:str, body:str, bodies:int, gen:str, gen_options:int, body_slot:str) -> str:
-        devkit      = bpy.context.scene.devkit_props
+        devkit      = get_devkit_properties()
         yiggle      = get_file_properties().force_yas
         body_names  = get_file_properties().body_names
         gen_name    = None
@@ -609,7 +614,7 @@ class BatchQueue(Operator):
 
     def process_queue(self, context:Context) -> None:
         start_time = time.time()
-        devkit_props = bpy.context.scene.devkit_props
+        devkit_props = get_devkit_properties()
         setattr(devkit_props, "is_exporting", False)
 
         # randomising the list gives a much better time estimate
@@ -653,8 +658,8 @@ class BatchQueue(Operator):
             return True
 
         def apply_model_state(options: tuple[str], size:str , gen: str, body_slot: str, obj, saved_sizes: dict[str, dict[str, float]]) -> None:
-            Devkit = bpy.context.scene.devkit
-            devkit_props = bpy.context.scene.devkit_props
+            Devkit = bpy.context.scene.ya_devkit
+            devkit_props = get_devkit_properties()
             if body_slot == "Chest & Legs":
                 body_slot = "Chest"
 
@@ -692,7 +697,7 @@ class BatchQueue(Operator):
                 obj[gen].mute = False
 
         def reset_model_state(body_slot: str, key_block) -> None:
-            devkit = bpy.context.scene.devkit_props
+            devkit = get_devkit_properties()
             if body_slot == "Chest & Legs":
                 body_slot = "Chest"
 
@@ -718,7 +723,7 @@ class BatchQueue(Operator):
             armature_visibility()
 
         props        = get_file_properties()
-        devkit_props = context.scene.devkit_props
+        devkit_props = get_devkit_properties()
         collection   = context.view_layer.layer_collection.children
         
         if getattr(devkit_props, "is_exporting"):
@@ -784,7 +789,7 @@ class BatchQueue(Operator):
             except Exception as e:
                 mesh_handler.restore_meshes()
                 queue_exit()
-                BatchQueue.ErrorMessage(message="MeshHandler has failed.")
+                BatchQueue.ErrorMessage(message="MeshHandler has failed. Check logs for error message.")
                 raise e
 
             FileExport().export_template(main_name, body_slot)
@@ -835,81 +840,6 @@ class BatchQueue(Operator):
             self.layout.label(text=message)
 
         bpy.context.window_manager.popup_menu(draw, title = title, icon = "ERROR")
-
-class DatabaseExport:
-    
-    def __init__(self):
-        pass
-
-    def prepare_meshes(context, object):
-        export_objects = visible_meshobj()
-
-        parts_table = []
-        pass
-    
-    def sort_tables():
-        pass
-
-    def vertex_table(obj: Object):
-        mesh = obj.data
-        bm = bmesh.new()
-        bm.from_mesh(mesh)
-        pass
-    
-    def bone_table(meshes: list[Object], mesh_id: int, skeleton: Armature) -> set[tuple[int, int, str]]:
-
-        def clean_vgroups(obj: Object):
-            for vgroup in obj.vertex_groups:
-                if not skeleton.bones.get(vgroup.name, False):
-                    obj.vertex_groups.remove(vgroup)
-
-            vgroups = {vg.index: False for vg in obj.vertex_groups if not vg.lock_weight}
-    
-            for v in obj.data.vertices:
-                for g in v.groups:
-                    if g.group in vgroups and g.weight > 0:
-                        vgroups[g.group] = True
-            
-            for idx, used in sorted(vgroups.items(), reverse=True):
-                if not used:
-                    obj.vertex_groups.remove(obj.vertex_groups[idx])
-                else:
-                    used_vgroups.add(obj.vertex_groups[idx].name)
-
-        bone_table: set[tuple[int, int, str]] = []
-        used_vgroups = set()
-        for obj in meshes:
-            clean_vgroups(obj)
-
-        index = 0
-        for bone in skeleton.bones:
-            if bone.name in used_vgroups:
-                bone_table.add((mesh_id, index, bone.name))
-                index += 1
-        
-        return bone_table
-    
-    def indices_table(obj: Object, mesh_id: int, part_id: int):
-        mesh = obj.data
-        bm = bmesh.new()
-        bm.from_mesh(mesh)
-        indices_table = np.zeros((len(bm.verts), 4), dtype=np.uint16)
-        indices_table[:, 0] = mesh_id
-        indices_table[:, 1] = part_id
-        index = 0
-
-        for face in bm.faces:
-            for vert in face:
-                indices_table[index] = [mesh_id, part_id, index, vert]
-                index += 1
-            
-        pass
-
-    def delete_loose(obj : Object) -> None:
-        bpy.context.view_layer.objects.active = obj
-        bpy.ops.object.mode_set(mode="EDIT")
-        bpy.ops.mesh.delete_loose()
-        bpy.ops.object.mode_set(mode="OBJECT")
 
 
 CLASSES = [

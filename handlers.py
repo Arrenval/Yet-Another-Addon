@@ -2,7 +2,7 @@ import bpy
 
 from bpy.types            import Object
 from bpy.app.handlers     import persistent
-from .properties          import get_object_from_mesh, get_outfit_properties
+from .properties          import get_object_from_mesh, get_outfit_properties, get_window_properties
 
 def frame_ui(dummy):
     get_outfit_properties().animation_frame = bpy.context.scene.frame_current
@@ -10,10 +10,10 @@ def frame_ui(dummy):
 @persistent
 def get_mesh_props(dummy) -> None:
     obj: Object   = bpy.context.active_object
-    scene         = bpy.context.scene
+    window        = get_window_properties()
     props         = get_outfit_properties()
-    mod_button    = props.button_modifiers_expand
-    weight_button = props.filter_vgroups
+    mod_button    = window.button_modifiers_expand
+    weight_button = window.filter_vgroups
     
     if obj and obj.mode != 'OBJECT':
         return None
@@ -23,7 +23,7 @@ def get_mesh_props(dummy) -> None:
         props.yas_vgroups.clear()
         return None
 
-    if getattr(props, "mesh_category") and mod_button and obj.modifiers:
+    if getattr(window, "mesh_category") and mod_button and obj.modifiers:
         mod_types = {
                 'ARMATURE', 'DISPLACE', 'LATTICE', 'MESH_DEFORM', 'SIMPLE_DEFORM',
                 'WARP', 'SMOOTH', 'SHRINKWRAP', 'SURFACE_DEFORM', 'CORRECTIVE_SMOOTH',
@@ -45,7 +45,7 @@ def get_mesh_props(dummy) -> None:
     else:
         props.shape_modifiers_group.clear()
         
-    if getattr(props, "weights_category") and weight_button and obj.vertex_groups:
+    if getattr(window, "weights_category") and weight_button and obj.vertex_groups:
         prefixes = {"iv_", "ya_"}
 
         props.yas_vgroups.clear()
@@ -71,7 +71,7 @@ def devkit_check(dummy):
     if bpy.data.texts.get("devkit.py"):
         devkit = bpy.data.texts["devkit.py"].as_module()
         DEVKIT_VER = devkit.DEVKIT_VER
-        bpy.types.Scene.devkit = devkit
+        bpy.types.Scene.ya_devkit = devkit
 
 @persistent
 def remove_devkit(dummy):
