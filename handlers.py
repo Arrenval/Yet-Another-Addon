@@ -11,58 +11,22 @@ def frame_ui(dummy):
 def get_mesh_props(dummy) -> None:
     obj: Object   = bpy.context.active_object
     window        = get_window_properties()
-    props         = get_outfit_properties()
-    mod_button    = window.button_modifiers_expand
-    weight_button = window.filter_vgroups
     
     if obj and obj.mode != 'OBJECT':
         return None
     
     if not obj:
-        props.shape_modifiers_group.clear()
-        props.yas_vgroups.clear()
-        return None
+        window.shape_modifiers_group.clear()
+        window.yas_vgroups.clear()
+        window.shape_source = None
+        window.yas_source = None
+        return 
 
-    if getattr(window, "mesh_category") and mod_button and obj.modifiers:
-        mod_types = {
-                'ARMATURE', 'DISPLACE', 'LATTICE', 'MESH_DEFORM', 'SIMPLE_DEFORM',
-                'WARP', 'SMOOTH', 'SHRINKWRAP', 'SURFACE_DEFORM', 'CORRECTIVE_SMOOTH',
-                'DATA_TRANSFER'
-            }
-        
-        props.shape_modifiers_group.clear()
-        for modifier in obj.modifiers:
-            if modifier.type in mod_types:
-                new_modifier = props.shape_modifiers_group.add()
-                new_modifier.name = modifier.name
-                new_modifier.icon = "MOD_SMOOTH" if "SMOOTH" in modifier.type else \
-                                    "MOD_MESHDEFORM" if "DEFORM" in modifier.type else \
-                                    f"MOD_{modifier.type}"
-        
-        if props.shape_modifiers_group and props.shape_modifiers == "":
-            props.shape_modifiers = props.shape_modifiers_group[0].name
-
-    else:
-        props.shape_modifiers_group.clear()
-        
-    if getattr(window, "weights_category") and weight_button and obj.vertex_groups:
-        prefixes = {"iv_", "ya_"}
-
-        props.yas_vgroups.clear()
-        has_groups = False
-        for group in obj.vertex_groups:
-            if any(group.name.startswith(prefix) for prefix in prefixes):
-                has_groups = True
-                new_group = props.yas_vgroups.add()
-                new_group.name = group.name
-                new_group.lock_weight = obj.vertex_groups[group.name].lock_weight
-        if not has_groups:
-            new_group = props.yas_vgroups.add()
-            new_group.name = "Mesh has no YAS Groups"
-
-    else:
-        props.yas_vgroups.clear()
-        
+    if obj.modifiers:
+        window.shape_source = obj
+    if obj.vertex_groups:
+        window.yas_source = obj
+      
 DEVKIT_VER = (0, 0, 0)
 
 @persistent

@@ -2,7 +2,7 @@ import bpy
 
 
 from bpy.types     import Operator, Context, Object
-from ..properties import get_outfit_properties
+from ..properties import get_outfit_properties, get_window_properties
 
 
 class ModifierShape(Operator):
@@ -15,14 +15,14 @@ class ModifierShape(Operator):
 
     @classmethod
     def poll(cls, context):
-        modifier:str = get_outfit_properties().shape_modifiers
+        modifier:str = get_window_properties().shape_modifiers
         return context.mode == "OBJECT" and modifier != "None"
     
     @classmethod
     def description(cls, context, properties):
-        props = get_outfit_properties()
+        window = get_window_properties()
         obj   = context.active_object
-        modifier:str = props.shape_modifiers
+        modifier:str = window.shape_modifiers
         if modifier == "None":
             return "Missing modifier"
         if obj.modifiers[modifier].type == "DATA_TRANSFER":
@@ -32,10 +32,11 @@ class ModifierShape(Operator):
 
     def execute(self, context: Context):
         props     = get_outfit_properties()
+        window    = get_window_properties()
         self.keep = props.keep_modifier
 
         obj          = context.active_object
-        modifier:str = props.shape_modifiers
+        modifier:str = window.shape_modifiers
         key_name     = obj.active_shape_key.name
 
         if obj.modifiers[modifier].type == "DATA_TRANSFER":

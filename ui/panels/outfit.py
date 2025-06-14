@@ -437,13 +437,13 @@ class OutfitStudio(Panel):
             if obj.modifiers and obj.data.shape_keys:
                 row = box.row(align=True)
                 split = row.split(factor=0.75, align=True)
-                split.prop(self.outfit_props, "shape_modifiers")
+                split.prop(self.window_props, "shape_modifiers")
                 split.operator("ya.apply_modifier", text="Apply")
                 icon = "PINNED" if self.outfit_props.keep_modifier else "UNPINNED"
                 row.prop(self.outfit_props, "keep_modifier", text="", icon=icon)
-                if self.outfit_props.shape_modifiers == "None" or self.outfit_props.shape_modifiers == "":
+                if self.window_props.shape_modifiers == "None" or self.window_props.shape_modifiers == "":
                     pass
-                elif  obj.modifiers[self.outfit_props.shape_modifiers].type == "DATA_TRANSFER":
+                elif  obj.modifiers[self.window_props.shape_modifiers].type == "DATA_TRANSFER":
                     row = box.row(align=True)
                     row.alignment = "CENTER"
                     row.label(text="Will be applied to mix of current shape keys.", icon="INFO")
@@ -451,7 +451,7 @@ class OutfitStudio(Panel):
                     row = box.row(align=True)
                     key = obj.data.shape_keys
                     row.template_list(
-                        "MESH_UL_shape", 
+                        "MESH_UL_YA_SHAPE", 
                         "", 
                         key, 
                         "key_blocks", 
@@ -465,7 +465,7 @@ class OutfitStudio(Panel):
             elif not obj.data.shape_keys:
                 row.alignment = "CENTER"
                 row.label(text="Object has no shape keys.", icon="INFO")
-            if obj.type == 'MESH' and self.outfit_props.shape_modifiers == 'None':
+            if obj.type == 'MESH' and self.window_props.shape_modifiers == 'None':
                 row = box.row(align=True)
                 row.operator("wm.call_menu", text="Add Modifier", icon="ADD").name = "OBJECT_MT_modifier_add"
         elif button:
@@ -508,16 +508,16 @@ class OutfitStudio(Panel):
         col = row.column(align=True)
         if self.window_props.filter_vgroups:
             col.template_list(
-                "MESH_UL_yas", "", 
-                get_outfit_properties(), "yas_vgroups", 
-                get_outfit_properties(), "yas_vindex", 
+                "MESH_UL_YAS", "", 
+                self.window_props, "yas_vgroups", 
+                self.window_props, "yas_vindex", 
                 rows=5
                 )
         else:
             if not obj:
                 obj = get_object_from_mesh("Mannequin")
             col.template_list(
-                "MESH_UL_yas", "", 
+                "MESH_UL_YAS", "", 
                 obj, "vertex_groups", 
                 obj.vertex_groups, "active_index", 
                 rows=5

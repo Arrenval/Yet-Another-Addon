@@ -1,61 +1,56 @@
-from bpy.types              import UIList, UILayout, Context, VertexGroup
-from ..properties           import get_outfit_properties
+from functools    import singledispatchmethod, cache
+from bpy.types    import UIList, UILayout, Context, VertexGroup, ShapeKey
+
+from ..properties import get_outfit_properties, get_window_properties, YASVGroups
 
 
-class MESH_UL_yas(UIList):
-    bl_idname = "MESH_UL_yas"
+@cache
+def get_icon_value(icon_name: str) -> int:
+        return UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items[icon_name].value
 
-    def draw_item(self, context:Context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
-        props = get_outfit_properties()
-        ob = data
-        vgroup = item
-        icon = self.get_icon_value("GROUP_VERTEX")
-        try:
-            category = get_outfit_properties().YAS_BONES[vgroup.name]
-        except:
-            category = "Unknown"
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if len(props.yas_vgroups) == 1 and "has no " in vgroup.name:
-                error = self.get_icon_value("INFO")
-                layout.prop(vgroup, "name", text="", emboss=False, icon_value=error)
+class MESH_UL_YAS(UIList):
+    bl_idname = "MESH_UL_YAS"
+
+    def draw_item(self, context:Context, layout:UILayout, data, item: VertexGroup | YASVGroups, icon, active_data, active_propname):
+        window = get_window_properties()
+        if isinstance(item, YASVGroups) and getattr(window, "yas_empty", False):
+            error = get_icon_value("INFO")
+            if self.layout_type in {"DEFAULT", "COMPACT"}:
+                layout.prop(item, "name", text="", emboss=False, icon_value=error)
                 layout.alignment = "CENTER"
-            else:
-                layout.prop(vgroup, "name", text=category, emboss=False, icon_value=icon)
-                icon = 'LOCKED' if vgroup.lock_weight else 'UNLOCKED'
-                layout.prop(vgroup, "lock_weight", text="", icon=icon, emboss=False)
-        elif self.layout_type == 'GRID':
-            layout.alignment = 'CENTER'
+
+            elif self.layout_type == "GRID":
+                layout.alignment = "CENTER"
+                layout.label(text="", icon_value=error)
+        else:
+            self.draw_vertex_group(layout, item) 
+
+    def draw_vertex_group(self, layout: UILayout, item: VertexGroup):
+        icon     = get_icon_value("GROUP_VERTEX")
+        category = get_outfit_properties().YAS_BONES.get(item.name, "Unknown")
+   
+        if self.layout_type in {"DEFAULT", "COMPACT"}:
+            layout.prop(item, "name", text=category, emboss=False, icon_value=icon)
+            icon = "LOCKED" if item.lock_weight else "UNLOCKED"
+            layout.prop(item, "lock_weight", text="", icon=icon, emboss=False)
+
+        elif self.layout_type == "GRID":
+            layout.alignment = "CENTER"
             layout.label(text="", icon_value=icon)
+
     
-    def get_icon_value(self, icon_name: str) -> int:
-        icon_items = UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
-        icon_dict = {tup[1].identifier : tup[1].value for tup in icon_items}
+class MESH_UL_YA_SHAPE(UIList):
+    bl_idname = "MESH_UL_YA_SHAPE"
 
-        return icon_dict[icon_name]
-
-class MESH_UL_shape(UIList):
-    bl_idname = "MESH_UL_shape"
-
-    def draw_item(self, context, layout:UILayout, data, item:VertexGroup, icon, active_data, active_propname):
-        ob = data
-        shape = item
-        sizes = ["LARGE", "MEDIUM", "SMALL"]
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if shape.name.isupper() and not any(shape.name == size for size in sizes):
-                layout.prop(shape, "name", text="", emboss=False, icon_value=self.get_icon_value("REMOVE"))
+    def draw_item(self, context, layout: UILayout, data, item: ShapeKey, icon, active_data, active_propname):
+        if self.layout_type in {"DEFAULT", "COMPACT"}:
+            if item.name[-1] == ":":
+                layout.prop(item, "name", text="", emboss=False, icon_value=get_icon_value("REMOVE"))
             else:
-                layout.prop(shape, "name", text="", emboss=False, icon_value=icon)
-        elif self.layout_type == 'GRID':
-            layout.alignment = 'CENTER'
-            layout.label(text="", icon_value=icon)
-    
-    def get_icon_value(self, icon_name: str) -> int:
-        icon_items = UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
-        icon_dict = {tup[1].identifier : tup[1].value for tup in icon_items}
-
-        return icon_dict[icon_name]
+                layout.prop(item, "name", text="", emboss=False, icon_value=icon)
+     
 
 CLASSES = [
-    MESH_UL_yas,
-    MESH_UL_shape,
+    MESH_UL_YAS,
+    MESH_UL_YA_SHAPE,
 ] 

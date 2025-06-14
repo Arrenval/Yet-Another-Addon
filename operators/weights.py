@@ -2,14 +2,14 @@ import bpy
 
 from bpy.props      import StringProperty, EnumProperty, BoolProperty
 from bpy.types      import Operator, Object, VertexGroup, Context, ArmatureModifier
-from ..properties   import get_outfit_properties
+from ..properties   import get_window_properties
 
 
 class RemoveEmptyVGroups(Operator):                         
     bl_idname = "ya.remove_empty_vgroups"
     bl_label = ""
     bl_description = "Removes Vertex Groups with no weights. Ignores locked groups"
-    bl_description = "Transfers and links shape keys to your target mesh"
+    bl_options = {"UNDO"}
 
     @classmethod
     def poll(cls, context):
@@ -49,8 +49,7 @@ class RemoveSelectedVGroups(Operator):
     bl_idname = "ya.remove_select_vgroups"
     bl_label = ""
     bl_description = "Removes selected group and adds the weights to the parent group"
-    bl_description = "Transfers and links shape keys to your target mesh"
-
+    bl_options = {"UNDO"}
 
     preset: StringProperty() # type: ignore
 
@@ -60,8 +59,12 @@ class RemoveSelectedVGroups(Operator):
         return obj is not None and obj.type == 'MESH' and obj.vertex_groups
 
     def execute(self, context:Context):
-        props    = get_outfit_properties()
+        props    = get_window_properties()
         old_mode = context.mode
+
+        if self.preset == "PANEL" and props.yas_empty and props.filter_vgroups:
+            self.report({"ERROR"}, "No YAS group selected.")
+            return {"CANCELLED"}
 
         if old_mode == 'PAINT_WEIGHT':
             old_mode = 'WEIGHT_PAINT'
@@ -125,7 +128,7 @@ class AddYASGroups(Operator):
     bl_idname = "ya.add_yas_vgroups"
     bl_label = ""
     bl_description = "Add YAS related Vertex Groups"
-    bl_description = "Transfers and links shape keys to your target mesh"
+    bl_options = {"UNDO"}
 
 
     user_input: EnumProperty(
