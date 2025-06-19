@@ -2,54 +2,20 @@ import bpy
 import time
 import json
 
-from pathlib          import Path
-from itertools        import combinations
-from bpy.props        import StringProperty
-from bpy.types        import Operator, Object, Context, ShapeKey, LayerCollection
-
-from .mesh_handler    import MeshHandler
-from ...properties    import get_file_properties, get_devkit_properties, get_window_properties
-from ...preferences   import get_prefs
-from ...utils.objects import visible_meshobj, get_object_from_mesh, safe_object_delete
-from ...utils.logging import YetAnotherLogger
+from pathlib                  import Path
+from itertools                import combinations
+from bpy.props                import StringProperty
+from bpy.types                import Operator, Object, Context, ShapeKey, LayerCollection
+    
+from .mesh_handler            import MeshHandler
+from ...properties            import get_file_properties, get_devkit_properties, get_window_properties
+from ...preferences           import get_prefs
+from ...utils.objects         import visible_meshobj, get_object_from_mesh, safe_object_delete
+from ...utils.logging         import YetAnotherLogger
 from ...utils.scene_optimiser import SceneOptimiser
 
-from ...testing.depsgraph_profiler import profile_depsgraph, profile_function, DepsgraphProfiler
 
 
-def driver_cleanup():
-    for shape_key in bpy.data.shape_keys:
-        if not shape_key.animation_data:
-            continue
-
-        invalid_drivers = []
-        for driver in shape_key.animation_data.drivers:
-            try:
-                shape_key.path_resolve(driver.data_path)
-            except ValueError:
-                invalid_drivers.append(driver)
-
-        for driver in invalid_drivers:
-            shape_key.animation_data.drivers.remove(driver)
-
-    for obj in bpy.data.objects:
-        if not obj.data.animation_data:
-            continue
-
-        invalid_drivers = []
-        for driver in obj.animation_data.drivers:
-            print(driver)
-            print(obj)
-            try:
-                shape_key.path_resolve(driver.data_path)
-            except ValueError:
-                print(driver)
-                print(obj)
-                invalid_drivers.append(driver)
-
-        for driver in invalid_drivers:
-            obj.animation_data.drivers.remove(driver)
-    
 def add_driver(shape_key:ShapeKey, source:Object) -> None:
             shape_key.driver_remove("value")
             shape_key.driver_remove("mute")
