@@ -7,12 +7,12 @@ tagline = "Several tools to speed up XIV modding workflows"
 maintainer = "Aleks"
 type = "add-on"
 
-website = "https://discord.com/invite/qEKqwYGsnr"
+website = "https://github.com/Arrenval/Yet-Another-Addon"
 
 tags = ["Animation", "Import-Export", "Modeling", "Mesh", "Object", "Rigging", "User Interface"]
 
 blender_version_min = "4.2.0"
-blender_version_max = "4.4"
+blender_version_max = "4.5.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
 

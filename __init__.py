@@ -1,12 +1,12 @@
 import bpy
 
-from .              import preferences
-from .              import properties
-from .ui.menu       import menu_vertex_group_append
-from .handlers      import set_handlers, remove_handlers
+from .          import preferences
+from .          import properties
+from .ui.menu   import menu_vertex_group_append
+from .handlers  import set_handlers, remove_handlers
 
-from pathlib        import Path
-from importlib      import import_module
+from pathlib    import Path
+from importlib  import import_module
 
 SUBFOLDERS = [
     "operators",
