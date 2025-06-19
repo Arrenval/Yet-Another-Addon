@@ -57,18 +57,23 @@ class FileManager(Panel):
         row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
 
         row = layout.row(align=True)
-        col = row.column(align=True)
-        col.operator("ya.simple_export", text="Simple Export")
+        row.operator("ya.simple_export", text="Simple Export")
 
         if self.devkit_props:
-            col2 = row.column(align=True)
-            col2.operator("ya.batch_queue", text="Batch Export")
+            row.operator("ya.batch_queue", text="Batch Export")
         
-        export_text = "GLTF" if self.file_props.file_gltf else " FBX "
-        icon = "BLENDER" if self.file_props.file_gltf else "VIEW3D"
-        col3 = row.column(align=True)
-        col3.alignment = "RIGHT"
-        col3.prop(self.file_props, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
+        row.separator()
+
+        subrow = row.row()
+        subrow.alignment = "RIGHT"
+        subrow.scale_x = 0.25
+        subrow.prop(self.window_props, "file_format", text=self.window_props.file_format, expand=True)
+
+        if context.space_data.shading.type in ("MATERIAL", "RENDERED"):
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text=f"{context.space_data.shading.type.capitalize()} shading will drastically increase export times.", icon="ERROR")
+
 
         if self.devkit_props:
             box = layout.box()
@@ -296,16 +301,18 @@ class FileManager(Panel):
        
         subrow = row.row(align=True)
         subrow.alignment = "LEFT"
+        subrow.scale_x   = 0.9
         subrow.prop(self.prefs, "auto_cleanup", icon=get_conditional_icon(self.prefs.auto_cleanup), text="Auto")
 
         row.operator("ya.simple_import", text="Import")
         row.operator("ya.simple_cleanup", text="Cleanup")
         
-        export_text = "GLTF" if self.file_props.file_gltf else "FBX"
-        icon = "BLENDER" if self.file_props.file_gltf else "VIEW3D"
-        subrow = row.row(align=True)
+        row.separator()
+        
+        subrow = row.row()
         subrow.alignment = "RIGHT"
-        subrow.prop(self.file_props, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
+        subrow.scale_x = 0.25
+        subrow.prop(self.window_props, "file_format", text=self.window_props.file_format, expand=True)
 
         box = layout.box()
         row = box.row(align=True)
@@ -319,15 +326,15 @@ class FileManager(Panel):
         
         aligned_row(col, "Rename:", "rename_import", self.file_props)
 
-        icon = 'CHECKMARK' if self.prefs.update_material else 'X'
+        icon = get_conditional_icon(self.prefs.update_material)
         text = 'Update' if self.prefs.update_material else 'Keep'
         aligned_row(col, "Materials:", "update_material", self.prefs, prop_str=text, attr_icon=icon)
 
-        icon = 'CHECKMARK' if self.prefs.reorder_meshid else 'X'
+        icon = get_conditional_icon(self.prefs.reorder_meshid)
         text = 'Update' if self.prefs.reorder_meshid else 'Keep'
         aligned_row(col, "Mesh ID:", "reorder_meshid", self.prefs, prop_str=text, attr_icon=icon)
 
-        icon = 'CHECKMARK' if self.prefs.remove_nonmesh else 'X'
+        icon = get_conditional_icon(self.prefs.remove_nonmesh)
         text = 'Remove' if self.prefs.remove_nonmesh else 'Keep'
         aligned_row(col, "Non-Mesh:", "remove_nonmesh", self.prefs, prop_str=text, attr_icon=icon)
 
@@ -476,7 +483,6 @@ class FileManager(Panel):
             row.label(text=f"{self.window_props.modpack_display_dir + '.pmp'} already exists!", icon="ERROR")
 
         if platform.system() == "Windows" and any(has_fbx for folder, (contents, has_fbx) in self.checked_folders.items()):
-            print(self.checked_folders)
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"

@@ -282,7 +282,7 @@ class BlendModGroup(ModpackHelper):
     mod_options     : CollectionProperty(type=BlendModOption) # type: ignore
     corrections     : CollectionProperty(type=CorrectionEntry) # type: ignore
 
-    show_folder     : BoolProperty(default=True, name="", description="Show the contents of the target folder") # type: ignore
+    show_folder     : BoolProperty(default=False, name="", description="Show the contents of the target folder") # type: ignore
     show_group      : BoolProperty(default=True, name="", description="Show the contents of the group") # type: ignore
 
     use_folder      : BoolProperty(default=True, name="", description="Creates an option for each file in the folder", update=lambda self, context: self.use_folder_change()) # type: ignore
@@ -502,7 +502,14 @@ class YAWindowProps(PropertyGroup):
             ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.", "ARMATURE_DATA", 4)]
         )  # type: ignore
 
-
+    file_format: EnumProperty(
+        name="",
+        description="Switch file format", 
+        items= [
+            ("FBX", "FBX", "Export FBX."),
+            ("GLTF", "GLTF", "Export modelsGLTF"),
+        ]
+        ) # type: ignore
 
     def update_ui(self, context:Context):
         for area in context.screen.areas:
@@ -740,6 +747,7 @@ class YAWindowProps(PropertyGroup):
         yas_vindex      : int
         yas_vgroups     : Iterable[YASVGroups]
         yas_empty       : bool
+        file_format     : str
 
         modpack_replace     : bool
         modpack_display_dir : str
@@ -835,12 +843,6 @@ class YAFileProps(PropertyGroup):
         default="",
         maxlen=255,
         )  # type: ignore
-
-    file_gltf: BoolProperty(
-        name="",
-        description="Switch file format", 
-        default=False,
-        ) # type: ignore
     
     if TYPE_CHECKING:
         ui_size_category    : str
@@ -848,9 +850,7 @@ class YAFileProps(PropertyGroup):
         rename_import       : str
         
         armature            : Armature
-        
-        file_gltf           : bool
-        
+    
         create_backfaces    : bool
         check_tris          : bool
         force_yas           : bool

@@ -1,20 +1,55 @@
 import bpy
 import time
 import json
-import random
 
 from pathlib          import Path
-from functools        import partial
 from itertools        import combinations
 from bpy.props        import StringProperty
 from bpy.types        import Operator, Object, Context, ShapeKey, LayerCollection
 
 from .mesh_handler    import MeshHandler
-from ...properties    import get_file_properties, get_devkit_properties, get_window_properties, get_outfit_properties
+from ...properties    import get_file_properties, get_devkit_properties, get_window_properties
 from ...preferences   import get_prefs
-from ...utils.objects import visible_meshobj, get_object_from_mesh
+from ...utils.objects import visible_meshobj, get_object_from_mesh, safe_object_delete
+from ...utils.logging import YetAnotherLogger
+from ...utils.scene_optimiser import SceneOptimiser
+
+from ...testing.depsgraph_profiler import profile_depsgraph, profile_function, DepsgraphProfiler
 
 
+def driver_cleanup():
+    for shape_key in bpy.data.shape_keys:
+        if not shape_key.animation_data:
+            continue
+
+        invalid_drivers = []
+        for driver in shape_key.animation_data.drivers:
+            try:
+                shape_key.path_resolve(driver.data_path)
+            except ValueError:
+                invalid_drivers.append(driver)
+
+        for driver in invalid_drivers:
+            shape_key.animation_data.drivers.remove(driver)
+
+    for obj in bpy.data.objects:
+        if not obj.data.animation_data:
+            continue
+
+        invalid_drivers = []
+        for driver in obj.animation_data.drivers:
+            print(driver)
+            print(obj)
+            try:
+                shape_key.path_resolve(driver.data_path)
+            except ValueError:
+                print(driver)
+                print(obj)
+                invalid_drivers.append(driver)
+
+        for driver in invalid_drivers:
+            obj.animation_data.drivers.remove(driver)
+    
 def add_driver(shape_key:ShapeKey, source:Object) -> None:
             shape_key.driver_remove("value")
             shape_key.driver_remove("mute")
@@ -49,6 +84,8 @@ def check_triangulation() -> list[str]:
             if modifier.type == "TRIANGULATE" and modifier.show_viewport:
                 tri_modifier = True
                 break
+        if "xiv_transparency" in obj and obj["xiv_transparency"]:
+            tri_modifier = True
         if not tri_modifier:
             triangulated = True
             for poly in obj.data.polygons:
@@ -58,29 +95,8 @@ def check_triangulation() -> list[str]:
                     break
             if not triangulated:
                 not_triangulated.append(obj.name)
-    
     return not_triangulated
    
-def armature_visibility(export=False) -> None:
-    # Makes sure armatures are enabled in scene's space data
-    # Will not affect armatures that are specifically hidden
-    context = bpy.context
-    outfit = get_outfit_properties()
-    if export:
-        outfit.animation_optimise.clear()
-        optimise = outfit.animation_optimise.add()
-        optimise.show_armature = context.space_data.show_object_viewport_armature
-        context.space_data.show_object_viewport_armature = True
-    else:
-        try:
-            area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
-            view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
-
-            with context.temp_override(area=area, space=view3d):
-                context.space_data.show_object_viewport_armature = optimise[0].show_armature
-        except:
-            pass
-
 def save_sizes() -> dict[str, dict[str, float]]:
         devkit_props = get_devkit_properties()
         obj          = get_object_from_mesh("Torso").data.shape_keys.key_blocks
@@ -135,31 +151,79 @@ def reset_chest_values(saved_sizes) -> None:
     bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
     bpy.context.view_layer.update()
 
-class FileExport:
+def get_export_path(directory: Path, file_name: str, subfolder: bool, body_slot:str ="") -> Path:
+    if subfolder:
+        export_path = directory / body_slot / file_name
+    else:
+        export_path = directory / file_name
 
-    def __init__(self):
-        self.props = get_file_properties()
-        self.prefs = get_prefs()
-        self.gltf = self.props.file_gltf
-        self.subfolder = self.props.create_subfolder
+    return export_path
+
+def export_result(file_path: Path, file_format: str, logger: YetAnotherLogger=None):
+    export = FileExport(file_path, file_format, logger)
+    export.export_template()
+
+class FileExport:
+    def __init__(self, file_path: Path, file_format: str, logger: YetAnotherLogger=None):
+        self.props       = get_file_properties()
+        self.prefs       = get_prefs()
+        self.logger      = logger
+        self.file_format = format
+        self.file_path   = file_path
         self.selected_directory = Path(self.prefs.export_dir)
 
-    def export_template(self, file_name:str, body_slot:str):
-        if self.subfolder:
-            export_path = self.selected_directory / body_slot / file_name
-        else:
-            export_path = self.selected_directory / file_name
+    def export_template(self):
         export_settings = self.get_export_settings()
+    
+        try:
+            mesh_handler = MeshHandler(logger=self.logger)
 
-        # self.write_mesh_props(export_path)
+            mesh_handler.prepare_meshes()
+            mesh_handler.process_meshes()
+
+            if self.logger:
+                self.logger.log_separator()
+                self.logger.log(f"Exporting {self.file_path.stem}")
+                self.logger.log_separator()
+
+            if self.file_format == "GLTF":
+                bpy.ops.export_scene.gltf(filepath=str(self.file_path) + ".gltf", **export_settings)
+            elif self.file_format == "FBX":
+                bpy.ops.export_scene.fbx(filepath=str(self.file_path) + ".fbx", **export_settings)
         
-        if self.gltf:
-            bpy.ops.export_scene.gltf(filepath=str(export_path) + ".gltf", **export_settings)
-        else:
-            bpy.ops.export_scene.fbx(filepath=str(export_path) + ".fbx", **export_settings)
+        except Exception as e:
+            if self.logger:
+                self.logger.close(e)
+            else:
+                print(f"ERROR in export: {e}")
+            try:
+                if mesh_handler:
+                    for obj in mesh_handler.delete:
+                        safe_object_delete(obj)
+                    
+                    for obj in mesh_handler.reset:
+                        try:
+                            obj.hide_set(False)
+                        except:
+                            pass
+            except Exception as cleanup_error:
+                print(f"Emergency cleanup error: {cleanup_error}")
+        
+        finally:
+            if mesh_handler:
+                try:
+                    mesh_handler.restore_meshes()
+                except Exception as e:
+                    if self.logger:
+                        self.logger.close(e)
+                    else:
+                        print(f"Restore error: {e}")
+            else:
+                if self.logger:
+                    self.logger.close()
         
     def get_export_settings(self) -> dict[str, str | int | bool]:
-        if self.gltf:
+        if self.file_format:
             return {
                 "export_format": "GLTF_SEPARATE", 
                 "export_texture_dir": "GLTF Textures",
@@ -190,7 +254,7 @@ class FileExport:
                 "use_custom_props": True,
                 "use_triangles": False,
                 "add_leaf_bones": False,
-                "use_mesh_modifiers": True,
+                "use_mesh_modifiers": False,
                 "use_visible": True,
             }
 
@@ -242,10 +306,11 @@ class SimpleExport(Operator):
         return context.mode == "OBJECT"
 
     def invoke(self, context, event):
-        self.props              = get_file_properties()
-        self.check_tris         = self.props.check_tris
-        self.force_yas          = self.props.force_yas
-        self.directory          = Path(get_prefs().export_dir)
+        self.props       = get_file_properties()
+        self.window      = get_window_properties()
+        self.check_tris  = self.props.check_tris
+        self.directory   = Path(get_prefs().export_dir)
+        self.file_format = self.window.file_format
 
         if not self.directory.is_dir():
             self.report({'ERROR'}, "No export directory selected.")
@@ -262,29 +327,17 @@ class SimpleExport(Operator):
 
     def execute(self, context):
         devkit = get_devkit_properties()
-        mesh_handler = MeshHandler()
-        armature_visibility(export=True)
 
         if devkit:
             collection_state = devkit.collection_state
             self.save_current_state(context, collection_state)
             bpy.ops.yakit.collection_manager(preset="Export")
-
-        mesh_handler.prepare_meshes()
-        try:
-            mesh_handler.process_meshes()
-        except Exception as e:
-            mesh_handler.restore_meshes()
-            self.report({"ERROR"}, f"Mesh handler failed: {e}")
-            return {"CANCELLED"}
         
-        FileExport().export_template(self.user_input, "")
-        mesh_handler.restore_meshes()
-
-        if hasattr(context.scene, "devkit_props"):
+        export_result(self.directory / self.user_input, self.file_format)
+   
+        if devkit:
             bpy.ops.yakit.collection_manager(preset="Restore")
 
-        armature_visibility()
         return {'FINISHED'}
 
     def save_current_state(self, context:Context, collection_state):
@@ -305,6 +358,8 @@ class SimpleExport(Operator):
         layout.prop(self, "user_input")
 
 class BatchQueue(Operator):
+    # Currently very messy, will refactor later
+
     bl_idname = "ya.batch_queue"
     bl_label = "Export"
     bl_description = "Exports your scene based on your selections"
@@ -322,18 +377,17 @@ class BatchQueue(Operator):
         return context.mode == "OBJECT"
 
     def execute(self, context):
-        bpy.context.scene.update_tag()
-        bpy.context.view_layer.update()
-
-        props                        = get_file_properties()
-        window                       = get_window_properties()
-        prefs                        = get_prefs()
-        self.check_tris:bool         = props.check_tris
-        self.force_yas:bool          = props.force_yas
-        self.subfolder:bool          = props.create_subfolder
-        self.export_directory        = Path(prefs.export_dir)
-        self.body_slot:str           = window.export_body_slot
-        self.size_options            = self.get_size_options()
+        self.props            = get_file_properties()
+        self.window           = get_window_properties()
+        self.prefs            = get_prefs()
+        self.devkit_props     = get_devkit_properties()
+        self.check_tris:bool  = self.props.check_tris
+        self.force_yas:bool   = self.props.force_yas
+        self.subfolder:bool   = self.props.create_subfolder
+        self.export_dir       = Path(self.prefs.export_dir)
+        self.file_format      = self.window.file_format
+        self.body_slot:str    = self.window.export_body_slot
+        self.size_options     = self.get_size_options()
 
         self.leg_sizes = {
             "Melon": self.size_options["Melon"],
@@ -344,19 +398,19 @@ class BatchQueue(Operator):
 
         self.queue = []
         self.leg_queue = []
-        
+
         if self.check_tris:
             not_triangulated= check_triangulation()
             if not_triangulated:
                 self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}")
                 return {'CANCELLED'} 
         
-        if not Path.is_dir(self.export_directory):
+        if not self.export_dir.is_dir():
             self.report({'ERROR'}, "No directory selected for export!")
             return {'CANCELLED'} 
         
         if self.subfolder:
-            Path.mkdir(self.export_directory / self.body_slot, exist_ok=True)
+            Path.mkdir(self.export_dir / self.body_slot, exist_ok=True)
         
         if self.body_slot == "Chest & Legs":
             self.actual_combinations = self.shape_combinations("Chest")
@@ -374,17 +428,34 @@ class BatchQueue(Operator):
         if self.body_slot == "Chest & Legs" and self.leg_queue == []:
             self.report({'ERROR'}, "No valid combinations!")
             return {'CANCELLED'} 
-            
+
         self.collection_state()
         bpy.ops.yakit.collection_manager(preset="Export")
+        self.saved_sizes = save_sizes()
 
-        props.export_total = len(self.queue)
-        armature_visibility(export=True)
-        self.process_queue(context)
+        with SceneOptimiser(context, optimisation_level="high"):
+            self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
+            self.logger.start_terminal()
+            try:
+                for item in self.queue:
+                    self.logger.log_progress(operation="Exporting files")
+                    self.logger.log_separator()
+                    self.logger.log(f"Size: {item[0]}")
+                    self.logger.log_separator()
+                    self.logger.log("Applying sizes...", 2)
+                    self.export_queue(context, item, self.body_slot)
+                    
+            except Exception as e:
+                self.logger.close(e)
+                self.report({"ERROR"}, f"Export has run into an error. A log has been saved in your export directory.")
+            finally:
+                if self.logger:
+                    self.logger.close()
+
+        reset_chest_values(self.saved_sizes)
+        bpy.ops.yakit.collection_manager(preset="Restore")
+
         return {'FINISHED'}
-    
-    # The following functions is executed to establish the queue and valid options 
-    # before handing all variables over to queue processing
 
     def collection_state(self) -> None:
         devkit_props = get_devkit_properties()
@@ -608,24 +679,8 @@ class BatchQueue(Operator):
             return "Yiggle - " + " - ".join(list(file_names))
         
         return " - ".join(list(file_names))
-     
-    # These functions are responsible for processing the queue.
-    # Export queue is running on a timer interval until the queue is empty.
-
-    def process_queue(self, context:Context) -> None:
-        start_time = time.time()
-        devkit_props = get_devkit_properties()
-        setattr(devkit_props, "is_exporting", False)
-
-        # randomising the list gives a much better time estimate
-        random.shuffle(self.queue)
-        BatchQueue.progress_tracker(self.queue)
-        saved_sizes = save_sizes()
-
-        callback = partial(BatchQueue.export_queue, context, self.queue, self.leg_queue, self.body_slot, saved_sizes, start_time)
-        bpy.app.timers.register(callback, first_interval=0.5) 
         
-    def export_queue(context:Context, queue:list, leg_queue:list, body_slot:str, saved_sizes, start_time: float) -> int | None:
+    def export_queue(self, context:Context, item: tuple, body_slot:str) -> int | None:
 
         def clean_file_name (file_name: str) -> str:
             parts = file_name.split(" - ")
@@ -714,28 +769,12 @@ class BatchQueue(Operator):
             for key in reset_shape_keys:   
                 key_block[key].mute = True
 
-        def queue_exit() -> None:
-            if body_slot == "Chest" or body_slot == "Chest & Legs":
-                reset_chest_values(saved_sizes)
-            
-            bpy.ops.yakit.collection_manager(preset="Restore")
-            BatchQueue.progress_reset(props)
-            armature_visibility()
-
-        props        = get_file_properties()
-        devkit_props = get_devkit_properties()
         collection   = context.view_layer.layer_collection.children
-        
-        if getattr(devkit_props, "is_exporting"):
-            return 0.3
-        setattr(devkit_props, "is_exporting", True)
-        
-        mesh_handler = MeshHandler()
-        main_name, options, size, gen, target = queue.pop()
+    
+        main_name, options, size, gen, target = item
 
         reset_model_state(body_slot, target)
-        apply_model_state(options, size, gen, body_slot, target, saved_sizes)
-        props.export_file_name = main_name
+        apply_model_state(options, size, gen, body_slot, target, self.saved_sizes)
 
         if body_slot == "Hands":
 
@@ -761,86 +800,24 @@ class BatchQueue(Operator):
         
         if body_slot == "Chest & Legs":
             exported = []
-            for leg_task in leg_queue:
+            for leg_task in self.leg_queue:
                 leg_name, options, size, gen, leg_target = leg_task
                 # rue_match stops non-rue tops to be used with rue legs and vice versa
                 if check_rue_match(options, main_name):
                     reset_model_state("Legs", leg_target)
-                    apply_model_state(options, size, gen, "Legs", leg_target, saved_sizes)
+                    apply_model_state(options, size, gen, "Legs", leg_target, self.saved_sizes)
 
                     combined_name = main_name + " - " + leg_name
                     final_name = clean_file_name(combined_name)
                     if not any(final_name in name for name in exported):
                         exported.append(final_name)
-                        mesh_handler.prepare_meshes()
-                        try:
-                            mesh_handler.process_meshes()
-                        except Exception as e:
-                            mesh_handler.restore_meshes()
-                            queue_exit()
-                            BatchQueue.ErrorMessage(message="MeshHandler has failed.")
-                            raise e
-                        FileExport().export_template(final_name, "Chest & Legs")
+                        file_path = get_export_path(self.export_dir, final_name, self.subfolder, self.body_slot)
+                        export_result(file_path, self.file_format, self.logger)
         
         else:
-            mesh_handler.prepare_meshes()
-            try:
-                mesh_handler.process_meshes()
-            except Exception as e:
-                mesh_handler.restore_meshes()
-                queue_exit()
-                BatchQueue.ErrorMessage(message="MeshHandler has failed. Check logs for error message.")
-                raise e
-
-            FileExport().export_template(main_name, body_slot)
-
-        setattr(devkit_props, "is_exporting", False)
-
-        mesh_handler.restore_meshes()
-        if queue:
-            end_time = time.time()
-            duration = end_time - start_time
-            props.export_time = duration
-            BatchQueue.progress_tracker(queue)
-            return 0.3
-        else:
-            queue_exit()
-            return None
-
-    # These functions are responsible for applying the correct model state and appropriate file name.
-    # They are called from the export_queue function.
-
-    def hide_export_obj(size, export_obj:dict[str, Object], devkit_props) -> Object:
-        category = devkit_props.ALL_SHAPES[size][2]
-        for key, obj in export_obj.items():
-            if key == category:
-                # print(f"Showing {obj.name}")
-                obj.hide_set(state=False)
-            else:
-                # print(f"Hiding {obj.name}")
-                obj.hide_set(state=True)
-     
-    def progress_tracker(queue) -> None:
-        props = get_file_properties()
-        props.export_progress = (props.export_total - len(queue)) / props.export_total
-        props.export_step = (props.export_total - len(queue)) 
-        props.export_file_name = queue[-1][0]
-        bpy.context.view_layer.update()
-
-    def progress_reset(props) -> None:
-        props.export_total = 0
-        props.export_progress = 0
-        props.export_step = 0
-        props.export_time = 0
-        props.export_file_name = ""
-
-    def ErrorMessage(message = "", title = "ERROR"):
-
-        def draw(self, context):
-            self.layout.label(text=message)
-
-        bpy.context.window_manager.popup_menu(draw, title = title, icon = "ERROR")
-
+            file_path = get_export_path(self.export_dir, main_name, self.subfolder, self.body_slot)
+            export_result(file_path, self.file_format, self.logger)
+      
 
 CLASSES = [
     SimpleExport,

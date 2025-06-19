@@ -12,7 +12,7 @@ from datetime               import datetime
 from bpy.types              import Operator, Context, UILayout
 from bpy.props              import StringProperty, IntProperty
 
-from ...properties           import get_file_properties, get_window_properties, modpack_data, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
+from ...properties           import get_window_properties, modpack_data, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
 from ...preferences          import get_prefs
 from ...utils.penumbra       import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
 from ...utils.ya_exception   import ModpackFileError, ModpackGamePathError, ModpackValidationError
