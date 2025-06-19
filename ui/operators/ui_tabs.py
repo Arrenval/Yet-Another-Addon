@@ -3,28 +3,6 @@ from bpy.props          import StringProperty
 from ...properties      import get_file_properties, get_outfit_properties, get_window_properties
 
  
-class BodyPartSlot(Operator):
-    bl_idname = "ya.set_body_part"
-    bl_label = "Select body slot to export."
-    bl_description = "The icons almost make sense"
-
-    body_part: StringProperty() # type: ignore
-
-    def execute(self, context):
-        get_window_properties().export_body_slot = self.body_part
-        return {'FINISHED'}
-    
-class PanelCategory(Operator):
-    bl_idname = "ya.set_ui"
-    bl_label = "Select the menu."
-    bl_description = "Changes the panel menu"
-
-    menu: StringProperty() # type: ignore
-
-    def execute(self, context):
-        get_window_properties().file_man_ui = self.menu
-        return {'FINISHED'}
-
 class OutfitCategory(Operator):
     bl_idname = "ya.outfit_category"
     bl_label = "Select menus."
@@ -53,8 +31,7 @@ class OutfitCategory(Operator):
 
         return {'FINISHED'}
 
+
 CLASSES = [
-    BodyPartSlot,
-    PanelCategory,
     OutfitCategory,
 ]

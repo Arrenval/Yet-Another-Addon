@@ -5,7 +5,7 @@ from pathlib            import Path
 from bpy.types          import Operator, Context
 from bpy.props          import StringProperty, IntProperty
 
-from ...properties      import BlendModOption, BlendModGroup, ModFileEntry, get_file_properties
+from ...properties      import BlendModOption, BlendModGroup, ModFileEntry, get_file_properties, get_window_properties
 from ...preferences     import get_prefs
 
 
@@ -27,11 +27,11 @@ class PMPSelector(Operator):
     
     @classmethod
     def poll(cls, context:Context):
-        props = get_file_properties()
+        props = get_window_properties()
         return props.modpack_replace
     
     def invoke(self, context:Context, event):
-        self.props  = get_file_properties()
+        self.props  = get_window_properties()
         actual_file = Path(self.props.modpack_dir) 
 
         if event.alt and event.type == "LEFTMOUSE" and actual_file.is_file():
@@ -121,7 +121,7 @@ class ModpackFileSelector(Operator):
         self.group:int
         self.option:int
         self.container:BlendModGroup | BlendModOption | ModFileEntry
-        props = get_file_properties()
+        props = get_window_properties()
 
         mod_group: BlendModGroup = props.pmp_mod_groups[self.group]
 
@@ -182,7 +182,7 @@ class ModpackDirSelector(Operator):
         self.container:BlendModGroup | BlendModOption | ModFileEntry
 
         self.prefs = get_prefs()
-        self.props = get_file_properties()
+        self.props = get_window_properties()
         
         mod_group = self.props.pmp_mod_groups[self.group]
    

@@ -1,4 +1,3 @@
-import bpy
 import platform
 
 from pathlib        import Path   
@@ -7,6 +6,7 @@ from bpy.types      import Panel, UILayout, Context
 from ..draw         import aligned_row, get_conditional_icon, operator_button
 from ...properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_file_properties, get_devkit_properties, get_window_properties
 from ...preferences import get_prefs
+
 
 class FileManager(Panel):
     bl_idname = "VIEW3D_PT_YA_FileManager"
@@ -37,7 +37,7 @@ class FileManager(Panel):
         row.label(text=f"  {self.window_props.file_man_ui.capitalize()}")
         button_row = row.row(align=True)
         
-        self.ui_category_buttons(button_row, options)
+        button_row.prop(self.window_props, "file_man_ui", expand=True, text="")
 
         # IMPORT
         button = self.window_props.file_man_ui
@@ -52,56 +52,23 @@ class FileManager(Panel):
             self.draw_modpack(layout)
 
     def draw_export(self, context:Context, layout:UILayout):
-        if self.file_props.export_total > 0:
-            layout.separator(factor=0.5)
+        row = layout.row(align=True)
+        row.prop(self.prefs, "export_display_dir", text="")
+        row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
 
-            total = self.file_props.export_total
-            step = self.file_props.export_step
-            total_time = self.file_props.export_time
-            if step < 1:
-                time_left = "Estimating duration..."
-            else:
-                average_time = total_time / step
-                estimate = int((total - step) * average_time)
+        row = layout.row(align=True)
+        col = row.column(align=True)
+        col.operator("ya.simple_export", text="Simple Export")
 
-                if estimate < 60:
-                    time_left = f"~{estimate} seconds"
-                else:
-                    minutes = estimate / 60
-                    seconds = estimate % 60
-                    time_left = f"~{int(minutes)} min {int(seconds)} seconds"
-
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            row.progress(
-                factor=self.file_props.export_progress, 
-                text=f"Exporting: {step + 1}/{total}",
-                type="RING")
-            row.label(text=f"{time_left}")
-            layout.separator(factor=0.5, type="LINE")
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text=f"{self.file_props.export_file_name}")
-
-            layout.separator(factor=0.5)
-        else:
-            row = layout.row(align=True)
-            row.prop(self.prefs, "export_display_dir", text="")
-            row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
-
-            row = layout.row(align=True)
-            col = row.column(align=True)
-            col.operator("ya.simple_export", text="Simple Export")
-
-            if self.devkit_props:
-                col2 = row.column(align=True)
-                col2.operator("ya.batch_queue", text="Batch Export")
-            
-            export_text = "GLTF" if self.file_props.file_gltf else " FBX "
-            icon = "BLENDER" if self.file_props.file_gltf else "VIEW3D"
-            col3 = row.column(align=True)
-            col3.alignment = "RIGHT"
-            col3.prop(self.file_props, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
+        if self.devkit_props:
+            col2 = row.column(align=True)
+            col2.operator("ya.batch_queue", text="Batch Export")
+        
+        export_text = "GLTF" if self.file_props.file_gltf else " FBX "
+        icon = "BLENDER" if self.file_props.file_gltf else "VIEW3D"
+        col3 = row.column(align=True)
+        col3.alignment = "RIGHT"
+        col3.prop(self.file_props, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
 
         if self.devkit_props:
             box = layout.box()
@@ -111,17 +78,8 @@ class FileManager(Panel):
             else:
                 row.label(text=f"Body Part: {self.window_props.export_body_slot}")
 
-            options =[
-                ("Chest", "MOD_CLOTH"),
-                ("Legs", "BONE_DATA"),
-                ("Hands", "VIEW_PAN"),
-                ("Feet", "VIEW_PERSPECTIVE"),
-                ("Chest & Legs", "ARMATURE_DATA")
-                ]
-            
-            self.body_category_buttons(row, options)
-    
-            
+            row.prop(self.window_props, "export_body_slot", text="" , expand=True)
+
             # CHEST EXPORT  
         
             button_type = "export"
@@ -395,8 +353,8 @@ class FileManager(Panel):
             }
             
         operator_button(row, "ya.mod_packager", icon="FILE_PARENT", attributes=op_atr)
-        row.prop(self.file_props, "modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
-        row.prop(self.file_props, "modpack_replace", text="Update", icon="CURRENT_FILE",)
+        row.prop(self.window_props, "modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
+        row.prop(self.window_props, "modpack_replace", text="Update", icon="CURRENT_FILE",)
 
         op_atr = {
             "category": "GROUP",
@@ -413,21 +371,21 @@ class FileManager(Panel):
         split = row.split(factor=0.25)
         col2 = split.column(align=True)
         col2.label(text="Ver.")
-        col2.prop(self.file_props, "modpack_version", text="")
+        col2.prop(self.window_props, "modpack_version", text="")
 
         col = split.column(align=True)
         col.label(text="Modpack:")
-        col.prop(self.file_props, "modpack_display_dir", text="", emboss=True)
+        col.prop(self.window_props, "modpack_display_dir", text="", emboss=True)
 
         split2 = row.split()
         col3 = split2.column(align=True)
         col3.alignment = "CENTER"
         col3.label(text="")
-        col3.prop(self.file_props, "modpack_author", text="by", emboss=True)
+        col3.prop(self.window_props, "modpack_author", text="by", emboss=True)
 
         self.status_info(box)
 
-        for group_idx, group in enumerate(self.file_props.pmp_mod_groups):
+        for group_idx, group in enumerate(self.window_props.pmp_mod_groups):
             group: BlendModGroup
             box = layout.box()
             button = group.show_group
@@ -499,25 +457,26 @@ class FileManager(Panel):
                     self.entry_container(columns[1], correction, group_idx, correction_idx)
 
     def status_info(self, layout:UILayout):
-        if self.file_props.modpack_replace and Path(self.file_props.modpack_dir).is_file():
+        if self.window_props.modpack_replace and Path(self.window_props.modpack_dir).is_file():
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
-            row.label(text=f"{Path(self.file_props.modpack_dir).name} is loaded.", icon="INFO")
+            row.label(text=f"{Path(self.window_props.modpack_dir).name} is loaded.", icon="INFO")
 
-        elif self.file_props.modpack_replace:
+        elif self.window_props.modpack_replace:
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
             row.label(text="No modpack is loaded.", icon="INFO")
 
-        elif not self.file_props.modpack_replace and (Path(self.prefs.modpack_output_dir) / Path(self.file_props.modpack_display_dir + ".pmp")).is_file():
+        elif not self.window_props.modpack_replace and (Path(self.prefs.modpack_output_dir) / Path(self.window_props.modpack_display_dir + ".pmp")).is_file():
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
-            row.label(text=f"{self.file_props.modpack_display_dir + '.pmp'} already exists!", icon="ERROR")
+            row.label(text=f"{self.window_props.modpack_display_dir + '.pmp'} already exists!", icon="ERROR")
 
-        if platform.system() == "Windows" and any(has_fbx for folder_stats, has_fbx in self.checked_folders.items()):
+        if platform.system() == "Windows" and any(has_fbx for folder, (contents, has_fbx) in self.checked_folders.items()):
+            print(self.checked_folders)
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
@@ -830,7 +789,7 @@ class FileManager(Panel):
             layout.separator(factor=1.5,type="LINE")
     
     def get_file_stats(self):
-        folders = [(group.final_folder(), group) for group in self.file_props.pmp_mod_groups if group.use_folder]
+        folders = [(group.final_folder(), group) for group in self.window_props.pmp_mod_groups if group.use_folder]
         for folder, group in folders:
             if folder not in self.checked_folders:
                 folder_stats, has_fbx = group.get_folder_stats()
@@ -922,22 +881,6 @@ class FileManager(Panel):
                 setattr(op, "entry", entry_idx)
                 setattr(op, "category", category)
         
-    def body_category_buttons(self, layout:UILayout, options):
-        row = layout
-
-        for slot, icon in options:
-            depress = True if self.window_props.export_body_slot == slot else False
-            row.operator("ya.set_body_part", text="", icon=icon, depress=depress).body_part = slot
-
-    def ui_category_buttons(self, layout:UILayout, options):
-            row = layout
-            ui_selector = getattr(self.window_props, "file_man_ui")
-
-            for slot, icon in options.items():
-                depress = True if ui_selector == slot else False
-                operator = row.operator("ya.set_ui", text="", icon=icon, depress=depress)
-                operator.menu = slot
-
 
 CLASSES = [
     FileManager
