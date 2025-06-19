@@ -6,7 +6,7 @@ from typing              import Any
 from bpy.types           import Operator, Context
 from bpy.props           import StringProperty, EnumProperty, BoolProperty, IntProperty
 from ...ui.draw          import aligned_row, get_conditional_icon
-from ...properties       import BlendModOption, BlendModGroup, get_file_properties
+from ...properties       import BlendModOption, BlendModGroup, get_file_properties, get_window_properties
 from ...preferences      import get_prefs
 from ...utils.typings    import Preset
 from ...utils.serialiser import RNAPropertyIO
@@ -67,7 +67,7 @@ class ModpackManager(Operator):
             return {'FINISHED'}
                 
         self.prefs = get_prefs()
-        self.props = get_file_properties()
+        self.props = get_window_properties()
         self.mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
 
         if self.category in ("ENTRY", "COMBI_ENTRY"):
@@ -97,7 +97,7 @@ class ModpackManager(Operator):
 
     def execute(self, context:Context):
         self.prefs = get_prefs()
-        self.props = get_file_properties()
+        self.props = get_window_properties()
         self.mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
 
         if self.category == "ENTRY":
@@ -195,7 +195,7 @@ class ModpackPresets(Operator):
             return {"FINISHED"}
         
         self.prefs  = get_prefs()
-        self.props  = get_file_properties()
+        self.props  = get_window_properties()
         self.format = "modpack"
         self.mod_group: BlendModGroup = self.props.pmp_mod_groups[self.group]
 

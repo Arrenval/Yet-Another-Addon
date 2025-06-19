@@ -13,7 +13,7 @@ from .utils.penumbra import Modpack
 
 
 def modpack_data() -> None:
-    props = get_file_properties()
+    props = get_window_properties()
     props.loaded_pmp_groups.clear()
 
     blender_groups = props.pmp_mod_groups
@@ -207,7 +207,7 @@ class CorrectionEntry(ModpackHelper):
     show_option     : BoolProperty(default=True, name="", description="Show the contents of the option") # type: ignore
     
     def get_possible_corrections(self, context:Context):
-        props                = get_file_properties()
+        props                = get_window_properties()
         group: BlendModGroup = props.pmp_mod_groups[self.group_idx]
         total_options        = [option.name for option in group.mod_options[:8]]
         combinations         = [[]]
@@ -298,8 +298,8 @@ class BlendModGroup(ModpackHelper):
         )  # type: ignore
 
     def set_group_values(self):
-        props                                  = get_file_properties()
-        replace                                = props.modpack_replace
+        props                             = get_window_properties()
+        replace                           = props.modpack_replace
         modpack: list[LoadedModpackGroup] = props.loaded_pmp_groups
         
         if self.idx != "New":
@@ -322,7 +322,7 @@ class BlendModGroup(ModpackHelper):
             self.description = ""
 
     def set_name(self):
-        props = get_file_properties()
+        props = get_window_properties()
         self.name: str
         scene_groups: list[LoadedModpackGroup] = props.loaded_pmp_groups
 
@@ -334,7 +334,7 @@ class BlendModGroup(ModpackHelper):
             self.name_set = True
 
     def get_groups_page(self, context:Context) -> BlendEnum:
-        props = get_file_properties()
+        props = get_window_properties()
         pages = set([option.group_page for option in props.loaded_pmp_groups])
 
         if len(pages) >= 1:
@@ -343,7 +343,7 @@ class BlendModGroup(ModpackHelper):
             return [("0", f"Pg: 0", "")]
         
     def get_modpack_groups(self, context:Context) -> BlendEnum:
-        props   = get_file_properties()
+        props   = get_window_properties()
         modpack = props.loaded_pmp_groups
         groups  = [("", "New:", ""), ("New", "New Group", "")]
         page    = 0
@@ -439,6 +439,14 @@ class ShapeModifiers(PropertyGroup):
         name: str
         icon: str
 
+class AnimationOptimise(PropertyGroup):
+    triangulation: BoolProperty() # type: ignore
+    show_armature: BoolProperty() # type: ignore
+
+    if TYPE_CHECKING:
+        triangulation: bool
+        show_armature: bool
+
 class YAWindowProps(PropertyGroup):
     
     outfit_roulette = [
@@ -457,36 +465,52 @@ class YAWindowProps(PropertyGroup):
         
         ]
     
+    pmp_mod_groups: CollectionProperty(
+        type=BlendModGroup
+        ) # type: ignore
+    
+    loaded_pmp_groups: CollectionProperty(
+        type=LoadedModpackGroup
+        ) # type: ignore
+    
+    animation_optimise   : CollectionProperty(type=AnimationOptimise) # type: ignore
+
     shape_modifiers_group: CollectionProperty(type=ShapeModifiers) # type: ignore
 
     yas_vgroups : CollectionProperty(type=YASVGroups) # type: ignore
+
+
 
     file_man_ui: EnumProperty(
         name= "",
         description= "Select a manager",
         items= [
-            ("IMPORT", "Import", "Import Files"),
-            ("EXPORT", "Export", "Export models"),
-            ("MODPACK", "Modpack", "Package mods"),
+            ("IMPORT", "Import", "Import Files", "IMPORT", 0),
+            ("EXPORT", "Export", "Export models", "EXPORT", 1),
+            ("MODPACK", "Modpack", "Package mods", "NEWFOLDER", 2),
         ]
         )  # type: ignore
-    
+
     export_body_slot: EnumProperty(
         name= "",
         description= "Select a body slot",
         items= [
-            ("Chest", "Chest", "Chest export options."),
-            ("Legs", "Legs", "Leg export options."),
-            ("Hands", "Hands", "Hand export options."),
-            ("Feet", "Feet", "Feet export options."),
-            ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.")]
+            ("Chest", "Chest", "Chest export options.", "MOD_CLOTH", 0),
+            ("Legs", "Legs", "Leg export options.", "BONE_DATA", 1),
+            ("Hands", "Hands", "Hand export options.", "VIEW_PAN", 2),
+            ("Feet", "Feet", "Feet export options.", "VIEW_PERSPECTIVE", 3),
+            ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.", "ARMATURE_DATA", 4)]
         )  # type: ignore
+
+
 
     def update_ui(self, context:Context):
         for area in context.screen.areas:
             area.tag_redraw()
 
     waiting_import: BoolProperty(default=False, options={"SKIP_SAVE"}, update=update_ui) # type: ignore
+
+
 
     def set_yas_vgroups(self, context):
         obj = self.yas_source
@@ -559,6 +583,8 @@ class YAWindowProps(PropertyGroup):
 
     yas_vindex: IntProperty(name="YAS Group Index", description="Index of the YAS groups on the active object", update=selected_yas_vgroup) # type: ignore
 
+
+
     def get_deform_modifiers(self, context:Context) -> BlendEnum:
         modifiers = self.shape_modifiers_group
         if not modifiers:
@@ -580,173 +606,38 @@ class YAWindowProps(PropertyGroup):
         )  # type: ignore
     
 
-    @staticmethod
-    def extra_options() -> None:
-        for (name, category, default, description) in YAWindowProps.outfit_roulette:
-            category_lower = category.lower()
-            name_lower = name.lower()
-            
-            prop_name = f"{name_lower}_{category_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=default, 
-                )
-            setattr(YAWindowProps, prop_name, prop)
+
+    def animation_frames(self, context:Context) -> None:
+        if context.screen.is_animation_playing:
+            return None
+        else:
+            context.scene.frame_current = self.animation_frame
     
-    @staticmethod
-    def ui_buttons() -> None:
-        for (name, category, description) in YAWindowProps.ui_buttons_list:
-            category_lower = category.lower()
-            name_lower = name.lower()
+    animation_frame: IntProperty(
+        default=0,
+        max=500,
+        min=0,
+        update=lambda self, context: self.animation_frames(context),
+    ) # type: ignore
 
-            default = False
-            if name_lower == "advanced":
-                default = True
-            
-            prop_name = f"button_{name_lower}_{category_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=default, 
-                )
-            setattr(YAWindowProps, prop_name, prop)
 
-    if TYPE_CHECKING:
-        file_man_ui     : str
-        export_body_slot: str
-        shape_modifiers : str
-        waiting_import  : bool
-        shape_source    : Object
-        yas_source      : Object
-        yas_vindex      : int
-        yas_vgroups     : Iterable[YASVGroups]
-        yas_empty       : bool
-
-        # Created at registration
-        overview_category: bool
-        shapes_category  : bool
-        mesh_category    : bool
-        weights_category : bool
-        armature_category: bool
-        filter_vgroups   : bool
-
-        button_backfaces_expand: bool
-        button_modifiers_expand: bool
-        button_transp_expand   : bool
-
-class YAFileProps(PropertyGroup):
-
-    GAME_SUFFIX = {".mdl", ".tex", ".phyb"}
-
-    # Used to define operator behaviour.
-    #   Keyword      Keyword       Default  Description
-    extra_options = [
-        ("create",   "backfaces",  True,   "Creates backface meshes on export based on existing vertex groups"),
-        ("check",    "tris",       True,   "Verify that the meshes are triangulated"),
-        ("force",    "yas",        False,  "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
-        ("keep",     "shapekeys",  True,   "Preserves vanilla clothing shape keys"),
-        ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),
-        ("rue",      "export",     True,   "Controls whether Rue is exported as a standalone body and variant, or only as a variant for Lava/Masc"),
-        ("body",     "names",      False,  "Alwyays add body names on exported files or depending on how many bodies you export"),
-        ("chest",    "g_category", False,  "Changes gamepath category"),
-        ("hands",    "g_category", False,  "Changes gamepath category"),
-        ("legs",     "g_category", False,  "Changes gamepath category"),
-        ("feet",     "g_category", False,  "Changes gamepath category"),
-    ]
-
-    pmp_mod_groups: CollectionProperty(
-        type=BlendModGroup
-        ) # type: ignore
-    
-    loaded_pmp_groups: CollectionProperty(
-        type=LoadedModpackGroup
-        ) # type: ignore
-    
-    @staticmethod
-    def set_extra_options() -> None:
-        for (name, category, default, description) in YAFileProps.extra_options:
-            category_lower = category.lower()
-            name_lower = name.lower()
-            
-            prop_name = f"{name_lower}_{category_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=default, 
-                )
-            setattr(YAFileProps, prop_name, prop)
-
-    def update_directory(self, context:Context, category:str) -> None:
-        prop = context.scene.file_props
-        actual_prop = f"{category}_dir"
-        display_prop = f"{category}_display_dir"
-
-        display_dir = getattr(prop, display_prop, "")
-
-        if os.path.exists(display_dir):  
-            setattr(prop, actual_prop, display_dir)
 
     def update_mod_enums(self, context):
         if self.modpack_replace:
-            modpack_data(context)
+            modpack_data()
 
         else:
-            props = get_file_properties()
-            blender_groups = props.pmp_mod_groups
+            blender_groups = self.pmp_mod_groups
             for blend_group in blender_groups:
                 blend_group.idx = "New"
 
-            props.loaded_pmp_groups.clear()
-            
-    ui_size_category: StringProperty(
-        name="",
-        subtype="DIR_PATH", 
-        maxlen=255,
-        )  # type: ignore
+            self.loaded_pmp_groups.clear()
 
-    armature: PointerProperty(
-        type= Armature,
-        name= "",
-        description= "New armature for imports"
-        )  # type: ignore
-    
-    import_display_dir: StringProperty(
-        name="Export Folder",
-        default="Select Export Directory",  
-        maxlen=255,
-        update=lambda self, context: self.update_directory(context, 'import'),
+    modpack_replace: BoolProperty(
+        default=False, name="", 
+        description="Make new or update existing mod", 
+        update=update_mod_enums
         ) # type: ignore
-    
-    rename_import: StringProperty(
-        name="",
-        description="Renames the prefix of the selected meshes",
-        default="",
-        maxlen=255,
-        )  # type: ignore
-
-    file_gltf: BoolProperty(
-        name="",
-        description="Switch file format", 
-        default=False,
-        ) # type: ignore
-    
-
-    export_total: IntProperty(default=0) # type: ignore
-
-    export_progress: FloatProperty(default=0) # type: ignore
-
-    export_step: IntProperty(default=0) # type: ignore
-
-    export_time: FloatProperty(default=0) # type: ignore
-
-    export_file_name: StringProperty(name="",
-        default="",  
-        maxlen=255,
-        ) # type: ignore
-
-
-    modpack_replace: BoolProperty(default=False, name="", description="Make new or update existing mod", update=lambda self, context: self.update_mod_enums(context)) # type: ignore
 
     modpack_display_dir: StringProperty(
         name="Modpack name.",
@@ -758,7 +649,7 @@ class YAFileProps(PropertyGroup):
         default="Select Modpack",
         subtype="FILE_PATH", 
         maxlen=255,
-        update=lambda self, context: modpack_data(context)
+        update=lambda self, context: modpack_data()
         )  # type: ignore
     
     modpack_version: StringProperty(
@@ -803,14 +694,54 @@ class YAFileProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
+
+    @staticmethod
+    def extra_options() -> None:
+        for (name, category, default, description) in YAWindowProps.outfit_roulette:
+            category_lower = category.lower()
+            name_lower = name.lower()
+            
+            prop_name = f"{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
+                )
+            setattr(YAWindowProps, prop_name, prop)
+    
+    @staticmethod
+    def ui_buttons() -> None:
+        for (name, category, description) in YAWindowProps.ui_buttons_list:
+            category_lower = category.lower()
+            name_lower = name.lower()
+
+            default = False
+            if name_lower == "advanced":
+                default = True
+            
+            prop_name = f"button_{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
+                )
+            setattr(YAWindowProps, prop_name, prop)
+
     if TYPE_CHECKING:
-        pmp_mod_groups      : Iterable[BlendModGroup]
-        loaded_pmp_groups   : Iterable[LoadedModpackGroup]
+        pmp_mod_groups   : Iterable[BlendModGroup]
+        loaded_pmp_groups: Iterable[LoadedModpackGroup]
         
-        ui_size_category    : str
-        import_display_dir  : str
-        rename_import       : str
-        export_file_name    : str
+        file_man_ui     : str
+        export_body_slot: str
+        shape_modifiers : str
+        waiting_import  : bool
+        shape_source    : Object
+        yas_source      : Object
+        yas_vindex      : int
+        yas_vgroups     : Iterable[YASVGroups]
+        yas_empty       : bool
+
+        modpack_replace     : bool
         modpack_display_dir : str
         modpack_dir         : str
         modpack_version     : str
@@ -819,17 +750,106 @@ class YAFileProps(PropertyGroup):
         new_mod_name        : str
         new_mod_version     : str
         author_name         : str
+
+        animation_optimise     : Iterable[AnimationOptimise]
+        animation_frame        : int  
+
+        # Created at registration
+        overview_category: bool
+        shapes_category  : bool
+        mesh_category    : bool
+        weights_category : bool
+        armature_category: bool
+        filter_vgroups   : bool
+
+        button_backfaces_expand: bool
+        button_modifiers_expand: bool
+        button_transp_expand   : bool
+
+class YAFileProps(PropertyGroup):
+
+    GAME_SUFFIX = {".mdl", ".tex", ".phyb"}
+
+    # Used to define operator behaviour.
+    #   Keyword      Keyword       Default  Description
+    extra_options = [
+        ("create",   "backfaces",  True,   "Creates backface meshes on export based on existing vertex groups"),
+        ("check",    "tris",       True,   "Verify that the meshes are triangulated"),
+        ("force",    "yas",        False,  "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
+        ("keep",     "shapekeys",  True,   "Preserves vanilla clothing shape keys"),
+        ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),
+        ("rue",      "export",     True,   "Controls whether Rue is exported as a standalone body and variant, or only as a variant for Lava/Masc"),
+        ("body",     "names",      False,  "Alwyays add body names on exported files or depending on how many bodies you export"),
+        ("chest",    "g_category", False,  "Changes gamepath category"),
+        ("hands",    "g_category", False,  "Changes gamepath category"),
+        ("legs",     "g_category", False,  "Changes gamepath category"),
+        ("feet",     "g_category", False,  "Changes gamepath category"),
+    ]
+
+    @staticmethod
+    def set_extra_options() -> None:
+        for (name, category, default, description) in YAFileProps.extra_options:
+            category_lower = category.lower()
+            name_lower = name.lower()
+            
+            prop_name = f"{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
+                )
+            setattr(YAFileProps, prop_name, prop)
+
+    def update_directory(self, context:Context, category:str) -> None:
+        prop = context.scene.file_props
+        actual_prop = f"{category}_dir"
+        display_prop = f"{category}_display_dir"
+
+        display_dir = getattr(prop, display_prop, "")
+
+        if os.path.exists(display_dir):  
+            setattr(prop, actual_prop, display_dir)
+            
+    ui_size_category: StringProperty(
+        name="",
+        subtype="DIR_PATH", 
+        maxlen=255,
+        )  # type: ignore
+
+    armature: PointerProperty(
+        type= Armature,
+        name= "",
+        description= "New armature for imports"
+        )  # type: ignore
+    
+    import_display_dir: StringProperty(
+        name="Export Folder",
+        default="Select Export Directory",  
+        maxlen=255,
+        update=lambda self, context: self.update_directory(context, 'import'),
+        ) # type: ignore
+    
+    rename_import: StringProperty(
+        name="",
+        description="Renames the prefix of the selected meshes",
+        default="",
+        maxlen=255,
+        )  # type: ignore
+
+    file_gltf: BoolProperty(
+        name="",
+        description="Switch file format", 
+        default=False,
+        ) # type: ignore
+    
+    if TYPE_CHECKING:
+        ui_size_category    : str
+        import_display_dir  : str
+        rename_import       : str
         
-        armature           : Armature
-        export_body_slot    : str
+        armature            : Armature
         
         file_gltf           : bool
-        modpack_replace     : bool
-        
-        export_total        : int
-        export_progress     : float
-        export_step         : int
-        export_time         : float
         
         create_backfaces    : bool
         check_tris          : bool
@@ -846,17 +866,7 @@ class YAFileProps(PropertyGroup):
         legs_g_category     : bool
         feet_g_category     : bool
 
-class AnimationOptimise(PropertyGroup):
-    triangulation: BoolProperty() # type: ignore
-    show_armature: BoolProperty() # type: ignore
-
-    if TYPE_CHECKING:
-        triangulation: bool
-        show_armature: bool
-
 class YAOutfitProps(PropertyGroup):
-
-    animation_optimise   : CollectionProperty(type=AnimationOptimise) # type: ignore
 
     YAS_BONES = {
     'n_root':              'Root', 
@@ -1025,8 +1035,8 @@ class YAOutfitProps(PropertyGroup):
             self.armature.animation_data.action_slot = action.slots[0]
         context.scene.frame_end = int(action.frame_end)
 
-        if hasattr(YAOutfitProps, "animation_frame"):
-            del YAOutfitProps.animation_frame
+        if hasattr(YAWindowProps, "animation_frame"):
+            del YAWindowProps.animation_frame
         
         prop = IntProperty(
             name="Current Frame",
@@ -1035,14 +1045,8 @@ class YAOutfitProps(PropertyGroup):
             min=0,
             update=lambda self, context: self.animation_frames(context)
             ) 
-        setattr(YAOutfitProps, "animation_frame", prop)
+        setattr(YAWindowProps, "animation_frame", prop)
 
-    def animation_frames(self, context:Context) -> None:
-        if context.screen.is_animation_playing:
-            return None
-        else:
-            context.scene.frame_current = self.animation_frame
-    
     def update_directory(self, context:Context, category:str) -> None:
         prop = context.scene.file_props
         actual_prop = f"{category}_directory"
@@ -1178,13 +1182,6 @@ class YAOutfitProps(PropertyGroup):
         update=lambda self, context: self.set_action(context)
     ) # type: ignore
 
-    animation_frame: IntProperty(
-        default=0,
-        max=500,
-        min=0,
-        update=lambda self, context: self.animation_frames(context),
-    ) # type: ignore
-
     pose_display_directory: StringProperty(
         default="Select .pose file",
         subtype="FILE_PATH", 
@@ -1192,10 +1189,7 @@ class YAOutfitProps(PropertyGroup):
         )  # type: ignore
 
     if TYPE_CHECKING:
-        animation_optimise     : Iterable[AnimationOptimise]
         shape_modifiers_group  : Iterable[ShapeModifiers]
-        
-        animation_frame        : int  
         
         pose_display_directory : str
         

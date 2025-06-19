@@ -2,15 +2,15 @@ import bpy
 
 from bpy.types            import Object
 from bpy.app.handlers     import persistent
-from .properties          import get_object_from_mesh, get_outfit_properties, get_window_properties
+from .properties          import get_object_from_mesh, get_window_properties, get_devkit_properties
 
 def frame_ui(dummy):
-    get_outfit_properties().animation_frame = bpy.context.scene.frame_current
+    get_window_properties().animation_frame = bpy.context.scene.frame_current
 
 @persistent
 def get_mesh_props(dummy) -> None:
-    obj: Object   = bpy.context.active_object
-    window        = get_window_properties()
+    obj: Object = bpy.context.active_object
+    window      = get_window_properties()
     
     if obj and obj.mode != 'OBJECT':
         return None
@@ -41,14 +41,18 @@ def devkit_check(dummy):
 def remove_devkit(dummy):
     if hasattr(bpy.context.scene, "devkit"):
         del bpy.types.Scene.devkit
+    elif hasattr(bpy.context.scene, "ya_devkit"):
+        del bpy.types.Scene.ya_devkit
 
 @persistent
 def pre_anim_handling(dummy) ->None:
+    props    = get_window_properties()
+    devkit   = get_devkit_properties()
     context = bpy.context
-    context.scene.animation_optimise.clear()
-    optimise = bpy.context.scene.animation_optimise.add()
-    if hasattr(bpy.context.scene, "devkit_props"):
-        optimise.triangulation = context.scene.devkit_props.controller_triangulation
+    props.animation_optimise.clear()
+    optimise = props.animation_optimise.add()
+    if devkit:
+        optimise.triangulation = devkit.controller_triangulation
         context.scene.devkit_props.controller_triangulation = False
         get_object_from_mesh("Controller").update_tag()
         bpy.ops.yakit.collection_manager(preset="Animation")
@@ -67,11 +71,12 @@ def pre_anim_handling(dummy) ->None:
 
 @persistent
 def post_anim_handling(dummy) ->None:
-    props    = get_outfit_properties()
+    props    = get_window_properties()
+    devkit   = get_devkit_properties()
     context  = bpy.context
     optimise = props.animation_optimise
-    if hasattr(bpy.context.scene, "devkit_props"):
-        context.scene.devkit_props.controller_triangulation = optimise[0].triangulation
+    if devkit:
+        devkit.controller_triangulation = optimise[0].triangulation
         bpy.ops.yakit.collection_manager(preset="Restore") 
     
     props.animation_frame = context.scene.frame_current

@@ -12,7 +12,7 @@ from datetime               import datetime
 from bpy.types              import Operator, Context, UILayout
 from bpy.props              import StringProperty, IntProperty
 
-from ...properties           import get_file_properties, modpack_data, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
+from ...properties           import get_file_properties, get_window_properties, modpack_data, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
 from ...preferences          import get_prefs
 from ...utils.penumbra       import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
 from ...utils.ya_exception   import ModpackFileError, ModpackGamePathError, ModpackValidationError
@@ -25,7 +25,7 @@ class ModelConverter(Operator):
     
     def execute(self, context:Context):
         self.prefs                 = get_prefs()
-        self.props                 = get_file_properties()
+        self.window_props          = get_window_properties()
         self.output_dir            = Path(self.prefs.modpack_output_dir)
         self.folders: dict[Path, str]  = {}
         self.get_folders()
@@ -108,7 +108,7 @@ class ModelConverter(Operator):
         return mdl_status, cmd_path
     
     def get_folders(self):
-        for group in self.props.pmp_mod_groups:
+        for group in self.window_props.pmp_mod_groups:
             if not group.use_folder:
                 continue
             
@@ -148,7 +148,7 @@ class ModPackager(Operator):
             return "Pack selected group"
         
     def execute(self, context:Context):
-        self.props = get_file_properties()
+        self.props = get_window_properties()
         self.prefs = get_prefs()
 
         time  = datetime.now().strftime("%H%M%S")
