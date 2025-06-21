@@ -4,7 +4,7 @@ from pathlib        import Path
 from bpy.types      import Panel, UILayout, Context
 
 from ..draw         import aligned_row, get_conditional_icon, operator_button
-from ...properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_file_properties, get_devkit_properties, get_window_properties
+from ...properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
 from ...preferences import get_prefs
 
 
@@ -22,6 +22,7 @@ class FileManager(Panel):
         self.window_props = get_window_properties()
         self.file_props   = get_file_properties()
         self.devkit_props = get_devkit_properties()
+        self.devkit_win   = get_devkit_win_props()
 
         layout = self.layout
 
@@ -72,8 +73,22 @@ class FileManager(Panel):
         if context.space_data.shading.type in ("MATERIAL", "RENDERED"):
             row = layout.row(align=True)
             row.alignment = "CENTER"
-            row.label(text=f"{context.space_data.shading.type.capitalize()} shading will drastically increase export times.", icon="ERROR")
+            row.label(
+                text=f"{context.space_data.shading.type.capitalize()} shading will drastically increase export times.", 
+                icon="ERROR"
+                )
 
+        layout.separator(type="LINE")
+        
+        row = layout.row(align=True)
+        icon = 'CHECKMARK' if self.window_props.check_tris else 'PANEL_CLOSE'
+        row.prop(self.window_props, "check_tris", text="Check Tris", icon=icon)
+        icon = 'CHECKMARK' if self.window_props.keep_shapekeys else 'PANEL_CLOSE'
+        row.prop(self.window_props, "keep_shapekeys", text="Shape Keys", icon=icon)
+        icon = 'CHECKMARK' if self.window_props.create_backfaces else 'PANEL_CLOSE'
+        row.prop(self.window_props, "create_backfaces", text="Backfaces", icon=icon)
+
+        layout.separator(factor=0.1)
 
         if self.devkit_props:
             box = layout.box()
@@ -97,10 +112,10 @@ class FileManager(Panel):
         
                 self.dynamic_column_buttons(len(labels), layout, self.file_props, labels, category, button_type)
 
-                yab = self.devkit_props.export_yab_chest_bool
-                rue = self.devkit_props.export_rue_chest_bool and self.file_props.rue_export
-                lava = self.devkit_props.export_lava_chest_bool
-                masc = self.devkit_props.export_flat_chest_bool
+                yab = self.devkit_win.export_yab_chest_bool
+                rue = self.devkit_win.export_rue_chest_bool and self.file_props.rue_export
+                lava = self.devkit_win.export_lava_chest_bool
+                masc = self.devkit_win.export_flat_chest_bool
 
                 layout.separator(factor=0.5, type="LINE")
 
@@ -142,10 +157,10 @@ class FileManager(Panel):
         
                 self.dynamic_column_buttons(len(labels), layout, self.file_props, labels, category, button_type)
 
-                yab = self.devkit_props.export_yab_legs_bool
-                rue = self.devkit_props.export_rue_legs_bool
-                lava = self.devkit_props.export_lava_legs_bool
-                masc = self.devkit_props.export_masc_legs_bool
+                yab = self.devkit_win.export_yab_legs_bool
+                rue = self.devkit_win.export_rue_legs_bool
+                lava = self.devkit_win.export_lava_legs_bool
+                masc = self.devkit_win.export_masc_legs_bool
 
                 layout.separator(factor=0.5, type="LINE")
 
@@ -185,9 +200,9 @@ class FileManager(Panel):
         
                 self.dynamic_column_buttons(3, layout, self.file_props, labels, category, button_type)
                 
-                yab = self.devkit_props.export_yab_hands_bool
-                rue = self.devkit_props.export_rue_hands_bool
-                lava = self.devkit_props.export_lava_hands_bool
+                yab = self.devkit_win.export_yab_hands_bool
+                rue = self.devkit_win.export_rue_hands_bool
+                lava = self.devkit_win.export_lava_hands_bool
 
                 layout.separator(factor=0.5, type="LINE")
 
@@ -224,8 +239,8 @@ class FileManager(Panel):
         
                 self.dynamic_column_buttons(2, layout, self.file_props, labels, category, button_type)
 
-                yab = self.devkit_props.export_yab_feet_bool
-                rue = self.devkit_props.export_rue_feet_bool
+                yab = self.devkit_win.export_yab_feet_bool
+                rue = self.devkit_win.export_rue_feet_bool
 
                 layout.separator(factor=0.5, type="LINE")
 
@@ -240,51 +255,28 @@ class FileManager(Panel):
         box = layout.box()
         row = box.row(align=True)
         row.alignment = "CENTER"
-        row.label(text="Advanced Options")
+        row.label(text="Batch Options")
 
         layout.separator(factor=0.1) 
 
         row = layout.row(align=True)
-        split = row.split(factor=0.33)
-        col = split.column(align=True)
-        col.alignment = "RIGHT"
-        if self.devkit_props:
-            col.label(text="Force YAS:")
-            col.label(text="Body Names:")
-            col.label(text="Rue Export:")
-        col.label(text="Check Tris:")
-        col.label(text="Shape Keys:")
-        col.label(text="Backfaces:")
-        if self.devkit_props:
-            col.label(text="Subfolder:")
+        col = row.column(align=True)
+        
+        aligned_row(col, "Export Prefix:", "rename_import", self.window_props)
 
-        col2 = split.column(align=True)
-        col2.alignment = "RIGHT"
-        if self.devkit_props:
-            icon = 'CHECKMARK' if self.file_props.force_yas else 'PANEL_CLOSE'
-            text = 'Enabled' if self.file_props.force_yas else 'Disabled'
-            col2.prop(self.file_props, "force_yas", text=text, icon=icon)
-            icon = 'CHECKMARK' if self.file_props.body_names else 'PANEL_CLOSE'
-            text = 'Always' if self.file_props.body_names else 'Conditional'
-            col2.prop(self.file_props, "body_names", text=text, icon=icon)
-            icon = 'CHECKMARK' if self.file_props.rue_export else 'PANEL_CLOSE'
-            text = 'Standalone' if self.file_props.rue_export else 'Variant'
-            col2.prop(self.file_props, "rue_export", text=text, icon=icon)
-        icon = 'CHECKMARK' if self.file_props.check_tris else 'PANEL_CLOSE'
-        text = 'Enabled' if self.file_props.check_tris else 'Disabled'
-        col2.prop(self.file_props, "check_tris", text=text, icon=icon)
-        icon = 'CHECKMARK' if self.file_props.keep_shapekeys else 'PANEL_CLOSE'
-        text = 'Keep' if self.file_props.keep_shapekeys else 'Remove'
-        col2.prop(self.file_props, "keep_shapekeys", text=text, icon=icon)
-        icon = 'CHECKMARK' if self.file_props.create_backfaces else 'PANEL_CLOSE'
-        text = 'Create' if self.file_props.create_backfaces else 'Ignore'
-        col2.prop(self.file_props, "create_backfaces", text=text, icon=icon)
-        if self.devkit_props:
-            icon = 'CHECKMARK' if self.file_props.create_subfolder else 'PANEL_CLOSE'
-            text = 'Create' if self.file_props.create_subfolder else 'Ignore'
-            col2.prop(self.file_props, "create_subfolder", text=text, icon=icon)
+        icon = get_conditional_icon(self.window_props.body_names)
+        text = "Always" if self.window_props.body_names else "Conditional"
+        aligned_row(col, "Body Names:", "body_names", self.window_props, prop_str=text, attr_icon=icon)
 
-        layout.separator(factor=0.5)
+        icon = get_conditional_icon(self.window_props.create_subfolder)
+        text = "Standalone" if self.window_props.create_subfolder else "Variant"
+        aligned_row(col, "Rue Export:", "rue_export", self.window_props, prop_str=text, attr_icon=icon)
+
+        icon = get_conditional_icon(self.window_props.create_subfolder)
+        text = "Remove" if self.window_props.create_subfolder else "Keep"
+        aligned_row(col, "Subfolder:", "create_subfolder", self.window_props, prop_str=text, attr_icon=icon)
+
+        layout.separator(factor=0.1)
     
     def draw_import(self, layout:UILayout):
         layout = self.layout
@@ -324,7 +316,7 @@ class FileManager(Panel):
         row = layout.row(align=True)
         col = row.column(align=True)
         
-        aligned_row(col, "Rename:", "rename_import", self.file_props)
+        aligned_row(col, "Rename:", "rename_import", self.window_props)
 
         icon = get_conditional_icon(self.prefs.update_material)
         text = 'Update' if self.prefs.update_material else 'Keep'
@@ -338,9 +330,9 @@ class FileManager(Panel):
         text = 'Remove' if self.prefs.remove_nonmesh else 'Keep'
         aligned_row(col, "Non-Mesh:", "remove_nonmesh", self.prefs, prop_str=text, attr_icon=icon)
 
-        aligned_row(col, "Armature:", "armature", self.file_props)
+        aligned_row(col, "Armature:", "armature", self.window_props)
 
-        layout.separator(factor=0.5)
+        layout.separator(factor=0.1)
 
     def draw_modpack(self, layout:UILayout):
         self.checked_folders = {}
@@ -803,9 +795,9 @@ class FileManager(Panel):
 
     def dynamic_column_buttons(self, columns, box:UILayout, section_prop, labels, category, button_type):
         if category == "Chest":
-            yab = self.devkit_props.export_yab_chest_bool
-            rue = self.devkit_props.export_rue_chest_bool and section_prop.rue_export
-            lava = self.devkit_props.export_lava_chest_bool
+            yab = self.devkit_win.export_yab_chest_bool
+            rue = self.devkit_win.export_rue_chest_bool and section_prop.rue_export
+            lava = self.devkit_win.export_lava_chest_bool
 
         row = box.row(align=True)
 
@@ -818,8 +810,8 @@ class FileManager(Panel):
 
             prop_name = f"{button_type}_{size_lower}_{category_lower}_bool"
 
-            if hasattr(self.devkit_props, prop_name):
-                icon = 'CHECKMARK' if getattr(self.devkit_props, prop_name) and emboss else 'PANEL_CLOSE'
+            if hasattr(self.devkit_win, prop_name):
+                icon = 'CHECKMARK' if getattr(self.devkit_win, prop_name) and emboss else 'PANEL_CLOSE'
                 
                 col_index = index % columns
 
@@ -834,7 +826,7 @@ class FileManager(Panel):
                         case "Omoi":
                             name = "---"
 
-                columns_list[col_index].prop(self.devkit_props, prop_name, text=name, icon=icon, emboss=emboss)
+                columns_list[col_index].prop(self.devkit_win, prop_name, text=name, icon=icon, emboss=emboss)
             else:
                 col_index = index % columns 
         

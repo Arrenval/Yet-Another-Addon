@@ -7,13 +7,12 @@ from itertools                import combinations
 from bpy.props                import StringProperty
 from bpy.types                import Operator, Object, Context, ShapeKey, LayerCollection
     
-from .mesh_handler            import MeshHandler
-from ...properties            import get_file_properties, get_devkit_properties, get_window_properties
+from ...properties            import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
 from ...preferences           import get_prefs
 from ...utils.objects         import visible_meshobj, get_object_from_mesh, safe_object_delete
 from ...utils.logging         import YetAnotherLogger
+from ...utils.mesh_handler    import MeshHandler
 from ...utils.scene_optimiser import SceneOptimiser
-
 
 
 def add_driver(shape_key:ShapeKey, source:Object) -> None:
@@ -114,7 +113,6 @@ def reset_chest_values(saved_sizes) -> None:
         category    = devkit_props.ALL_SHAPES[size][2]
         devkit.ApplyShapes.apply_shape_values("torso", category, preset)
     
-    bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
     bpy.context.view_layer.update()
 
 def get_export_path(directory: Path, file_name: str, subfolder: bool, body_slot:str ="") -> Path:
@@ -134,7 +132,7 @@ class FileExport:
         self.props       = get_file_properties()
         self.prefs       = get_prefs()
         self.logger      = logger
-        self.file_format = format
+        self.file_format = file_format
         self.file_path   = file_path
         self.selected_directory = Path(self.prefs.export_dir)
 
@@ -172,9 +170,11 @@ class FileExport:
                             obj.hide_set(False)
                         except:
                             pass
+                        
             except Exception as cleanup_error:
                 print(f"Emergency cleanup error: {cleanup_error}")
-        
+
+            raise e
         finally:
             if mesh_handler:
                 try:
@@ -189,7 +189,7 @@ class FileExport:
                     self.logger.close()
         
     def get_export_settings(self) -> dict[str, str | int | bool]:
-        if self.file_format:
+        if self.file_format == "GLTF":
             return {
                 "export_format": "GLTF_SEPARATE", 
                 "export_texture_dir": "GLTF Textures",
@@ -212,7 +212,7 @@ class FileExport:
                 "export_image_format": "NONE"
             }
         
-        else:
+        if self.file_format == "FBX":
             return {
                 "use_selection": False,
                 "use_active_collection": False,
@@ -347,14 +347,15 @@ class BatchQueue(Operator):
         self.window           = get_window_properties()
         self.prefs            = get_prefs()
         self.devkit_props     = get_devkit_properties()
-        self.check_tris:bool  = self.props.check_tris
-        self.force_yas:bool   = self.props.force_yas
-        self.subfolder:bool   = self.props.create_subfolder
+        self.check_tris:bool  = self.window.check_tris
+        self.force_yas:bool   = self.window.force_yas
+        self.subfolder:bool   = self.window.create_subfolder
         self.export_dir       = Path(self.prefs.export_dir)
         self.file_format      = self.window.file_format
         self.body_slot:str    = self.window.export_body_slot
         self.size_options     = self.get_size_options()
-
+        self.prefix:str       = ""
+    
         self.leg_sizes = {
             "Melon": self.size_options["Melon"],
             "Skull": self.size_options["Skull"], 
@@ -399,30 +400,29 @@ class BatchQueue(Operator):
         bpy.ops.yakit.collection_manager(preset="Export")
         self.saved_sizes = save_sizes()
 
-        with SceneOptimiser(context, optimisation_level="high"):
-            self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
-            self.logger.start_terminal()
-            try:
+        try:
+            with SceneOptimiser(context, optimisation_level="high"):
+                self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
+                self.logger.start_terminal()
                 for item in self.queue:
-                    self.logger.log_progress(operation="Exporting files")
+                    self.logger.log_progress(operation="Exporting files", clear_messages=True)
                     self.logger.log_separator()
                     self.logger.log(f"Size: {item[0]}")
                     self.logger.log_separator()
                     self.logger.log("Applying sizes...", 2)
                     self.export_queue(context, item, self.body_slot)
                     
-            except Exception as e:
+        except Exception as e:
+            if self.logger:
                 self.logger.close(e)
-                self.report({"ERROR"}, f"Export has run into an error. A log has been saved in your export directory.")
-            finally:
-                if self.logger:
-                    self.logger.close()
+        finally:
+            if self.logger:
+                self.logger.close()
 
-        reset_chest_values(self.saved_sizes)
-        bpy.ops.yakit.collection_manager(preset="Restore")
-
-        return {'FINISHED'}
-
+            reset_chest_values(self.saved_sizes)
+            bpy.ops.yakit.collection_manager(preset="Restore")
+            return {"FINISHED"}
+              
     def collection_state(self) -> None:
         devkit_props = get_devkit_properties()
         collection_state = devkit_props.collection_state
@@ -457,8 +457,9 @@ class BatchQueue(Operator):
             state.name = name
 
     def get_size_options(self) -> dict[str, bool]:
-        options = {}
-        devkit = get_devkit_properties()
+        options     = {}
+        devkit_win  = get_devkit_win_props()
+        devkit      = get_devkit_properties()
         
         for shape, (name, slot, shape_category, description, body, key) in devkit.ALL_SHAPES.items():
             slot_lower = slot.lower().replace("/", " ")
@@ -466,8 +467,8 @@ class BatchQueue(Operator):
 
             prop_name = f"export_{name_lower}_{slot_lower}_bool"
 
-            if hasattr(devkit, prop_name):
-                options[shape] = getattr(devkit, prop_name)
+            if hasattr(devkit_win, prop_name):
+                options[shape] = getattr(devkit_win, prop_name)
 
         return options
 
@@ -515,7 +516,7 @@ class BatchQueue(Operator):
                 
         devkit          = get_devkit_properties()
         mesh            = self.ob_mesh_dict[body_slot]
-        rue_export      = get_file_properties().rue_export
+        rue_export      = self.window.rue_export
         target          = get_object_from_mesh(mesh).data.shape_keys.key_blocks
         leg_sizes       = [key for key in self.leg_sizes.keys() if self.leg_sizes[key]]
         gen_options     = len(self.actual_combinations.keys())
@@ -586,11 +587,9 @@ class BatchQueue(Operator):
                        
     def name_generator(self, options:tuple[str, ...], size:str, body:str, bodies:int, gen:str, gen_options:int, body_slot:str) -> str:
         devkit      = get_devkit_properties()
-        yiggle      = get_file_properties().force_yas
-        body_names  = get_file_properties().body_names
         gen_name    = None
 
-        if body_names or (bodies > 1 and "YAB" != body and body_slot != "Feet"):
+        if self.window.body_names or (bodies > 1 and "YAB" != body and body_slot != "Feet"):
             file_names = [body]
         elif bodies == 1 and body_slot == "Legs" and (body == "Lava" or body == "Masc"):
             file_names = [body]
@@ -641,8 +640,8 @@ class BatchQueue(Operator):
         if gen_name != None:
             file_names.append(gen_name)
 
-        if yiggle:
-            return "Yiggle - " + " - ".join(list(file_names))
+        if self.prefix.strip():
+            return f"{self.prefix} - " + " - ".join(list(file_names))
         
         return " - ".join(list(file_names))
         
@@ -711,8 +710,6 @@ class BatchQueue(Operator):
                 category = devkit_props.ALL_SHAPES[size][2]
                 Devkit.ApplyShapes.mute_chest_shapes(obj, category)
                 Devkit.ApplyShapes.apply_shape_values("torso", category, filtered_preset)
-                bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
-                bpy.context.view_layer.update()
                     
             if gen != None and gen.startswith("Gen") and gen != "Gen A":
                 obj[gen].mute = False

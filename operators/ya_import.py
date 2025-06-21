@@ -74,7 +74,7 @@ class SimpleCleanUp(Operator):
         return context.mode == "OBJECT"
     
     def execute(self, context):
-        self.props = get_file_properties()
+        self.props = get_window_properties()
         self.prefs = get_prefs()
         self.selected = bpy.context.selected_objects
 

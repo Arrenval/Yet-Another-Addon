@@ -15,7 +15,7 @@ from bpy.props              import StringProperty, IntProperty
 from ...properties           import get_window_properties, modpack_data, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
 from ...preferences          import get_prefs
 from ...utils.penumbra       import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
-from ...utils.ya_exception   import ModpackFileError, ModpackGamePathError, ModpackValidationError
+from ...utils.ya_exception   import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError
     
 
 class ModelConverter(Operator):
@@ -183,7 +183,7 @@ class ModPackager(Operator):
 
         try:
             return self.create_modpack(context)
-        except (ModpackFileError, ModpackGamePathError, ModpackValidationError) as e:
+        except (ModpackError) as e:
             self.report({"ERROR"}, f"Failed to create modpack. {e}")
             return {'CANCELLED'}
 

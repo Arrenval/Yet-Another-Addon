@@ -42,3 +42,6 @@ class DevkitProps:
     mq_floats   : list[dict[str, dict[str, float]]]  
     is_exporting: bool 
     mesh_list   : list[str]
+
+class DevkitWindowProps:
+    overview_ui: str
