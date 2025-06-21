@@ -15,7 +15,6 @@ from .objects      import visible_meshobj, safe_object_delete, copy_mesh_object,
 from .ya_exception import XIVMeshParentError
 from ..properties  import get_window_properties, get_devkit_properties
 
-
 def get_shape_mix(source_obj: Object, extra_key: str="") -> NDArray[float32]:
     """
     Get current mix of shape keys from a mesh. 
@@ -182,7 +181,7 @@ class MeshHandler:
             shape_keys.append(key)
 
         return shape_keys
-                    
+
     def process_meshes(self) -> None:
         dupe: Object 
         original: Object
@@ -328,7 +327,7 @@ class MeshHandler:
 
         # We do it the simple way because I do not want to learn how to calculate normals right now and bmesh.ops.triangulate is bugged.
         self._restore_normals(dupe, original)   
-
+   
     def _restore_normals(self, obj: Object, original: Object) -> None:
         modifier:DataTransferModifier = obj.modifiers.new(name="keep_transparent_normals", type="DATA_TRANSFER")
         modifier.object           = original
@@ -336,9 +335,13 @@ class MeshHandler:
         modifier.data_types_loops = {"CUSTOM_NORMAL"}
         modifier.loop_mapping     = "NEAREST_POLYNOR"
 
-        bpy.context.view_layer.objects.active = obj
-        bpy.ops.object.modifier_apply(modifier=modifier.name)
-    
+        normal_graph = bpy.context.evaluated_depsgraph_get()
+        eval_obj     = obj.evaluated_get(normal_graph)
+        obj.data     = bpy.data.meshes.new_from_object(
+                            eval_obj, 
+                            preserve_all_data_layers=True,
+                            depsgraph=normal_graph)
+
     def _keep_shapes(self, original: Object, dupe: Object, key_name: str) -> None:
         if not dupe.data.shape_keys:
             dupe.shape_key_add(name="Basis")
