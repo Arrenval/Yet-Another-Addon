@@ -5,64 +5,17 @@ import numpy as np
 
 from numpy            import float32
 from numpy.typing     import NDArray
-from bpy.types        import Object, TriangulateModifier, Depsgraph, Modifier, DataTransferModifier
+from bpy.types        import Object, TriangulateModifier, Depsgraph, ShapeKey, DataTransferModifier
 from bmesh.types      import BMFace, BMesh
-from collections      import Counter
+from collections      import Counter, defaultdict
 
-from ...properties    import get_file_properties, get_devkit_properties
-from ...utils.objects import visible_meshobj
-from ...utils.logging import YetAnotherLogger
+from .typings      import ObjIterable
+from .logging      import YetAnotherLogger
+from .objects      import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
+from .ya_exception import XIVMeshParentError
+from ..properties  import get_window_properties, get_devkit_properties
 
 
-def copy_mesh_object(source_obj: Object, depsgraph: Depsgraph) -> Object:
-    """Fast mesh copy without depsgraph update, specific for mesh handler due to extra modifier handling"""
-
-    modifier_state: dict[Modifier, tuple[bool, bool]] = {}
-
-    for modifier in source_obj.modifiers:
-        modifier_state[modifier] = (modifier.show_viewport, modifier.show_render)
-
-        if modifier.type == "ARMATURE":
-            modifier.show_render   = False
-            modifier.show_viewport = False
-
-    eval_obj  = source_obj.evaluated_get(depsgraph)
-    temp_mesh = eval_obj.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
-    
-    new_mesh = temp_mesh.copy()
-    new_obj  = source_obj.copy()
-
-    new_obj.data = new_mesh
-    
-    eval_obj.to_mesh_clear()
-    new_obj.modifiers.clear()
-
-    for collection in source_obj.users_collection:
-        collection.objects.link(new_obj)
-
-    new_obj.parent = source_obj.parent
-    
-    armature        = new_obj.modifiers.new(name="Armature", type="ARMATURE")
-    armature.object = source_obj.parent
-
-    for modifier, (viewport, render) in modifier_state.items():
-        modifier.show_viewport = viewport
-        modifier.show_render   = render
-
-    # If we don't do this, we will crash later.
-    if new_obj.animation_data:
-        new_obj.animation_data_clear()
-        
-    if new_obj.data and hasattr(new_obj.data, 'shape_keys') and new_obj.data.shape_keys:
-        if new_obj.data.shape_keys.animation_data:
-            new_obj.data.shape_keys.animation_data_clear()
-    
-    # Not this, this is just annoying sometimes
-    if new_obj.data.shape_keys:
-        new_obj.shape_key_clear()
-
-    return new_obj
-    
 def get_shape_mix(source_obj: Object, extra_key: str="") -> NDArray[float32]:
     """
     Get current mix of shape keys from a mesh. 
@@ -130,15 +83,15 @@ class MeshHandler:
     This class takes all visible meshes in a Blender scene and runs various logic on them to retain/add properties needed for XIV models. 
     It's designed to work with my export operators to save and restore the Blender scene when the class is done with its operations.
     It works non-destructively by duplicating the initial models, hiding them, then making the destructice edits on the duplicates.
-    1. prepare_meshes saves the scene visibility state, sorts meshes, and creates dupes to work on.
-    2. process_meshes are the actual operations.
+    1. prepare_meshes saves the scene visibility state, checks what process each mesh requires and does an initial sort.
+    2. process_meshes are the actual manipulation and finalisation of the meshes.
     3. restore_meshes restores the initial Blender scene from before prepare_meshes.
     Each function should be called separately on the same instance of the class in the listed order.
 
     """
 
     def __init__(self, logger: YetAnotherLogger=None):
-        props                            = get_file_properties()
+        props                            = get_window_properties()
         self.depsgraph : Depsgraph       = bpy.context.evaluated_depsgraph_get()
         self.shapekeys : bool            = props.keep_shapekeys
         self.backfaces : bool            = props.create_backfaces
@@ -154,58 +107,26 @@ class MeshHandler:
     def prepare_meshes(self) -> None:
         if self.logger:
             self.logger.log("Preparing meshes...", 2)
+
         visible_obj = visible_meshobj()
+        no_skeleton = []
 
         # Bools for deciding which waist shape keys to keep. Only relevant for Yet Another Devkit.
-        rue    = False
-        buff   = False
-        torso  = False
-        devkit = get_devkit_properties()
-        
-        if devkit:
-            self.yas = devkit.controller_yas_chest
-            for obj in visible_obj:
-                if not obj.data.shape_keys:
-                    continue 
-                rue_key  = obj.data.shape_keys.key_blocks.get("Rue")
-                buff_key = obj.data.shape_keys.key_blocks.get("Buff")
-                if rue_key and rue_key.mute == False and rue_key.value == 1.0:
-                    rue = True 
-                if buff_key and buff_key.mute == False and buff_key.value == 1.0 :
-                    buff = True
-                if obj.data.name == "Torso":
-                    torso = True
+        self.rue    = False
+        self.buff   = False
+        self.torso  = False
+        self.devkit = get_devkit_properties()
+
+        if self.devkit:
+            self.devkit_checks(visible_obj)
 
         for obj in visible_obj:
-            shape_key    = []
+            if not obj.parent or obj.parent.type != "ARMATURE":
+                no_skeleton.append(obj)
+                continue
+            shape_key    = self.sort_shape_keys(obj) if self.shapekeys and obj.data.shape_keys else []
             transparency = ("xiv_transparency" in obj and obj["xiv_transparency"])
             backfaces    = (self.is_tris and self.backfaces and obj.vertex_groups.get("BACKFACES")) 
-            if self.shapekeys and obj.data.shape_keys:
-                for key in obj.data.shape_keys.key_blocks:
-                    if not key.name.startswith("shp"):
-                        continue
-                    if rue:
-                        if key.name[5:8] == "wa_":
-                        # Rue does not use any waist shape keys.
-                            continue
-                        if key.name[5:8] == "yab":
-                            continue  
-                    else:
-                        if key.name[5:8] == "rue":
-                            continue
-
-                    if devkit and key.name[5:8] == "wa_":
-                        # We check for buff and torso because in the case where the torso and waist are present we
-                        # remove the abs key from both body parts.
-                        if not buff and torso and key.name.endswith("_yabs"):
-                            continue
-
-                        # We don't have to check for torso here because it's implicitly assumed to be present when buff is True.
-                        # If waist and torso are present we then remove the yab key.
-                        if buff and key.name.endswith("_yab"):
-                            continue
-        
-                    shape_key.append(key)
             
             self.reset.append(obj)
             self.meshes[obj] = {
@@ -213,13 +134,67 @@ class MeshHandler:
                 'transparency': transparency, 
                 'backfaces'   : backfaces
                 }
-                  
+        
+        if no_skeleton:
+            raise XIVMeshParentError(len(no_skeleton))
+
+    def devkit_checks(self, visible_obj: ObjIterable) -> None:
+        self.yas = self.devkit.controller_yas_chest
+        for obj in visible_obj:
+            if not obj.data.shape_keys:
+                continue 
+            rue_key  = obj.data.shape_keys.key_blocks.get("Rue")
+            buff_key = obj.data.shape_keys.key_blocks.get("Buff")
+            if rue_key and rue_key.mute == False and rue_key.value == 1.0:
+                self.rue = True 
+            if buff_key and buff_key.mute == False and buff_key.value == 1.0 :
+                self.buff = True
+            if obj.data.name == "Torso":
+                self.torso = True
+
+    def sort_shape_keys(self, obj: Object) -> list[ShapeKey]:
+        shape_keys = []
+        for key in obj.data.shape_keys.key_blocks:
+            if not key.name.startswith("shp"):
+                continue
+            if self.rue:
+                if key.name[5:11] == "wa_yab":
+                # Rue does not use YAB's waist shape keys.
+                    continue
+                # Removes hip key, use yam for keys meant for rue as well
+                if key.name[5:8] == "yab":
+                    continue  
+            else:
+                if key.name[5:8] == "rue":
+                    continue
+
+            if self.devkit and key.name[5:8] == "wa_":
+                # We check for buff and torso because in the case where the torso and waist are present we
+                # remove the abs key from both body parts.
+                if not self.buff and self.torso and key.name.endswith("_yabs"):
+                    continue
+
+                # We don't have to check for torso here because it's implicitly assumed to be present when buff is True.
+                # If waist and torso are present we then remove the yab key.
+                if self.buff and key.name.endswith("_yab"):
+                    continue
+
+            shape_keys.append(key)
+
+        return shape_keys
+                    
     def process_meshes(self) -> None:
-        dupe: Object
+        dupe: Object 
+        original: Object
+        keys: list[ShapeKey]
         transparency = []
         shape_keys   = []
         backfaces    = []
-      
+        dupes        = []
+
+        if not self.depsgraph:
+            self.depsgraph = bpy.context.evaluated_depsgraph_get()
+
         for obj, stats in self.meshes.items():
             if self.logger:
                 self.logger.last_item = f"{obj.name}"
@@ -243,8 +218,8 @@ class MeshHandler:
             if stats["backfaces"]:
                 backfaces.append(dupe)
             
+            dupes.append(dupe)
             self.delete.append(dupe)
-            obj.hide_set(state=True)
         
         if self.logger and transparency:
             self.logger.log("Fixing face order...", 2)
@@ -259,13 +234,22 @@ class MeshHandler:
         if self.logger and shape_keys:
             self.logger.log("Retaining shape keys...", 2)
 
+        vert_mismatches = []
         for dupe, original, keys in shape_keys:
+            if len(original.data.vertices) != len(dupe.data.vertices):
+                vert_mismatches.append((dupe, original, keys))
+                continue
+
             for key in keys:
                 if self.logger:
                     self.logger.last_item = f"{dupe.name}: Shape {key.name}"
+                self._keep_shapes(original, dupe, key.name)
 
-                self.keep_shapes(original, dupe, key.name)
-
+        if vert_mismatches:
+            if self.logger:
+                self.logger.log("-> Accounting for vert mismatch...", 2)
+            self._shape_vert_mismatch(vert_mismatches)
+            
         if self.logger and backfaces:
             self.logger.log("Creating backfaces...", 2)
 
@@ -274,9 +258,17 @@ class MeshHandler:
                 self.logger.last_item = f"{dupe.name}"
 
             if dupe.data.shape_keys:
-                self.create_backfaces_sk(dupe)
+                self.backfaces_with_shapes(dupe)    
             else:
                 self.create_backfaces(dupe)
+
+        for dupe in dupes:
+            for v_group in dupe.vertex_groups:
+                if not dupe.parent.data.bones.get(v_group.name):
+                    dupe.vertex_groups.remove(v_group)
+
+        for obj in self.meshes:
+            obj.hide_set(state=True)
 
     def sequential_faces(self, dupe: Object, original: Object) -> None:
         mesh = dupe.data
@@ -295,8 +287,8 @@ class MeshHandler:
             ngon_method=self.tri_method[1]
             )
 
-        tri_to_verts: dict[BMFace, set[int] ] = {}
-        vert_to_faces: list[set[BMFace]] = [set() for _ in range(len(bm.verts))]
+        tri_to_verts : dict[BMFace, set[int]] = {}
+        vert_to_faces: list[set[BMFace]]       = [set() for _ in range(len(bm.verts))]
         for tri in bm.faces:
             vert_indices = set()
             for vert in tri.verts:
@@ -332,9 +324,7 @@ class MeshHandler:
         bm.faces.index_update()
 
         bm.to_mesh(mesh)
-        bm.free()
-
-        mesh.update()    
+        bm.free()  
 
         # We do it the simple way because I do not want to learn how to calculate normals right now and bmesh.ops.triangulate is bugged.
         self._restore_normals(dupe, original)   
@@ -350,25 +340,72 @@ class MeshHandler:
         bpy.ops.object.modifier_apply(modifier=modifier.name)
     
     def _keep_shapes(self, original: Object, dupe: Object, key_name: str) -> None:
-        if len(original.data.vertices) == len(dupe.data.vertices):
-            source_obj = original
-        else:
-            source_obj = self.copy_mesh_object(original, self.depsgraph)
-            self.delete.append(source_obj)
-
         if not dupe.data.shape_keys:
             dupe.shape_key_add(name="Basis")
 
         new_shape = dupe.shape_key_add(name=key_name)
         
-        coords = get_shape_mix(source_obj, key_name)
+        coords = get_shape_mix(original, key_name)
       
         new_shape.data.foreach_set("co", coords)
-        dupe.data.update()
-       
+
+    def _shape_vert_mismatch(self, vert_mismatches: list[tuple[Object, Object, list[ShapeKey]]]) -> None:
+        """
+        We take all meshes with a vert mismatch with its original mesh and do a single depsgraph update to get the evaluated shapes we want.
+        """
+        temp_copies: dict[Object, dict[str, Object]] = defaultdict(dict)
+
+        if self.logger:
+            self.logger.log("-> Creating temp objects...", 2)
+
+        for dupe, original, keys in vert_mismatches:
+            for key in keys:
+                temp_copy:Object = quick_copy(original, key.name)
+                temp_copies[dupe][key.name] = temp_copy
+
+        shape_graph = bpy.context.evaluated_depsgraph_get()
+
+        if self.logger:
+            self.logger.log("-> Applying shape keys...", 2)
+
+        for dupe, copies in temp_copies.items():
+            for key_name, copy in copies.items():
+                if self.logger:
+                    self.logger.last_item = f"{dupe.name}: Shape {key_name}"
+
+                try:
+                    eval_obj   = copy.evaluated_get(shape_graph)
+                    mesh       = bpy.data.meshes.new_from_object(eval_obj)
+                    vert_count = len(mesh.vertices)
+
+                    basis_co = np.zeros(vert_count * 3, dtype=np.float32)
+                    mesh.vertices.foreach_get("co", basis_co)
+
+                    if not dupe.data.shape_keys:
+                        dupe.shape_key_add(name="Basis")
+
+                    new_shape = dupe.shape_key_add(name=key_name)
+
+                    new_shape.data.foreach_set("co", basis_co)
+
+                except Exception as e:
+                    if self.logger:
+                        self.logger.last_item = (f"Vertex count mismatch for {dupe.name} shape {key_name}.")
+                    raise e
+                
+                finally:
+                    try:
+                        bpy.data.meshes.remove(mesh, do_unlink=True, do_id_user=True, do_ui_user=True)
+                    except:
+                        pass
+
+                    safe_object_delete(copy)
+
     def create_backfaces(self, obj:Object) -> None:
         """Assumes the mesh is triangulated to get the faces from _get_backfaces."""
         mesh = obj.data
+        old_poly_count = len(mesh.polygons) 
+
         bm = bmesh.new()
         bm.from_mesh(mesh)
 
@@ -378,16 +415,60 @@ class MeshHandler:
         bf_idx    = obj.vertex_groups["BACKFACES"].index
         backfaces = self._get_backfaces(bm, bf_idx)
        
-        duplicates = bmesh.ops.duplicate(bm, geom=backfaces)
+        dupe_faces = [
+            geo for geo in 
+            bmesh.ops.duplicate(bm, geom=backfaces[:])["geom"] 
+            if isinstance(geo, bmesh.types.BMFace)
+            ]
 
-        duplicated_faces = [geo for geo in duplicates["geom"] if isinstance(geo, bmesh.types.BMFace)]
+        bmesh.ops.reverse_faces(bm, faces=dupe_faces)
 
-        bmesh.ops.reverse_faces(bm, faces=duplicated_faces)
- 
         bm.to_mesh(mesh)
         bm.free()
 
-        mesh.update()
+        normals = []
+        for face_idx, face in enumerate(mesh.polygons):
+            if face_idx >= old_poly_count:
+                normals.extend([(0, 0, 0)] * face.loop_total)
+            else:
+                for i in range(face.loop_total):
+                    loop_idx = face.loop_start + i
+                    normals.append(tuple(mesh.loops[loop_idx].normal))
+
+        mesh.normals_split_custom_set(normals)
+
+    def backfaces_with_shapes(self, obj: Object):
+        key_blocks = obj.data.shape_keys.key_blocks
+
+        temp_obj = {}
+        verts    = len(obj.data.vertices)
+        shape_co = np.zeros(verts * 3, dtype=np.float32)
+        for key in key_blocks[1:]:
+            temp_copy = quick_copy(obj)
+            
+            key.data.foreach_get("co", shape_co)
+
+            temp_copy.shape_key_clear()
+            temp_copy.data.vertices.foreach_set("co", shape_co)
+            self.create_backfaces(temp_copy)
+
+            temp_obj[key.name] = temp_copy
+        
+        obj.shape_key_clear()
+        self.create_backfaces(obj)
+        obj.shape_key_add(name="Basis")
+
+        verts = len(obj.data.vertices)
+        shape_co = np.zeros(verts * 3, dtype=np.float32)
+
+        for key_name, copy in temp_obj.items():
+            copy: Object
+            copy.data.vertices.foreach_get("co", shape_co)
+
+            new_shape = obj.shape_key_add(name=key_name)
+            new_shape.data.foreach_set("co", shape_co)
+
+            safe_object_delete(copy)
 
     def _get_backfaces(self, bm: BMesh, bf_idx: int) -> list[BMFace]:
         deform_layer = bm.verts.layers.deform.active
@@ -408,57 +489,14 @@ class MeshHandler:
         
         return backfaces
     
-    def create_backfaces_sk(self, obj: Object):
-        bpy.context.view_layer.objects.active = obj
-        obj.vertex_groups.active = obj.vertex_groups["BACKFACES"]
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.object.vertex_group_select()
-        bpy.ops.mesh.duplicate()
-        bpy.ops.mesh.flip_normals()
-        bpy.ops.object.mode_set(mode='OBJECT')
-
     def restore_meshes(self) -> None:
         """We're trying a lot."""
         if self.logger:
             self.logger.log("Restoring scene...", 2)
         
         for obj in self.delete:
-            if not obj or obj.name not in bpy.data.objects:
-                continue
-                
-            try:
-                if obj.parent:
-                    obj.parent = None
-                
-                for collection in obj.users_collection:
-                    collection.objects.unlink(obj)
-                    
-            except Exception as e:
-                if self.logger:
-                    self.logger.log_exception(f"Error preparing {obj.name} for deletion: {e}")
-                else:
-                    print(f"Error preparing {obj.name} for deletion: {e}")
-        
-        try:
-            bpy.context.view_layer.update()
-        except:
-            if self.logger:
-                    self.logger.log_exception(f"Error updating view layer: {e}")
-            else:
-                print(f"Error updating view layer: {e}")
-        
-        for obj in self.delete:
-            if not obj or obj.name not in bpy.data.objects:
-                continue
-                
-            try:
-                bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
-            except Exception as e:
-                if self.logger:
-                    self.logger.log_exception(f"Error deleting {obj.name}: {e}")
-                else:
-                    print(f"Error deleting {obj.name}: {e}")
-        
+            safe_object_delete(obj)
+    
         for obj in self.reset:
             try:
                 obj.hide_set(state=False)

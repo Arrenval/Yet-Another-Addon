@@ -1,5 +1,5 @@
 class ModpackError(Exception):
-    """Base Modpack related class"""
+    """Base class"""
     pass
 
 class ModpackNameError(ModpackError):
@@ -17,3 +17,18 @@ class ModpackFileError(ModpackError):
 class ModpackGamePathError(ModpackError):
     """XIV game path is not valid"""
     pass
+
+class XIVMeshError(Exception):
+    """Base class"""
+    pass
+
+class XIVMeshParentError(XIVMeshError):
+    """Raised if mesh parent is not a visible armature"""
+
+    def __init__(self, amount: int) -> None:
+        self.amount = amount
+        plural  = "es" if self.amount > 1 else ""
+        concord = "are" if self.amount > 1 else "is"
+        message = f"{self.amount} mesh{plural} {concord} missing a parent skeleton."
+        super().__init__(message)
+
