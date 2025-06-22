@@ -636,11 +636,18 @@ class YAWindowProps(PropertyGroup):
 
         )  # type: ignore
     
-
-    armature: PointerProperty(
-        type= Armature,
+    outfit_armature: PointerProperty(
+        type= Object,
         name= "",
-        description= "New armature for imports"
+        description= "Select an armature from the scene",
+        poll=lambda self, obj: obj.type == "ARMATURE"
+        )  # type: ignore
+
+    import_armature: PointerProperty(
+        type= Object,
+        name= "",
+        description= "New armature for imports",
+        poll=lambda self, obj: obj.type == "ARMATURE"
         )  # type: ignore
     
     rename_import: StringProperty(
@@ -816,7 +823,8 @@ class YAWindowProps(PropertyGroup):
         feet_g_category     : bool
         ui_size_category    : str
         rename_import       : str
-        armature            : Armature
+        outfit_armature     : Object
+        import_armature     : Object
 
 class YAFileProps(PropertyGroup):
 
@@ -1150,12 +1158,6 @@ class YAOutfitProps(PropertyGroup):
         items=lambda self, context: self.get_vertex_groups(context, self.shapes_target)
         )  # type: ignore
     
-    armature: PointerProperty(
-        type= Armature,
-        name= "",
-        description= "Select an armature from the scene"
-        )  # type: ignore
-
     actions: EnumProperty(
         name="Animations",
         description="Select an animation from the scene",
@@ -1184,7 +1186,6 @@ class YAOutfitProps(PropertyGroup):
         shape_seam_base        : str
         obj_vertex_groups      : str
         exclude_vertex_groups  : str
-        armature               : Armature
         actions                : str
         
         shapes_source          : Object

@@ -7,9 +7,9 @@ import base64
 from math            import pi
 from pathlib         import Path
 from mathutils       import Quaternion
-from bpy.types       import Operator, Object, Armature, PoseBone, Context, Modifier
+from bpy.types       import Operator, PoseBone, Context, Modifier
 from bpy.props       import StringProperty, BoolProperty
-from ..properties    import get_outfit_properties
+from ..properties    import get_outfit_properties, get_window_properties
 from ..utils.objects import visible_meshobj
 
 
@@ -18,22 +18,20 @@ class PoseApply(Operator):
     bl_label = ""
     bl_options = {"UNDO", "REGISTER"}
 
-    filepath:       StringProperty() # type: ignore
+    filepath:       StringProperty(options={"HIDDEN"}) # type: ignore
     filter_glob:    StringProperty(
-        default='*.pose',
-        options={'HIDDEN'}) # type: ignore
+        default="*.pose",
+        options={"HIDDEN"}) # type: ignore
     
-    reset:          BoolProperty(default=False, options={'HIDDEN', "SKIP_SAVE"},) # type: ignore
-    use_clipboard:  BoolProperty(default=False, options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
+    reset:          BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"}) # type: ignore
+    use_clipboard:  BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"}) # type: ignore
    
     @classmethod
     def description(cls, context, properties):
         props = get_outfit_properties()
         if properties.reset:
-            if props.scaling_armature:
-                return "Reset scaling. Toggle scaling to reset pose"
-            else:
-                return "Reset pose. Toggle scaling to reset scale"
+            return "Click to reset pose. SHIFT click to reset scale"
+   
         if properties.use_clipboard:
             return "Apply C+ scaling from clipboard"
         else:
@@ -48,13 +46,19 @@ class PoseApply(Operator):
         
     @classmethod
     def poll(cls, context):
-        props = get_outfit_properties()
-        return not props.armature
+        window = get_window_properties()
+        return window.outfit_armature
     
     def invoke(self, context, event):
         self.actual_file = Path(self.filepath)
 
-        if self.reset or self.use_clipboard:
+        if self.reset:
+            scaling = False
+            if event.shift:
+                scaling = True
+            return self.reset_armature(context, scaling)
+        
+        elif self.use_clipboard:
             return self.execute(context)
         
         elif event.alt and event.type == "LEFTMOUSE" and self.actual_file.is_file():
@@ -62,7 +66,7 @@ class PoseApply(Operator):
             os.startfile(str(actual_dir))
 
         elif event.shift and event.type == "LEFTMOUSE" and self.actual_file.is_file():
-            self.execute(context)
+            return self.execute(context)
 
         elif event.type == "LEFTMOUSE":
             context.window_manager.fileselect_add(self)
@@ -74,6 +78,7 @@ class PoseApply(Operator):
     
     def execute(self, context):
         self.props        = get_outfit_properties()
+        self.window       = get_window_properties()
         self.scaling      = self.props.scaling_armature
         self.old_bone_map = {
             "j_asi_e_l": "ToesLeft",
@@ -164,60 +169,74 @@ class PoseApply(Operator):
             "n_ear_b_r": "EarringBRight"
             }
     
-        pose_file          = Path(self.filepath)
-        skeleton: Armature = self.props.armature
+        pose_file         = Path(self.filepath)
+        self.armature_obj = self.window.outfit_armature
 
-        visibility = skeleton.hide_get()
-        skeleton.hide_set(state=False)
+        visibility = self.armature_obj.hide_get()
+        self.armature_obj.hide_set(state=False)
 
-        if self.reset:
-            self.reset_armature(context, skeleton)
-
-        elif self.use_clipboard or (pose_file.exists() and pose_file.suffix == ".pose"):
+        if self.use_clipboard or (pose_file.exists() and pose_file.suffix == ".pose"):
             if not self.use_clipboard:
                 self.props.pose_display_directory = pose_file.stem
-            apply_status = self.apply(context, skeleton, pose_file)
+            apply_status = self.apply(context, pose_file)
+
             if apply_status == "JSON":
                 self.report({"ERROR"}, "Not a valid C+ preset.")
-            self.report({'INFO'}, f"{pose_file.stem} selected!")  
+            else:
+                self.report({"INFO"}, f"{pose_file.stem} selected!")  
 
         else:
-            self.report({'ERROR'}, "Not a valid pose file!")
+            self.report({"ERROR"}, "Not a valid pose file!")
 
-        skeleton.hide_set(state=visibility)
-        return {'FINISHED'}
+        self.armature_obj.hide_set(state=visibility)
+        return {"FINISHED"}
     
-    def reset_armature(self, context: Context, skeleton: Armature):
-        context.view_layer.objects.active = skeleton
-        bpy.ops.object.mode_set(mode='POSE')
-        bpy.ops.pose.select_all(action='SELECT')
-        if self.scaling:
-            bpy.ops.pose.scale_clear()
-        else:
-            bpy.ops.pose.rot_clear()
-            bpy.ops.pose.loc_clear()
-        bpy.ops.pose.select_all(action='DESELECT')
-        bpy.ops.object.mode_set(mode='OBJECT')
+    def reset_armature(self, context: Context, scaling:bool):
+        armature_obj = get_window_properties().outfit_armature
+        for bone in armature_obj.pose.bones:
+            if scaling:
+                bone.scale = (1.0, 1.0, 1.0)
+            else:
+                bone.location = (0.0, 0.0, 0.0)
+                
+                if bone.rotation_mode == "QUATERNION":
+                    bone.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+                else:
+                    bone.rotation_euler = (0.0, 0.0, 0.0)
 
-    def apply(self, context: Context, skeleton: Armature, pose_file: Path) -> str:
+        context.view_layer.update()
+        return {"FINISHED"}
+
+    def apply(self, context: Context, pose_file: Path) -> None:
         if self.use_clipboard:
             try:
                 clipboard = bpy.context.window_manager.clipboard
                 clip_result= gzip.decompress(base64.b64decode(clipboard))
-                pose = json.loads(clip_result[1:].decode('utf-8'))
-            except:
-                return "JSON"
+                pose = json.loads(clip_result[1:].decode("utf-8"))
+            except Exception as e:
+                raise f"Error reading clipboard: {e}"
         else:
             with open(pose_file, "r") as file:
                 pose = json.load(file)
  
         if self.scaling or self.use_clipboard:
-            for bone in skeleton.data.bones:
-                bone.inherit_scale = 'NONE'
-            for bone in skeleton.pose.bones:
+            for bone in self.armature_obj.data.bones:
+                bone.inherit_scale = "NONE"
+            for bone in self.armature_obj.pose.bones:
                 self.scale_bones(pose["Bones"], bone)
 
         else:
+            # Checks if the armature has an unapplied World Space x axis rotation, typical for TT n_roots
+            self.is_rotated = self.armature_obj.rotation_euler[0] != 0.0
+
+            # Get world space matrix of armature
+            if self.is_rotated:
+                self.armature_world = self.armature_obj.matrix_world.copy()
+            else:
+                # Apply 90° X rotation for coordinate system correction
+                self.x_rotation = Quaternion((1, 0, 0), pi / 2).to_matrix().to_4x4()
+                self.armature_world = self.armature_obj.matrix_world @ self.x_rotation
+
             visible_mesh = visible_meshobj()
             # Dictionary of objects linked to the skeleton and their armature modifier state.
             # We toggle off any armature modifiers to reduce render time for the depsgraph update later.
@@ -225,29 +244,25 @@ class PoseApply(Operator):
             for obj in visible_mesh:
                 arm_modifiers: list[Modifier] = [modifier for modifier in obj.modifiers if modifier.type == "ARMATURE"]
                 for modifier in arm_modifiers:
-                    if modifier.object == skeleton: 
+                    if modifier.object == self.armature_obj: 
                         obj_skeleton[obj.name] = modifier.name, modifier.show_viewport
                         modifier.show_viewport = False
 
-            # Get world space matrix of armature
-            self.rotation_x90   = Quaternion((1, 0, 0), pi / 2)
-            # Checks if the armature has an unapplied World Space x axis rotation, typical for TT n_roots
-            self.is_rotated     = skeleton.rotation_euler[0] != 0.0
-            # We need to update Blender's depsgraph per bone level or else child bones will not be given the proper local space rotation
-            bone_levels = self.get_bone_hierarchy_levels(skeleton)
+
+            # We need to update Blender"s depsgraph per bone level or else child bones will not be given the proper local space rotation
+            bone_levels = self.get_bone_hierarchy_levels()
             for level in range(max(bone_levels.keys())):
                 level_bones = bone_levels[level]
                 for bone in level_bones:
-                    self.convert_rotation_space(skeleton, pose["Bones"], bone)
-                skeleton.update_tag(refresh={'DATA'})
+                    self.convert_rotation_space(pose["Bones"], bone)
+
+                self.armature_obj.update_tag(refresh={"DATA"})
                 context.evaluated_depsgraph_get().update()
             
             for obj_name, (modifer, modifier_state) in obj_skeleton.items():
                 bpy.data.objects[obj_name].modifiers[modifer].show_viewport = modifier_state
-            
-            return ""
     
-    def convert_rotation_space(self, skeleton: Armature, source_bone_rotations: dict[str, str], bone: PoseBone) -> None:
+    def convert_rotation_space(self, source_bone_rotations: dict[str, str], bone: PoseBone) -> None:
         bone_name = bone.name
         if bone_name not in source_bone_rotations:
             if bone_name not in self.old_bone_map:
@@ -266,19 +281,34 @@ class PoseApply(Operator):
             final_matrix        = rotation.to_matrix().to_4x4()
         else:
             # Adjust global space of quaternion
-            corrected_rotation  = self.rotation_x90 @ rotation
+            corrected_rotation  = Quaternion((1, 0, 0), pi / 2) @ rotation
             final_matrix        = corrected_rotation.to_matrix().to_4x4()
         
         # Gives us local space rotation for the bone
-        bone_rotation = skeleton.convert_space(
+        bone_rotation = self.armature_obj.convert_space(
             pose_bone=bone,
             matrix=final_matrix,
-            from_space='POSE',
-            to_space='LOCAL'
+            from_space="POSE",
+            to_space="LOCAL"
         )
         
-        bone.rotation_mode = 'QUATERNION'
+        bone.rotation_mode = "QUATERNION"
         bone.rotation_quaternion = bone_rotation.to_quaternion()
+
+    def get_bone_hierarchy_levels(self) -> dict[int, list]:
+        bone_levels: dict[int, list] = {}
+        
+        def calculate_bone_level(bone: PoseBone, level: int):
+            bone_levels.setdefault(level, [])
+            bone_levels[level].append(bone)
+            for child in bone.children:
+                calculate_bone_level(child, level + 1)
+        
+        for bone in self.armature_obj.pose.bones:
+            if not bone.parent:
+                calculate_bone_level(bone, 0)
+        
+        return bone_levels
 
     def scale_bones(self, source_bone_scaling: dict[str, str], bone: PoseBone):
         bone_name = bone.name
@@ -301,23 +331,8 @@ class PoseApply(Operator):
             bone.scale[0] = float(scaling_dict["X"])
             bone.scale[1] = float(scaling_dict["Y"])
             bone.scale[2] = float(scaling_dict["Z"])     
-
-    def get_bone_hierarchy_levels(self, skeleton: Armature) -> dict[int, list]:
-        bone_levels: dict[int, list] = {}
-        
-        def calculate_bone_level(bone: PoseBone, level: int):
-            bone_levels.setdefault(level, [])
-            bone_levels[level].append(bone)
-            for child in bone.children:
-                calculate_bone_level(child, level + 1)
-        
-        for bone in skeleton.pose.bones:
-            if not bone.parent:
-                calculate_bone_level(bone, 0)
-        
-        return bone_levels
-
     
+
 CLASSES = [
     PoseApply
 ]

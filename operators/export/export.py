@@ -135,7 +135,7 @@ class FileExport:
         self.file_format = file_format
         self.file_path   = file_path
         self.selected_directory = Path(self.prefs.export_dir)
-
+ 
     def export_template(self):
         export_settings = self.get_export_settings()
     
@@ -422,7 +422,7 @@ class BatchQueue(Operator):
             reset_chest_values(self.saved_sizes)
             bpy.ops.yakit.collection_manager(preset="Restore")
             return {"FINISHED"}
-              
+       
     def collection_state(self) -> None:
         devkit_props = get_devkit_properties()
         collection_state = devkit_props.collection_state
@@ -514,7 +514,6 @@ class BatchQueue(Operator):
                 else:
                     self.queue.append((name, options, size, gen, target))
                 
-        devkit          = get_devkit_properties()
         mesh            = self.ob_mesh_dict[body_slot]
         rue_export      = self.window.rue_export
         target          = get_object_from_mesh(mesh).data.shape_keys.key_blocks
@@ -525,7 +524,7 @@ class BatchQueue(Operator):
         masc_sizes      = ["Flat", "Pecs"]
         enabled_bodies  = []
 
-        for shape, (name, slot, category, description, body, key) in devkit.ALL_SHAPES.items():
+        for shape, (name, slot, category, description, body, key) in self.devkit_props.ALL_SHAPES.items():
             if body and slot == body_slot and self.size_options[shape]:
                 enabled_bodies.append(shape)
     
@@ -546,7 +545,7 @@ class BatchQueue(Operator):
                         continue
                     for gen, options_groups in self.actual_combinations.items(): 
                         exception_handling(size, gen, gen_options)
-                      
+                 
     def shape_combinations(self, body_slot:str) -> dict[str, set[tuple]]:
         devkit              = get_devkit_properties()
         possible_parts      = [ 
@@ -584,7 +583,7 @@ class BatchQueue(Operator):
                     actual_combinations[shape] = all_combinations
 
         return actual_combinations
-                       
+              
     def name_generator(self, options:tuple[str, ...], size:str, body:str, bodies:int, gen:str, gen_options:int, body_slot:str) -> str:
         devkit      = get_devkit_properties()
         gen_name    = None
@@ -644,7 +643,7 @@ class BatchQueue(Operator):
             return f"{self.prefix} - " + " - ".join(list(file_names))
         
         return " - ".join(list(file_names))
-        
+
     def export_queue(self, context:Context, item: tuple, body_slot:str) -> int | None:
 
         def clean_file_name (file_name: str) -> str:

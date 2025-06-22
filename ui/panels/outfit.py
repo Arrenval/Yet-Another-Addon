@@ -536,9 +536,9 @@ class OutfitStudio(Panel):
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Armature:")
-        split.prop(self.outfit_props, "armature", text="", icon="ARMATURE_DATA")
+        split.prop(self.window_props, "outfit_armature", text="", icon="ARMATURE_DATA")
         box.separator(factor=0.5, type="LINE")
-        if not self.outfit_props.armature:
+        if not self.window_props.outfit_armature:
             row = box.row()
             row.alignment = "CENTER"
             row.label(text="Please select an Armature.", icon="INFO")
@@ -570,7 +570,7 @@ class OutfitStudio(Panel):
             split.prop(self.outfit_props, "actions", text="", icon="ACTION")
 
             
-            if not self.outfit_props.armature and self.outfit_props.actions != "None":
+            if not self.window_props.outfit_armature and self.outfit_props.actions != "None":
                 # box.separator(factor=0.5, type="LINE")
                 row = box.row(align=True)
                 col = row.column(align=True)

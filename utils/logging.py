@@ -31,7 +31,7 @@ class YetAnotherLogger:
         self.warning    = False
         self.start_time = start_time
         self.output_dir = output_dir
-        self.messages   = deque(maxlen=20)
+        self.messages   = deque(maxlen=50)
         self.last_item  = None  # Stores the last processed item at the lowest level of detail. Used in final error output.
         self.total      = total  
         self.current    = 0      
@@ -53,7 +53,9 @@ class YetAnotherLogger:
                 ["powershell", "-NoExit", "-Command", "-"],
                 stdin=subprocess.PIPE,
                 text=True,
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                creationflags=(
+                    subprocess.CREATE_NEW_CONSOLE |
+                    subprocess.ABOVE_NORMAL_PRIORITY_CLASS),
                 startupinfo=startupinfo
             )
             
@@ -138,13 +140,16 @@ class YetAnotherLogger:
         char = char or self.STANDARD_SEP_CHAR
         self.log(char * self.SEPARATOR_LENGTH)
     
-    def log_progress(self, current: int=None, temp_total: int=None, operation="Processing", time_estimate=True) -> None:
+    def log_progress(self, current: int=None, temp_total: int=None, operation="Processing", time_estimate=True, clear_messages=False) -> None:
         """Log a progress bar - now updates the persistent progress display at top
         
         Args:
             current: Current progress count. If None, increments by 1. -1 will just reprint the main process' value.
             temp_total: Can be used to track a subprocess related to the main process.
         """
+        if clear_messages:
+            self.messages = []
+
         if current is None:
             self.current += 1
             current = self.current
@@ -190,10 +195,10 @@ class YetAnotherLogger:
                     elif isinstance(error, str):
                         log.write(error)
             
-            if self.last_item:
-                log.write("LAST PROCESSED ITEM: \n")
-                log.write(self.ERROR_SEP_CHAR * self.SEPARATOR_LENGTH + "\n")
-                log.write(str(self.last_item) + "\n")
+                if self.last_item:
+                    log.write("LAST PROCESSED ITEM: \n")
+                    log.write(self.ERROR_SEP_CHAR * self.SEPARATOR_LENGTH + "\n")
+                    log.write(str(self.last_item) + "\n")
 
             return "ya_error.log"
 

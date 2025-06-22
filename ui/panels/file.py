@@ -330,7 +330,7 @@ class FileManager(Panel):
         text = 'Remove' if self.prefs.remove_nonmesh else 'Keep'
         aligned_row(col, "Non-Mesh:", "remove_nonmesh", self.prefs, prop_str=text, attr_icon=icon)
 
-        aligned_row(col, "Armature:", "armature", self.window_props)
+        aligned_row(col, "Armature:", "import_armature", self.window_props)
 
         layout.separator(factor=0.1)
 
