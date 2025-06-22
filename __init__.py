@@ -2,7 +2,7 @@ import bpy
 
 from .          import preferences
 from .          import properties
-from .ui.menu   import menu_vertex_group_append
+from .ui.menu   import menu_vertex_group_append, draw_modifier_options
 from .handlers  import set_handlers, remove_handlers
 
 from pathlib    import Path
@@ -58,10 +58,13 @@ def register():
 
     set_handlers()
     bpy.types.Scene.ya_addon_ver = (0, 15, 0)
+    bpy.types.DATA_PT_modifiers.append(draw_modifier_options)
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_vertex_group_append)
+    
 
 def unregister():
     bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_vertex_group_append)
+    bpy.types.DATA_PT_modifiers.remove(draw_modifier_options)
     del bpy.types.Scene.ya_addon_ver
     remove_handlers()
     

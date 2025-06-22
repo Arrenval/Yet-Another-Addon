@@ -106,4 +106,11 @@ def quick_copy(source_obj: Object, key_name: str=None) -> Object:
             temp_obj.data.shape_keys.animation_data_clear()
 
     return temp_obj
-    
+
+def evaluate_obj(obj: Object, depsgraph: Depsgraph) -> Object:
+        eval_obj  = obj.evaluated_get(depsgraph)
+        obj.data = bpy.data.meshes.new_from_object(
+                        eval_obj,
+                        preserve_all_data_layers=True,
+                        depsgraph=depsgraph)
+        
