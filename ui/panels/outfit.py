@@ -522,10 +522,13 @@ class OutfitStudio(Panel):
                 obj.vertex_groups, "active_index", 
                 rows=5
                 )
+            
         row = col.row(align=True)
-        row.operator("ya.remove_select_vgroups", text= "Remove Selected").preset = "PANEL"
-        row.operator("ya.remove_empty_vgroups", text= "Remove Empty")
+        row.operator("ya.remove_select_vgroups", text= "Selected").preset = "PANEL"
+        row.operator("ya.remove_gen", text= "Genitalia")
+        row.operator("ya.remove_empty_vgroups", text= "Empty")
         row.prop(self.window_props, "filter_vgroups", text="", icon="FILTER")
+        col.operator("ya.yas_test", text="Test")
                     
     def draw_armature(self, layout:UILayout):
         box = layout.box()
@@ -536,7 +539,7 @@ class OutfitStudio(Panel):
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Armature:")
-        split.prop(self.window_props, "outfit_armature", text="", icon="ARMATURE_DATA")
+        split.prop(self.outfit_props, "outfit_armature", text="", icon="ARMATURE_DATA")
         box.separator(factor=0.5, type="LINE")
         if not self.window_props.outfit_armature:
             row = box.row()

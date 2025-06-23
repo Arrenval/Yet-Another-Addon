@@ -1,8 +1,9 @@
 import bpy
 
-from bpy.props      import StringProperty, EnumProperty, BoolProperty
-from bpy.types      import Operator, Object, VertexGroup, Context, ArmatureModifier
-from ..properties   import get_window_properties
+from bpy.props            import StringProperty, EnumProperty, BoolProperty
+from bpy.types            import Operator, Context
+from ..properties         import get_window_properties
+from ..utils.mesh_handler import remove_vertex_groups
 
 
 class RemoveEmptyVGroups(Operator):                         
@@ -68,9 +69,9 @@ class RemoveSelectedVGroups(Operator):
 
         if old_mode == 'PAINT_WEIGHT':
             old_mode = 'WEIGHT_PAINT'
+
         bpy.ops.object.mode_set(mode='OBJECT')
-        obj: Object = context.active_object
-        old_weight = {}
+        obj = context.active_object
 
         if self.preset != "MENU" and props.filter_vgroups:
             yas_vgroups  = props.yas_vgroups
@@ -78,51 +79,21 @@ class RemoveSelectedVGroups(Operator):
             vertex_group = obj.vertex_groups.get(yas_vgroups[index].name)
         else: 
             vertex_group = obj.vertex_groups.active
-       
-        parent_vgroup = self.get_parent_group(obj, vertex_group)
-        if not parent_vgroup:
-            self.report({'ERROR'}, "Skeleton is missing parent bone, or your mesh is not linked to a skeleton.")
+
+        if not obj.parent.data.bones.get(vertex_group.name):
+            self.report({'ERROR'}, "Selected group has no parent.")
+            return {'CANCELLED'}
+
+        if not obj.parent and obj.parent.type == "ARMATURE":
+            self.report({'ERROR'}, "Mesh is missing a parent skeleton")
             return {'CANCELLED'}
         
-        if not obj.vertex_groups.get(parent_vgroup):
-            bpy.ops.object.vertex_group_add()
-            obj.vertex_groups.active.name = parent_vgroup
-       
-        new_group = obj.vertex_groups.get(parent_vgroup)
-        
-        for v in obj.data.vertices:
-            try:
-                old_weight[v.index] = vertex_group.weight(v.index)
-            except:
-                continue
+        remove_vertex_groups(obj, (vertex_group.name))
 
-        for index, weight in old_weight.items():
-            new_group.add(index=[index], weight=weight, type='ADD')
-
+        parent_vgroup = obj.parent.data.bones.get(vertex_group.name).parent.name
         self.report({'INFO'}, f"Removed {vertex_group.name}, weights added to {parent_vgroup}.")
-        obj.vertex_groups.remove(group=vertex_group)
         bpy.ops.object.mode_set(mode=old_mode)
         return {"FINISHED"}
-
-    def get_parent_group(self, obj:Object, vertex_group:VertexGroup) -> str:
-        if obj.parent is not None and obj.parent.type == "ARMATURE":
-            bone = obj.parent.data.bones.get(vertex_group.name)
-            if bone:
-                return bone.parent.name
-            
-        for modifier in obj.modifiers:
-            if modifier.type != "ARMATURE":
-                continue
-
-            modifier: ArmatureModifier
-            armature = modifier.object
-            if armature is None:
-                return ""
-            bone = armature.data.bones.get(vertex_group.name)
-            if bone:
-                return bone.parent.name
-            else:
-                return ""
 
 class AddYASGroups(Operator):
     bl_idname = "ya.add_yas_vgroups"
@@ -297,9 +268,48 @@ class AddYASGroups(Operator):
 
         return {"FINISHED"}  
 
+class RemoveGenGroups(Operator):
+    bl_idname = "ya.remove_gen"
+    bl_label = ""
+    bl_description = "Removes most genitalia related groups and adds the weights to the parent group"
+    bl_options = {"UNDO"}
+
+    preset: StringProperty() # type: ignore
+
+    def execute(self, context: Context):
+        obj = context.active_object
+        genitalia = [
+            'iv_kuritto',                   
+            'iv_inshin_l',               
+            'iv_inshin_r',               
+            'iv_omanko', 
+            'iv_koumon',                      
+            'iv_koumon_l',                 
+            'iv_koumon_r',
+
+            'iv_kintama_phys_l',              
+            'iv_kintama_phys_r',    
+            'iv_kougan_l',
+            'iv_kougan_r',
+           
+            'iv_funyachin_phy_b',        
+            'iv_funyachin_phy_c',        
+            'iv_funyachin_phy_d',     
+            'iv_ochinko_a',                 
+            'iv_ochinko_b',              
+            'iv_ochinko_c',              
+            'iv_ochinko_d',                 
+            'iv_ochinko_e',         
+            'iv_ochinko_f',
+            ]
+        
+        remove_vertex_groups(obj, tuple(genitalia))
+        return {"FINISHED"}
+
 
 CLASSES = [
     RemoveEmptyVGroups,
     RemoveSelectedVGroups,
-    AddYASGroups
+    AddYASGroups,
+    RemoveGenGroups
 ]

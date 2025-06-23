@@ -81,12 +81,17 @@ class FileManager(Panel):
         layout.separator(type="LINE")
         
         row = layout.row(align=True)
-        icon = 'CHECKMARK' if self.window_props.check_tris else 'PANEL_CLOSE'
-        row.prop(self.window_props, "check_tris", text="Check Tris", icon=icon)
-        icon = 'CHECKMARK' if self.window_props.keep_shapekeys else 'PANEL_CLOSE'
+        icon = get_conditional_icon(self.window_props.keep_shapekeys)
         row.prop(self.window_props, "keep_shapekeys", text="Shape Keys", icon=icon)
-        icon = 'CHECKMARK' if self.window_props.create_backfaces else 'PANEL_CLOSE'
-        row.prop(self.window_props, "create_backfaces", text="Backfaces", icon=icon)
+        icon = get_conditional_icon(self.window_props.check_tris)
+        row.prop(self.window_props, "check_tris", text="Check Tris", icon=icon)
+        icon = get_conditional_icon((self.window_props.create_backfaces and self.window_props.check_tris))
+        row.prop(self.window_props, "create_backfaces", text="Backfaces", icon=icon, emboss=self.window_props.check_tris)
+
+        layout.separator(type="LINE")
+
+        aligned_row(layout, "IVCS/YAS:", "remove_yas", self.window_props)
+        # row.prop(self.window_props, "remove_yas", text="Remove YAS")
 
         layout.separator(factor=0.1)
 
@@ -252,32 +257,31 @@ class FileManager(Panel):
         
             layout.separator(factor=0.5, type="LINE")
 
-        box = layout.box()
-        row = box.row(align=True)
-        row.alignment = "CENTER"
-        row.label(text="Batch Options")
+        if get_devkit_properties():
+            box = layout.box()
+            row = box.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="Batch Options")
 
-        layout.separator(factor=0.1) 
+            layout.separator(factor=0.1) 
 
-        row = layout.row(align=True)
-        col = row.column(align=True)
-        
-        aligned_row(col, "Export Prefix:", "rename_import", self.window_props)
+            row = layout.row(align=True)
+            col = row.column(align=True)
+            
+            aligned_row(col, "Export Prefix:", "export_prefix", self.window_props)
 
-        icon = get_conditional_icon(self.window_props.body_names)
-        text = "Always" if self.window_props.body_names else "Conditional"
-        aligned_row(col, "Body Names:", "body_names", self.window_props, prop_str=text, attr_icon=icon)
+            icon = get_conditional_icon(self.window_props.body_names)
+            text = "Always" if self.window_props.body_names else "Conditional"
+            aligned_row(col, "Body Names:", "body_names", self.window_props, prop_str=text, attr_icon=icon)
 
-        icon = get_conditional_icon(self.window_props.create_subfolder)
-        text = "Standalone" if self.window_props.create_subfolder else "Variant"
-        aligned_row(col, "Rue Export:", "rue_export", self.window_props, prop_str=text, attr_icon=icon)
+            icon = get_conditional_icon(self.window_props.create_subfolder)
+            text = "Standalone" if self.window_props.create_subfolder else "Variant"
+            aligned_row(col, "Rue Export:", "rue_export", self.window_props, prop_str=text, attr_icon=icon)
 
-        icon = get_conditional_icon(self.window_props.create_subfolder)
-        text = "Remove" if self.window_props.create_subfolder else "Keep"
-        aligned_row(col, "Subfolder:", "create_subfolder", self.window_props, prop_str=text, attr_icon=icon)
+            icon = get_conditional_icon(self.window_props.create_subfolder)
+            text = "Remove" if self.window_props.create_subfolder else "Keep"
+            aligned_row(col, "Subfolder:", "create_subfolder", self.window_props, prop_str=text, attr_icon=icon)
 
-        layout.separator(factor=0.1)
-    
     def draw_import(self, layout:UILayout):
         layout = self.layout
         row = layout.row(align=True)
@@ -330,9 +334,7 @@ class FileManager(Panel):
         text = 'Remove' if self.prefs.remove_nonmesh else 'Keep'
         aligned_row(col, "Non-Mesh:", "remove_nonmesh", self.prefs, prop_str=text, attr_icon=icon)
 
-        aligned_row(col, "Armature:", "import_armature", self.window_props)
-
-        layout.separator(factor=0.1)
+        aligned_row(col, "Armature:", "import_armature", self.file_props)
 
     def draw_modpack(self, layout:UILayout):
         self.checked_folders = {}
