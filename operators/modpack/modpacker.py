@@ -217,7 +217,7 @@ class ModPackager(Operator):
 
         if (self.output_dir / f"{self.pmp_name}.pmp").is_file():
             self.props.modpack_dir = str(self.output_dir / f"{self.pmp_name}.pmp")
-            modpack_data(context)
+            modpack_data()
 
         setattr(self.props, "modpack_replace", True)
 

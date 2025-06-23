@@ -11,7 +11,6 @@ class ModifierState(PropertyGroup):
     type : StringProperty(default="", name="", description="Modifier type") # type: ignore
     apply: BoolProperty(default=False) # type: ignore
     
-
 class ShapeKeyModifier(Operator):
     bl_idname = "ya.apply_modifier_sk"
     bl_label = ""
@@ -32,6 +31,10 @@ class ShapeKeyModifier(Operator):
                     options={"HIDDEN","SKIP_SAVE"}
                     ) # type: ignore
     
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT"
+        
     def invoke(self, context: Context, event) -> None:
         obj = context.active_object
         for modifier in obj.modifiers:
@@ -213,22 +216,20 @@ class ShapeKeyModifier(Operator):
         icon = get_conditional_icon(self.remove)
         split.prop(self, "remove", text="Apply Shape Mix", icon=icon)
 
-        layout.separator(type="LINE", factor=2)
+        if not self.all_mod:
+            layout.separator(type="LINE", factor=2)
 
-        for modifier in self.modifiers:
-            row = layout.row(align=True)
-            split = row.split(factor=0.6)
-            icon = get_conditional_icon(modifier.apply)
-            split.prop(modifier, "apply", icon=icon, text=modifier.name)
-            text = modifier.type.replace("_", " ")
-            split.label(text=text)
+            for modifier in self.modifiers:
+                row = layout.row(align=True)
+                split = row.split(factor=0.6)
+                icon = get_conditional_icon(modifier.apply)
+                split.prop(modifier, "apply", icon=icon, text=modifier.name)
+                text = modifier.type.replace("_", " ")
+                split.label(text=text)
         
         layout.separator(type="LINE")
 
-      
-
-
-        
+              
 CLASSES = [
     ModifierState,
     ShapeKeyModifier

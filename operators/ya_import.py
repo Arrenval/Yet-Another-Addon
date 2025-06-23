@@ -12,7 +12,7 @@ class SimpleImport(Operator):
     bl_idname = "ya.simple_import"
     bl_label = "Open Import Window"
     bl_description = "Import a file in the selected format"
-    bl_options = {"UNDO", "REGISTER"}
+    bl_options = {"UNDO"}
 
     preset: StringProperty() # type: ignore
 
@@ -25,11 +25,11 @@ class SimpleImport(Operator):
         self.props   = get_window_properties()
         setattr(self.props, "waiting_import", False)
 
-        gltf = get_file_properties().file_gltf
+        format = get_window_properties().file_format
 
-        if gltf:
+        if format == "GLTF":
             bpy.ops.import_scene.gltf("INVOKE_DEFAULT")
-        else:
+        elif format == "FBX":
             bpy.ops.import_scene.fbx("INVOKE_DEFAULT", ignore_leaf_bones=True)
         
         if self.cleanup:

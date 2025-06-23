@@ -271,7 +271,7 @@ class SimpleExport(Operator):
     def poll(cls, context):
         return context.mode == "OBJECT"
 
-    def invoke(self, context, event):
+    def invoke(self, context: Context, event):
         self.props       = get_file_properties()
         self.window      = get_window_properties()
         self.check_tris  = self.props.check_tris
@@ -348,13 +348,12 @@ class BatchQueue(Operator):
         self.prefs            = get_prefs()
         self.devkit_props     = get_devkit_properties()
         self.check_tris:bool  = self.window.check_tris
-        self.force_yas:bool   = self.window.force_yas
         self.subfolder:bool   = self.window.create_subfolder
         self.export_dir       = Path(self.prefs.export_dir)
         self.file_format      = self.window.file_format
         self.body_slot:str    = self.window.export_body_slot
         self.size_options     = self.get_size_options()
-        self.prefix:str       = ""
+        self.prefix:str       = self.window.export_prefix
     
         self.leg_sizes = {
             "Melon": self.size_options["Melon"],
@@ -640,7 +639,7 @@ class BatchQueue(Operator):
             file_names.append(gen_name)
 
         if self.prefix.strip():
-            return f"{self.prefix} - " + " - ".join(list(file_names))
+            return f"{self.prefix.strip()} - " + " - ".join(list(file_names))
         
         return " - ".join(list(file_names))
 
@@ -772,11 +771,13 @@ class BatchQueue(Operator):
                     combined_name = main_name + " - " + leg_name
                     final_name = clean_file_name(combined_name)
                     if not any(final_name in name for name in exported):
+                        bpy.context.evaluated_depsgraph_get()
                         exported.append(final_name)
                         file_path = get_export_path(self.export_dir, final_name, self.subfolder, self.body_slot)
                         export_result(file_path, self.file_format, self.logger)
         
         else:
+            bpy.context.evaluated_depsgraph_get()
             file_path = get_export_path(self.export_dir, main_name, self.subfolder, self.body_slot)
             export_result(file_path, self.file_format, self.logger)
       

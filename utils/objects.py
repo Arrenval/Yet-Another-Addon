@@ -67,11 +67,6 @@ def copy_mesh_object(source_obj: Object, depsgraph: Depsgraph, export=True) -> O
 
     new_obj.parent = source_obj.parent
     
-    # Assuming TT FBX import needs an armature modifier.
-    if export:
-        armature        = new_obj.modifiers.new(name="Armature", type="ARMATURE")
-        armature.object = source_obj.parent
-
     # If we don't do this, we will crash later if the original mesh had an invalid driver.
     if new_obj.animation_data:
         new_obj.animation_data_clear()
@@ -83,6 +78,11 @@ def copy_mesh_object(source_obj: Object, depsgraph: Depsgraph, export=True) -> O
     # This is just cleanup
     new_obj.modifiers.clear()
     new_obj.shape_key_clear()
+
+    # Assuming TT FBX import needs an armature modifier.
+    if export:
+        armature        = new_obj.modifiers.new(name="Armature", type="ARMATURE")
+        armature.object = source_obj.parent
 
     return new_obj
 

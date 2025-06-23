@@ -13,11 +13,12 @@ from .utils.penumbra import Modpack
 
 
 def modpack_data() -> None:
-    props = get_window_properties()
+    window = get_window_properties()
+    props  = get_file_properties()
     props.loaded_pmp_groups.clear()
 
-    blender_groups = props.pmp_mod_groups
-    modpack_path = Path(props.modpack_dir)
+    blender_groups = window.pmp_mod_groups
+    modpack_path = Path(window.modpack_dir)
 
     if modpack_path.is_file():
         modpack = Modpack.from_archive(modpack_path)
@@ -32,8 +33,8 @@ def modpack_data() -> None:
         new_option.group_page = group.Page
         new_option.group_priority = group.Priority
 
-    props.modpack_author  = modpack.meta.Author
-    props.modpack_version = modpack.meta.Version
+    window.modpack_author  = modpack.meta.Author
+    window.modpack_version = modpack.meta.Version
 
     name_to_idx = {group.Name: str(idx) for idx, group in enumerate(modpack.groups)}
     for blend_group in blender_groups:
@@ -298,15 +299,17 @@ class BlendModGroup(ModpackHelper):
         )  # type: ignore
 
     def set_group_values(self):
-        props                             = get_window_properties()
-        replace                           = props.modpack_replace
+        props   = get_file_properties()
+        window  = get_window_properties()
+        replace = window.modpack_replace
+
         modpack: list[LoadedModpackGroup] = props.loaded_pmp_groups
         
         if self.idx != "New":
             # idx = self.idx - 1
             group = modpack[int(self.idx)]
             if self.name == "" or not self.name_set and replace:
-                self.name = group[int(self.idx)].group_name
+                self.name = group.group_name
 
             try:
                 self.page = str(group.group_page)
@@ -322,7 +325,7 @@ class BlendModGroup(ModpackHelper):
             self.description = ""
 
     def set_name(self):
-        props = get_window_properties()
+        props = get_file_properties()
         self.name: str
         scene_groups: list[LoadedModpackGroup] = props.loaded_pmp_groups
 
@@ -334,7 +337,7 @@ class BlendModGroup(ModpackHelper):
             self.name_set = True
 
     def get_groups_page(self, context:Context) -> BlendEnum:
-        props = get_window_properties()
+        props = get_file_properties()
         pages = set([option.group_page for option in props.loaded_pmp_groups])
 
         if len(pages) >= 1:
@@ -343,7 +346,7 @@ class BlendModGroup(ModpackHelper):
             return [("0", f"Pg: 0", "")]
         
     def get_modpack_groups(self, context:Context) -> BlendEnum:
-        props   = get_window_properties()
+        props   = get_file_properties()
         modpack = props.loaded_pmp_groups
         groups  = [("", "New:", ""), ("New", "New Group", "")]
         page    = 0
@@ -463,13 +466,12 @@ class YAWindowProps(PropertyGroup):
         ("weights",  "category",   False, "Enables weight editing menu"),
         ("armature", "category",   False, "Enables animation playback and pose/scaling menu"),
         ("filter",   "vgroups",    True,  "Switches between showing all vertex groups or just YAS groups"),
-        ("create",   "backfaces",  True,   "Creates backface meshes on export based on existing vertex groups"),
+        ("create",   "backfaces",  True,   "Creates backface meshes on export. Meshes need to be triangulated"),
         ("check",    "tris",       True,   "Verify that the meshes are triangulated"),
-        ("force",    "yas",        False,  "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
         ("keep",     "shapekeys",  True,   "Preserves game ready shape keys"),
         ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),
         ("rue",      "export",     True,   "Controls whether Rue is exported as a standalone body and variant, or only as a variant for Lava/Masc"),
-        ("body",     "names",      False,  "Alwyays add body names on exported files or depending on how many bodies you export"),
+        ("body",     "names",      False,  "Always add body names on exported files or depending on how many bodies you export"),
         ("chest",    "g_category", False,  "Changes gamepath category"),
         ("hands",    "g_category", False,  "Changes gamepath category"),
         ("legs",     "g_category", False,  "Changes gamepath category"),
@@ -494,10 +496,6 @@ class YAWindowProps(PropertyGroup):
         type=BlendModGroup
         ) # type: ignore
     
-    loaded_pmp_groups: CollectionProperty(
-        type=LoadedModpackGroup
-        ) # type: ignore
-    
     animation_optimise   : CollectionProperty(type=AnimationOptimise) # type: ignore
 
     shape_modifiers_group: CollectionProperty(type=ShapeModifiers) # type: ignore
@@ -505,6 +503,11 @@ class YAWindowProps(PropertyGroup):
     yas_vgroups : CollectionProperty(type=YASVGroups) # type: ignore
 
 
+    export_prefix: StringProperty(
+        name="",
+        description="This will be prefixed to all your exported filenames",
+        maxlen=255,
+        )  # type: ignore
 
     file_man_ui: EnumProperty(
         name= "",
@@ -525,6 +528,17 @@ class YAWindowProps(PropertyGroup):
             ("Hands", "Hands", "Hand export options.", "VIEW_PAN", 2),
             ("Feet", "Feet", "Feet export options.", "VIEW_PERSPECTIVE", 3),
             ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.", "ARMATURE_DATA", 4)]
+        )  # type: ignore
+
+    remove_yas: EnumProperty(
+        name= "",
+        description= "Decides what modded bones to keep",
+        items= [
+            ("KEEP", "Keep", "Retains all modded bones"),
+            ("NO_GEN", "No Genitalia", "Removes non-clothing related genitalia weights"),
+            ("REMOVE", "Remove", "Removes all IVCS/YAS bones"),
+        ]
+        
         )  # type: ignore
 
     file_format: EnumProperty(
@@ -676,8 +690,8 @@ class YAWindowProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-
     def update_mod_enums(self, context):
+        file = get_file_properties()
         if self.modpack_replace:
             modpack_data()
 
@@ -686,7 +700,7 @@ class YAWindowProps(PropertyGroup):
             for blend_group in blender_groups:
                 blend_group.idx = "New"
 
-            self.loaded_pmp_groups.clear()
+            file.loaded_pmp_groups.clear()
 
     modpack_replace: BoolProperty(
         default=False, name="", 
@@ -769,7 +783,6 @@ class YAWindowProps(PropertyGroup):
 
     if TYPE_CHECKING:
         pmp_mod_groups   : Iterable[BlendModGroup]
-        loaded_pmp_groups: Iterable[LoadedModpackGroup]
         
         file_man_ui     : str
         export_body_slot: str
@@ -781,6 +794,8 @@ class YAWindowProps(PropertyGroup):
         yas_vgroups     : Iterable[YASVGroups]
         yas_empty       : bool
         file_format     : str
+        export_prefix   : str
+        remove_yas      : str
 
         modpack_replace     : bool
         modpack_display_dir : str
@@ -792,8 +807,8 @@ class YAWindowProps(PropertyGroup):
         new_mod_version     : str
         author_name         : str
 
-        animation_optimise     : Iterable[AnimationOptimise]
-        animation_frame        : int  
+        animation_optimise  : Iterable[AnimationOptimise]
+        animation_frame     : int  
 
         # Created at registration
         overview_category: bool
@@ -809,7 +824,6 @@ class YAWindowProps(PropertyGroup):
 
         create_backfaces    : bool
         check_tris          : bool
-        force_yas           : bool
         remove_nonmesh      : bool
         reorder_mesh_id     : bool
         update_material     : bool
@@ -843,6 +857,9 @@ class YAFileProps(PropertyGroup):
         if os.path.exists(display_dir):  
             setattr(prop, actual_prop, display_dir)
             
+    loaded_pmp_groups: CollectionProperty(
+        type=LoadedModpackGroup
+        ) # type: ignore
     
     import_display_dir: StringProperty(
         name="Export Folder",
@@ -854,8 +871,6 @@ class YAFileProps(PropertyGroup):
     if TYPE_CHECKING:
         import_display_dir  : str
         
-    
-
 class YAOutfitProps(PropertyGroup):
 
     YAS_BONES = {
@@ -1173,6 +1188,7 @@ class YAOutfitProps(PropertyGroup):
         )  # type: ignore
 
     if TYPE_CHECKING:
+        loaded_pmp_groups      : Iterable[LoadedModpackGroup]
         shape_modifiers_group  : Iterable[ShapeModifiers]
         
         pose_display_directory : str

@@ -1,7 +1,7 @@
 from pathlib             import Path
 from bpy.types           import Operator, Context
 from bpy.props           import StringProperty, IntProperty
-from ...properties       import BlendModOption, BlendModGroup, CorrectionEntry, get_file_properties
+from ...properties       import BlendModOption, BlendModGroup, CorrectionEntry, get_file_properties, get_window_properties
 from ...preferences      import get_prefs
  
 
@@ -54,7 +54,7 @@ class GamepathCategory(Operator):
         self.group: int
         self.option: int
         self.entry: int
-        self.props = get_file_properties()
+        self.props = get_window_properties()
 
         mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
         mod_group: BlendModGroup = self.props.pmp_mod_groups[self.group]

@@ -184,11 +184,9 @@ class ModpackDirSelector(Operator):
         self.prefs = get_prefs()
         self.props = get_window_properties()
         
-        mod_group = self.props.pmp_mod_groups[self.group]
-   
         match self.category:
             case "GROUP":
-                self.container = mod_group
+                self.container = self.props.pmp_mod_groups[self.group]
                 self.folder    = self.container.folder_path
                 attribute      = "file_path"
 
@@ -198,7 +196,7 @@ class ModpackDirSelector(Operator):
 
         self.filter_glob = "DIR_PATH"
 
-        if self.folder == "":
+        if self.folder.strip() == "":
             context.window_manager.fileselect_add(self)
             return {"RUNNING_MODAL"}
         else:
