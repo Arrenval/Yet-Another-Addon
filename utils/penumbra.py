@@ -329,8 +329,13 @@ class Modpack:
         
         for key, relative_path in files:
             file = folder / Path(relative_path)
+            if not file.is_file():
+                continue
             if file.suffix not in suffix:
                 continue
+            if relative_path in processed_paths:
+                continue
+            processed_paths.add(relative_path)
 
             file_size = file.stat().st_size
             size_groups[file_size].append(
@@ -344,9 +349,7 @@ class Modpack:
                         "entry":       key
                     }
                     )
-            
-            processed_paths.add(relative_path)
-            
+                
         for group_idx, group in enumerate(modpack.groups):
             options = group.Containers if group.Containers else group.Options or []
             for option_idx, option in enumerate(options):
@@ -363,8 +366,13 @@ class Modpack:
                 
                 for (key, relative_path) in files:
                     file = folder / Path(relative_path)
+                    if not file.is_file():
+                        continue
                     if file.suffix not in suffix:
                         continue
+                    if relative_path in processed_paths:
+                        continue
+                    processed_paths.add(relative_path)
 
                     file_size = file.stat().st_size
                     size_groups[file_size].append(
@@ -378,8 +386,7 @@ class Modpack:
                         "entry":       key
                     }
                     )
-
-                    processed_paths.add(relative_path)
+             
         
         duplicates: dict[int, list] = {}
         for size, files in size_groups.items():
@@ -394,8 +401,8 @@ class Modpack:
                 if len(duplicate_files) > 1:
                     duplicates[file_hash] = duplicate_files
 
-        removed = set()
-        rewrite_json = set()
+        removed: Path     = set()
+        rewrite_json_idx  = set()
         for file_hash, files in duplicates.items():
             relative_path: str = files[0]["relpath"]
             main_group   : int = files[0]["group"]
@@ -412,25 +419,27 @@ class Modpack:
                 if file_info["default"]:
                     modpack.default.Files[entry_key] = file_info["relpath"]
                     log_string = f"Duplicate file, {file.name}, in Default Mod linked to file in {modpack.groups[main_group].Name}."
-                    rewrite_json.add("default")
+                    rewrite_json_idx.add("default")
 
                 else:
                     option = modpack.groups[group_idx].Options[option_idx] if file_info["option_type"] else modpack.groups[group_idx].Containers[option_idx]
                     
                     option.Files[entry_key] = relative_path
                     log_string = f"Duplicate file, {file.name}, in {modpack.groups[group_idx].Name} linked to file in {modpack.groups[main_group].Name}."
-                    rewrite_json.add(group_idx)
+                    rewrite_json_idx.add(group_idx)
                 
                 modpack.logger.info(log_string)
             
-            for json in rewrite_json:
+            for json in rewrite_json_idx:
                 if json == "default":
                     modpack.default.write_json(folder, "default_mod")
 
                 else:
+                    json: int
                     old_json = [file for file in folder.glob(f"group_{json + 1:03d}*") if file.is_file()][0]
                     Path.unlink(old_json, missing_ok=True)
 
+                    group = modpack.groups[json]
                     file_name = f"group_{json + 1:03d}_{sanitise_path(group.Name).lower()}"
                     group.write_json(folder, file_name)
 
