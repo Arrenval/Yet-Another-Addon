@@ -28,9 +28,71 @@
         "Rigging",
         "User Interface"
       ],
-      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/0.15.0/Yet.Another.Addon.v0.15.0.zip",
+      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/0.16.0/Yet.Another.Addon.v0.15.0.zip",
       "archive_size": 73115,
       "archive_hash": "sha256:b5279013888d5f592262999248354934cd588648af90d5e185401e45f7dd65cd"
+    },
+    {
+      "schema_version": "0.16.0",
+      "id": "yet_another_addon_ffxiv",
+      "name": "Yet Another Addon",
+      "tagline": "Several tools to speed up XIV modding workflows",
+      "version": "0.16.0",
+      "type": "add-on",
+      "maintainer": "Aleks",
+      "license": [
+        "SPDX:GPL-3.0-or-later"
+      ],
+      "blender_version_min": "4.2.0",
+      "blender_version_max": "4.5.0",
+      "website": "https://github.com/Arrenval/Yet-Another-Addon",
+      "permissions": {
+        "files": "Import/export files from/to disk",
+        "clipboard": "Paste bone scaling"
+      },
+      "tags": [
+        "Animation",
+        "Import-Export",
+        "Modeling",
+        "Mesh",
+        "Object",
+        "Rigging",
+        "User Interface"
+      ],
+      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/0.16.0/Yet.Another.Addon.v0.16.0.zip",
+      "archive_size": 102862,
+      "archive_hash": "sha256:eae4e99046c7b3d89a41f53a5ee4c9d904dc6bcfcacd5b4f6ba2fb59bc2f91ac"
+    },
+    {
+      "schema_version": "0.17.0",
+      "id": "yet_another_addon_ffxiv",
+      "name": "Yet Another Addon",
+      "tagline": "Several tools to speed up XIV modding workflows",
+      "version": "0.17.0",
+      "type": "add-on",
+      "maintainer": "Aleks",
+      "license": [
+        "SPDX:GPL-3.0-or-later"
+      ],
+      "blender_version_min": "4.2.0",
+      "blender_version_max": "4.5.0",
+      "website": "https://github.com/Arrenval/Yet-Another-Addon",
+      "permissions": {
+        "files": "Import/export files from/to disk",
+        "clipboard": "Paste bone scaling"
+      },
+      "tags": [
+        "Animation",
+        "Import-Export",
+        "Modeling",
+        "Mesh",
+        "Object",
+        "Rigging",
+        "User Interface"
+      ],
+      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/0.16.0/Yet.Another.Addon.v0.17.0.zip",
+      "archive_size": 102861,
+      "archive_hash": "sha256:63c6cffdaaef88ac7d955fc5fa4eb490c146e9cbca26af9f67484fc6473ac05e"
     }
   ]
 }
