@@ -170,7 +170,7 @@ class PoseApply(Operator):
             }
     
         pose_file         = Path(self.filepath)
-        self.armature_obj = self.window.outfit_armature
+        self.armature_obj = self.props.outfit_armature
 
         visibility = self.armature_obj.hide_get()
         self.armature_obj.hide_set(state=False)

@@ -67,16 +67,6 @@ def triangulation_method(obj:Object)-> tuple[str, str]:
                     break
             return tri_method
 
-def ivcs_mune(obj: Object) -> None:
-    right = obj.vertex_groups.get("j_mune_r", False)
-    left  = obj.vertex_groups.get("j_mune_l", False)
-    
-    if right:
-        right.name = "iv_c_mune_r"
-
-    if left:
-        left.name = "iv_c_mune_l"
-
 
 def create_backfaces(obj:Object) -> None:
     """Assumes the mesh is triangulated to get the faces from _get_backfaces."""
@@ -182,16 +172,16 @@ def remove_vertex_groups(obj: Object, prefix: tuple[str]):
     
     added_parents   = {}
     updated_indices = defaultdict(lambda: np.array([], dtype=np.uint32))
-    for group_idx, parent_idx in group_to_parent.items():
-        if isinstance(parent_idx, str):
-            parent_idx = _get_missing_parent(obj, group_idx, added_parents)
+    for group_idx, parent in group_to_parent.items():
+        if isinstance(parent, str):
+            parent = _get_missing_parent(obj, group_idx, parent, added_parents)
 
         group_vertices = np.flatnonzero(weight_matrix[:, group_idx])
         
-        existing = updated_indices[parent_idx]
-        updated_indices[parent_idx] = np.union1d(existing, group_vertices)
+        existing = updated_indices[parent]
+        updated_indices[parent] = np.union1d(existing, group_vertices)
 
-        weight_matrix[:, parent_idx] += weight_matrix[:, group_idx]
+        weight_matrix[:, parent] += weight_matrix[:, group_idx]
 
     for v_group in obj.vertex_groups:
         if v_group.index not in updated_indices:
@@ -221,7 +211,7 @@ def _get_group_parent(obj: Object, prefix: set[str]) -> dict[int, int | str]:
     
     return group_to_parent
 
-def _get_missing_parent(obj: Object, group_idx:int, added_parents: dict) -> int:
+def _get_missing_parent(obj: Object, group_idx:int, parent:str, added_parents: dict) -> int:
     if parent in added_parents:
         return added_parents[parent]
 
@@ -254,7 +244,6 @@ class MeshHandler:
         self.backfaces : bool            = (props.create_backfaces and props.check_tris)
         self.is_tris   : bool            = props.check_tris
         self.yas_vag   : bool            = True
-        self.yas       : bool            = False
         self.remove_yas: str             = props.remove_yas
         self.reset     : list[Object]    = []
         self.delete    : list[Object]    = []
@@ -304,7 +293,6 @@ class MeshHandler:
             raise XIVMeshParentError(len(no_skeleton))
 
     def devkit_checks(self, visible_obj: ObjIterable) -> None:
-        self.yas = self.devkit.controller_yas_chest
         for obj in visible_obj:
             if not obj.data.shape_keys:
                 continue 
@@ -362,9 +350,6 @@ class MeshHandler:
             if self.logger:
                 self.logger.last_item = f"{obj.name}"
             dupe = copy_mesh_object(obj, self.depsgraph)
-
-            if self.yas:
-                ivcs_mune(dupe)
 
             if re.search(r"^\d+.\d+\s", obj.name):
                 name_parts = obj.name.split(" ")

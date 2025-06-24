@@ -515,7 +515,7 @@ class OutfitStudio(Panel):
                 )
         else:
             if not obj:
-                obj = get_object_from_mesh("Mannequin")
+                obj = self.devkit_props.yam_mannequin
             col.template_list(
                 "MESH_UL_YAS", "", 
                 obj, "vertex_groups", 
@@ -528,7 +528,6 @@ class OutfitStudio(Panel):
         row.operator("ya.remove_gen", text= "Genitalia")
         row.operator("ya.remove_empty_vgroups", text= "Empty")
         row.prop(self.window_props, "filter_vgroups", text="", icon="FILTER")
-        col.operator("ya.yas_test", text="Test")
                     
     def draw_armature(self, layout:UILayout):
         box = layout.box()

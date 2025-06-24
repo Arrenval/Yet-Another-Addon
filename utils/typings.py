@@ -36,11 +36,15 @@ class DevkitProps:
     object_state       : Iterable[ObjectState]
     overview_ui        : str
     is_exporting       : bool
+    yam_torso          : Object
+    yam_legs           : Object
+    yam_hands          : Object
+    yam_feet           : Object
+    yam_mannequin      : Object
 
     ALL_SHAPES  : dict[str, tuple]
     torso_floats: list[dict[str, dict[str, float]]]        
     mq_floats   : list[dict[str, dict[str, float]]]  
-    is_exporting: bool 
     mesh_list   : list[str]
 
 class DevkitWindowProps:

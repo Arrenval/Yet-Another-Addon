@@ -62,56 +62,62 @@ def check_triangulation() -> list[str]:
                 not_triangulated.append(obj.name)
     return not_triangulated
    
-def save_sizes() -> dict[str, dict[str, float]]:
-        devkit_props = get_devkit_properties()
-        obj          = get_object_from_mesh("Torso").data.shape_keys.key_blocks
-        saved_sizes  = [{"Large":  {}, "Medium": {}, "Small":  {}, "Masc": {}} for i in range(2)]
-       
-        if obj["Lavabod"].mute:
-            index  = 0
-            saved_sizes[1] = devkit_props.torso_floats[1]
-            saved_sizes[1].setdefault("Masc", {})
-        else:
-            index  = 1
-            saved_sizes[0] = devkit_props.torso_floats[0]
-            saved_sizes[0].setdefault("Masc", {})
+def save_sizes() -> list[dict[str, dict[str, float]]]:
+    devkit_props = get_devkit_properties()
+    obj = get_object_from_mesh("Torso").data.shape_keys.key_blocks
+    
+    saved_sizes = [
+        {
+            "Large": devkit_props.torso_floats[0]["Large"].copy(),
+            "Medium": devkit_props.torso_floats[0]["Medium"].copy(), 
+            "Small": devkit_props.torso_floats[0]["Small"].copy(),
+            "Masc": devkit_props.torso_floats[0].get("Masc", {}).copy()
+        },
+        {
+            "Large": devkit_props.torso_floats[1]["Large"].copy(),
+            "Medium": devkit_props.torso_floats[1]["Medium"].copy(),
+            "Small": devkit_props.torso_floats[1]["Small"].copy(), 
+            "Masc": devkit_props.torso_floats[1].get("Masc", {}).copy()
+        }
+    ]
+    
+    if obj["Lavabod"].mute:
+        current_index = 0
+    else:
+        current_index = 1
 
-        for key in obj:
-            if key.name.startswith("- "):
-                name = key.name[2:]
-                saved_sizes[index]["Large"][name] = round(key.value, 2)
-            if key.name.startswith("-- "):
-                name = key.name[3:]
-                saved_sizes[index]["Medium"][name] = round(key.value, 2)
-            if key.name.startswith("--- "):
-                name = name = key.name[4:]
-                saved_sizes[index]["Small"][name] = round(key.value, 2)
-            if key.name.startswith("---- "):
-                name = name = key.name[4:]
-                saved_sizes[0]["Masc"][name] = round(key.value, 2)
-                saved_sizes[1]["Masc"][name] = round(key.value, 2)
+    for key in obj:
+        key_name = key.name
+        current_value = round(key.value, 2)
         
-        return saved_sizes
+        if key_name.startswith("- "):
+            saved_sizes[current_index]["Large"][key_name] = current_value
+        elif key_name.startswith("-- "):
+            saved_sizes[current_index]["Medium"][key_name] = current_value
+        elif key_name.startswith("--- "):
+            saved_sizes[current_index]["Small"][key_name] = current_value
+        elif key_name.startswith("---- "):
+            saved_sizes[0]["Masc"][key_name] = current_value
+            saved_sizes[1]["Masc"][key_name] = current_value
+    
+    return saved_sizes
 
 def reset_chest_values(saved_sizes) -> None:
-    devkit       = bpy.context.scene.ya_devkit
     devkit_props = get_devkit_properties()
-    obj          = get_object_from_mesh("Torso").data.shape_keys.key_blocks
+    key_blocks   = get_object_from_mesh("Torso").data.shape_keys.key_blocks
     base_size    = ["Large", "Medium", "Small", "Masc"]
 
-    if obj["Lavabod"].mute:
-            index  = 0
-            saved_sizes[1] = devkit_props.torso_floats[1]
+    if key_blocks["Lavabod"].mute:
+        index  = 0
+        saved_sizes[1] = devkit_props.torso_floats[1]
     else:
         index  = 1
         saved_sizes[0] = devkit_props.torso_floats[0]
 
     for size in base_size:
         preset      = saved_sizes[index][size]
-        if size == "Masc":
-            size = "Flat"
-        category    = devkit_props.ALL_SHAPES[size][2]
-        devkit.ApplyShapes.apply_shape_values("torso", category, preset)
+        for key_name, value in preset.items():
+            key_blocks[key_name].value = value
     
     bpy.context.view_layer.update()
 
@@ -675,7 +681,7 @@ class BatchQueue(Operator):
         
             return True
 
-        def apply_model_state(options: tuple[str], size:str , gen: str, body_slot: str, obj, saved_sizes: dict[str, dict[str, float]]) -> None:
+        def apply_model_state(options: tuple[str], size:str , gen: str, body_slot: str, key_blocks, saved_sizes: dict[str, dict[str, float]]) -> None:
             Devkit = bpy.context.scene.ya_devkit
             devkit_props = get_devkit_properties()
             if body_slot == "Chest & Legs":
@@ -683,11 +689,11 @@ class BatchQueue(Operator):
 
             for shape, (name, slot, category, description, body, key) in devkit_props.ALL_SHAPES.items():
                 if shape == size and key != "":
-                    obj[key].mute = False
+                    key_blocks[key].mute = False
 
                 if any(shape in options for option in options):
                     if key != "":
-                        obj[key].mute = False
+                        key_blocks[key].mute = False
 
             # Adds the shape value presets alongside size toggles
             if body_slot == "Chest":
@@ -706,11 +712,12 @@ class BatchQueue(Operator):
                         filtered_preset[key] = preset[key]
 
                 category = devkit_props.ALL_SHAPES[size][2]
-                Devkit.ApplyShapes.mute_chest_shapes(obj, category)
-                Devkit.ApplyShapes.apply_shape_values("torso", category, filtered_preset)
+                Devkit.ApplyShapes.mute_chest_shapes(key_blocks, category)
+                for key_name, value in filtered_preset.items():
+                    key_blocks[key_name].value = value
                     
             if gen != None and gen.startswith("Gen") and gen != "Gen A":
-                obj[gen].mute = False
+                key_blocks[gen].mute = False
 
         def reset_model_state(body_slot: str, key_block) -> None:
             devkit = get_devkit_properties()

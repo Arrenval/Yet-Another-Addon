@@ -115,10 +115,10 @@ class FileManager(Panel):
 
                 labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Flat": ("Masc", [])}
         
-                self.dynamic_column_buttons(len(labels), layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, labels, category, button_type)
 
                 yab = self.devkit_win.export_yab_chest_bool
-                rue = self.devkit_win.export_rue_chest_bool and self.file_props.rue_export
+                rue = self.devkit_win.export_rue_chest_bool and self.window_props.rue_export
                 lava = self.devkit_win.export_lava_chest_bool
                 masc = self.devkit_win.export_flat_chest_bool
 
@@ -126,7 +126,7 @@ class FileManager(Panel):
 
                 labels = {"Buff": ("Buff", [yab, rue, lava, masc]), "Piercings": ("Piercings", [yab, rue, lava, masc])}
         
-                self.dynamic_column_buttons(len(labels), layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, labels, category, button_type)
 
                 layout.separator(factor=0.5, type="LINE")
                 
@@ -145,7 +145,7 @@ class FileManager(Panel):
                     "Pecs":       ("Pecs", [masc]),
                 }
         
-                self.dynamic_column_buttons(3, layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(3, layout, labels, category, button_type)
                 
             # LEG EXPORT  
             
@@ -160,7 +160,7 @@ class FileManager(Panel):
 
                 labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Masc": ("Masc", [])}
         
-                self.dynamic_column_buttons(len(labels), layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(len(labels), layout, labels, category, button_type)
 
                 yab = self.devkit_win.export_yab_legs_bool
                 rue = self.devkit_win.export_rue_legs_bool
@@ -181,7 +181,7 @@ class FileManager(Panel):
                     
                 }
                 
-                self.dynamic_column_buttons(4, layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(4, layout, labels, category, button_type)
 
                 layout.separator(factor=0.5, type="LINE")
 
@@ -190,7 +190,7 @@ class FileManager(Panel):
                     "Pubes":  ("Pubes", [yab, rue, lava, masc])
                 }
         
-                self.dynamic_column_buttons(3, layout, self.file_props, labels, category, button_type) 
+                self.dynamic_column_buttons(3, layout, labels, category, button_type) 
 
             # HAND EXPORT  
             
@@ -203,7 +203,7 @@ class FileManager(Panel):
                     "Lava": ("Lava", []),
                     }
         
-                self.dynamic_column_buttons(3, layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(3, layout, labels, category, button_type)
                 
                 yab = self.devkit_win.export_yab_hands_bool
                 rue = self.devkit_win.export_rue_hands_bool
@@ -218,7 +218,7 @@ class FileManager(Panel):
                     "Stabbies": ("Stabbies", [yab, rue, lava]), 
                     }
 
-                self.dynamic_column_buttons(2, layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, labels, category, button_type)
                 
                 row = layout.row(align=True)
                 row.label(text="Clawsies:")
@@ -228,7 +228,7 @@ class FileManager(Panel):
                     "Curved": ("Curved", [yab, rue, lava]),
                     }
 
-                self.dynamic_column_buttons(2, layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, labels, category, button_type)
 
                 row = layout.row(align=True)
 
@@ -242,7 +242,7 @@ class FileManager(Panel):
                     "Rue": ("Rue", []), 
                     }
         
-                self.dynamic_column_buttons(2, layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, labels, category, button_type)
 
                 yab = self.devkit_win.export_yab_feet_bool
                 rue = self.devkit_win.export_rue_feet_bool
@@ -253,7 +253,7 @@ class FileManager(Panel):
                     "Clawsies": ("Clawsies", [yab, rue])
                     }
 
-                self.dynamic_column_buttons(2, layout, self.file_props, labels, category, button_type)
+                self.dynamic_column_buttons(2, layout, labels, category, button_type)
         
             layout.separator(factor=0.5, type="LINE")
 
@@ -795,10 +795,10 @@ class FileManager(Panel):
                 folder_stats, has_fbx = group.get_folder_stats()
                 self.checked_folders[folder] = (folder_stats, has_fbx)
 
-    def dynamic_column_buttons(self, columns, box:UILayout, section_prop, labels, category, button_type):
+    def dynamic_column_buttons(self, columns, box:UILayout, labels, category, button_type):
         if category == "Chest":
             yab = self.devkit_win.export_yab_chest_bool
-            rue = self.devkit_win.export_rue_chest_bool and section_prop.rue_export
+            rue = self.devkit_win.export_rue_chest_bool and self.window_props.rue_export
             lava = self.devkit_win.export_lava_chest_bool
 
         row = box.row(align=True)

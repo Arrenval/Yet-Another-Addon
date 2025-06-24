@@ -74,20 +74,21 @@ class SimpleCleanUp(Operator):
         return context.mode == "OBJECT"
     
     def execute(self, context):
-        self.props = get_window_properties()
-        self.prefs = get_prefs()
+        self.window = get_window_properties()
+        self.props  = get_file_properties()
+        self.prefs  = get_prefs()
         self.selected = bpy.context.selected_objects
 
         if not self.selected:
             return {"CANCELLED"}
         
-        if self.props.armature:
-            self.fix_parent(self.props.armature)
+        if self.props.import_armature:
+            self.fix_parent(self.props.import_armature)
 
         if self.prefs.update_material:
             self.update_material()
 
-        if self.props.rename_import.strip() != "":
+        if self.window.rename_import.strip() != "":
             self.rename_import()
 
         if self.prefs.reorder_meshid:
@@ -159,10 +160,10 @@ class SimpleCleanUp(Operator):
                 elif re.search(r"\s\d+.\d+$", obj.name):
                     id_index = 0
                 else:
-                    obj.name = self.props.rename_import
+                    obj.name = self.window.rename_import
                     continue
                 split = obj.name.split()
-                split[id_index] = self.props.rename_import
+                split[id_index] = self.window.rename_import
                 obj.name = " ".join(split)
 
 

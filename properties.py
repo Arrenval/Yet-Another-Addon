@@ -650,20 +650,6 @@ class YAWindowProps(PropertyGroup):
 
         )  # type: ignore
     
-    outfit_armature: PointerProperty(
-        type= Object,
-        name= "",
-        description= "Select an armature from the scene",
-        poll=lambda self, obj: obj.type == "ARMATURE"
-        )  # type: ignore
-
-    import_armature: PointerProperty(
-        type= Object,
-        name= "",
-        description= "New armature for imports",
-        poll=lambda self, obj: obj.type == "ARMATURE"
-        )  # type: ignore
-    
     rename_import: StringProperty(
         name="",
         description="Renames the prefix of the selected meshes",
@@ -837,8 +823,6 @@ class YAWindowProps(PropertyGroup):
         feet_g_category     : bool
         ui_size_category    : str
         rename_import       : str
-        outfit_armature     : Object
-        import_armature     : Object
 
 class YAFileProps(PropertyGroup):
 
@@ -861,6 +845,13 @@ class YAFileProps(PropertyGroup):
         type=LoadedModpackGroup
         ) # type: ignore
     
+    import_armature: PointerProperty(
+        type= Object,
+        name= "",
+        description= "New armature for imports",
+        poll=lambda self, obj: obj.type == "ARMATURE"
+        )  # type: ignore
+
     import_display_dir: StringProperty(
         name="Export Folder",
         default="Select Export Directory",  
@@ -869,7 +860,8 @@ class YAFileProps(PropertyGroup):
         ) # type: ignore
     
     if TYPE_CHECKING:
-        import_display_dir  : str
+        import_display_dir: str
+        import_armature   : Object
         
 class YAOutfitProps(PropertyGroup):
 
@@ -1181,6 +1173,13 @@ class YAOutfitProps(PropertyGroup):
         update=lambda self, context: self.set_action(context)
     ) # type: ignore
 
+    outfit_armature: PointerProperty(
+        type= Object,
+        name= "",
+        description= "Select an armature from the scene",
+        poll=lambda self, obj: obj.type == "ARMATURE"
+        )  # type: ignore
+
     pose_display_directory: StringProperty(
         default="Select .pose file",
         subtype="FILE_PATH", 
@@ -1206,6 +1205,7 @@ class YAOutfitProps(PropertyGroup):
         
         shapes_source          : Object
         shapes_target          : Object
+        outfit_armature        : Object
         
         # Created at registration
         scaling_armature       : bool
