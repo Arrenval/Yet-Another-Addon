@@ -155,20 +155,34 @@ def _get_backfaces(bm: BMesh, bf_idx: int) -> list[BMFace]:
     return backfaces
     
 
-def remove_vertex_groups(obj: Object, prefix: tuple[str]):
+def remove_vertex_groups(obj: Object, prefix: tuple[str]) -> None:
     """Can remove any vertex group and add weights to parent group."""
     group_to_parent = _get_group_parent(obj, prefix)
-    source_groups   = set(group_to_parent.keys())
+    source_groups   = [value for value in group_to_parent.keys()]
     missing_groups  = {value for value in group_to_parent.values() if isinstance(value, str)}
+
+    if not source_groups:
+        return
 
     verts         = len(obj.data.vertices)
     max_groups    = len(obj.vertex_groups) + len(missing_groups)
     weight_matrix = np.zeros((verts, max_groups), dtype=np.float32)
 
-    for vertex_idx, vertex in enumerate(obj.data.vertices):
-        for group in vertex.groups:
-            if group.group in source_groups:
-                weight_matrix[vertex_idx, group.group] = group.weight
+    if len(source_groups) == 1:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+
+        group_idx = source_groups[0]
+        deform_layer = bm.verts.layers.deform.active
+        for vert_idx, vert in enumerate(bm.verts):
+            weight_matrix[vert_idx, group_idx] = vert[deform_layer].get(group_idx, 0)
+
+        bm.free()
+    else:
+        for vertex_idx, vertex in enumerate(obj.data.vertices):
+            for group in vertex.groups:
+                if group.group in source_groups:
+                    weight_matrix[vertex_idx, group.group] = group.weight
     
     added_parents   = {}
     updated_indices = defaultdict(lambda: np.array([], dtype=np.uint32))
