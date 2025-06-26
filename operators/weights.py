@@ -2,7 +2,7 @@ import bpy
 
 from bpy.props            import StringProperty, EnumProperty, BoolProperty
 from bpy.types            import Operator, Context
-from ..properties         import get_window_properties
+from ..properties         import get_window_properties, get_outfit_properties
 from ..utils.mesh_handler import remove_vertex_groups
 
 
@@ -18,6 +18,7 @@ class RemoveEmptyVGroups(Operator):
         return obj is not None and obj.type == 'MESH' and obj.vertex_groups
 
     def execute(self, context:Context):
+        props    = get_outfit_properties()
         old_mode = context.mode
         match old_mode:
             case "PAINT_WEIGHT":
@@ -44,6 +45,7 @@ class RemoveEmptyVGroups(Operator):
 
         self.report({'INFO'}, f"Removed {', '.join(removed)}.")
         bpy.ops.object.mode_set(mode=old_mode)
+        props.set_yas_vgroups(context)
         return {"FINISHED"}
     
 class RemoveSelectedVGroups(Operator):
@@ -60,10 +62,11 @@ class RemoveSelectedVGroups(Operator):
         return obj is not None and obj.type == 'MESH' and obj.vertex_groups
 
     def execute(self, context:Context):
-        props    = get_window_properties()
+        props    = get_outfit_properties()
+        window   = get_window_properties()
         old_mode = context.mode
 
-        if self.preset == "PANEL" and props.yas_empty and props.filter_vgroups:
+        if self.preset == "PANEL" and props.yas_empty and window.filter_vgroups:
             self.report({"ERROR"}, "No YAS group selected.")
             return {"CANCELLED"}
 
@@ -73,7 +76,7 @@ class RemoveSelectedVGroups(Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
         obj = context.active_object
 
-        if self.preset != "MENU" and props.filter_vgroups:
+        if self.preset != "MENU" and window.filter_vgroups:
             yas_vgroups  = props.yas_vgroups
             index        = props.yas_vindex
             vertex_group = obj.vertex_groups.get(yas_vgroups[index].name)
@@ -93,6 +96,7 @@ class RemoveSelectedVGroups(Operator):
         parent_vgroup = obj.parent.data.bones.get(vertex_group.name).parent.name
         self.report({'INFO'}, f"Removed {vertex_group.name}, weights added to {parent_vgroup}.")
         bpy.ops.object.mode_set(mode=old_mode)
+        props.set_yas_vgroups(context)
         return {"FINISHED"}
 
 class AddYASGroups(Operator):
@@ -147,8 +151,10 @@ class AddYASGroups(Operator):
 
         row = layout.row(align=True)
         row.prop(self, "vagina", icon="CHECKMARK" if self.vagina else "X", text="Vagina")
-    
+        
     def execute(self, context):
+        props = get_outfit_properties()
+
         torso_groups = [
             'iv_nitoukin_l',
             'iv_nitoukin_r',
@@ -266,6 +272,7 @@ class AddYASGroups(Operator):
             bpy.ops.object.vertex_group_add()
             obj.vertex_groups.active.name = group
 
+        props.set_yas_vgroups(context)
         return {"FINISHED"}  
 
 class RemoveGenGroups(Operator):
@@ -276,8 +283,14 @@ class RemoveGenGroups(Operator):
 
     preset: StringProperty() # type: ignore
 
-    def execute(self, context: Context):
+    @classmethod
+    def poll(cls, context:Context):
         obj = context.active_object
+        return obj is not None and obj.type == 'MESH' and obj.vertex_groups
+
+    def execute(self, context: Context):
+        props = get_outfit_properties()
+        obj   = context.active_object
         genitalia = [
             'iv_kuritto',                   
             'iv_inshin_l',               
@@ -302,8 +315,9 @@ class RemoveGenGroups(Operator):
             'iv_ochinko_e',         
             'iv_ochinko_f',
             ]
-        
-        remove_vertex_groups(obj, tuple(genitalia))
+        tuple(genitalia)
+        remove_vertex_groups(obj, ("iv_", "ya_"))
+        props.set_yas_vgroups(context)
         return {"FINISHED"}
 
 

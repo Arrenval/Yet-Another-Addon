@@ -496,11 +496,7 @@ class YAWindowProps(PropertyGroup):
         type=BlendModGroup
         ) # type: ignore
     
-    animation_optimise   : CollectionProperty(type=AnimationOptimise) # type: ignore
-
-    shape_modifiers_group: CollectionProperty(type=ShapeModifiers) # type: ignore
-
-    yas_vgroups : CollectionProperty(type=YASVGroups) # type: ignore
+    animation_optimise: CollectionProperty(type=AnimationOptimise) # type: ignore
 
 
     export_prefix: StringProperty(
@@ -556,82 +552,8 @@ class YAWindowProps(PropertyGroup):
 
     waiting_import: BoolProperty(default=False, options={"SKIP_SAVE"}, update=update_ui) # type: ignore
 
-
-
-    def set_yas_vgroups(self, context):
-        obj = self.yas_source
-
-        update_groups = (self.weights_category and self.filter_vgroups and obj)
-
-        if update_groups:
-            self.yas_vgroups.clear()
-
-            yas_groups = [group for group in obj.vertex_groups if group.name.startswith(("iv_", "ya_"))]
-            if yas_groups:
-                self.yas_empty = False
-                for group in yas_groups:
-                    new_group = self.yas_vgroups.add()
-                    new_group.name = group.name
-                    new_group.lock_weight = group.lock_weight
-
-            else:
-                new_group = self.yas_vgroups.add()
-                new_group.name  = "Mesh has no YAS Groups"
-                self.yas_empty = True
-
-    def set_modifiers(self, context):
-        obj = self.shape_source
-
-        update_modifiers = (self.mesh_category and self.button_modifiers_expand and obj)
-
-        if update_modifiers:
-            mod_types = {
-                    'ARMATURE', 'DISPLACE', 'LATTICE', 'MESH_DEFORM', 'SIMPLE_DEFORM',
-                    'WARP', 'SMOOTH', 'SHRINKWRAP', 'SURFACE_DEFORM', 'CORRECTIVE_SMOOTH',
-                    'DATA_TRANSFER'
-                }
-            
-            self.shape_modifiers_group.clear()
-            modifiers = [modifier for modifier in obj.modifiers if modifier.type in mod_types]
-            for modifier in modifiers:
-                new_modifier = self.shape_modifiers_group.add()
-                new_modifier.name = modifier.name
-                new_modifier.icon = "MOD_SMOOTH" if "SMOOTH" in modifier.type else \
-                                    "MOD_MESHDEFORM" if "DEFORM" in modifier.type else \
-                                    f"MOD_{modifier.type}"
-            
-            if self.shape_modifiers_group and self.shape_modifiers == "":
-                self.shape_modifiers = self.shape_modifiers_group[0].name
-
-        else:
-            self.shape_modifiers_group.clear()
-
-    yas_source: PointerProperty(
-        type= Object,
-        name= "",
-        description= "YAS source",
-        update=set_yas_vgroups,
-
-        )  # type: ignore
-    
-    yas_empty: BoolProperty(
-        name="",
-        default=False,
-        ) # type: ignore
-    
-    def selected_yas_vgroup(self, context) -> None:
-        obj = bpy.context.active_object
-        if len(self.yas_vgroups) == 1 and self.yas_vgroups[0].name != "Mesh has no YAS Groups":
-            try:
-                obj.vertex_groups.active = obj.vertex_groups.get(self.yas_vgroups[self.yas_vindex].name)
-            except:
-                pass
-
-    yas_vindex: IntProperty(name="YAS Group Index", description="Index of the YAS groups on the active object", update=selected_yas_vgroup) # type: ignore
-
-
     def get_deform_modifiers(self, context:Context) -> BlendEnum:
-        modifiers = self.shape_modifiers_group
+        modifiers = get_outfit_properties().shape_modifiers_group
         if not modifiers:
             return [("None", "No Valid Modifiers", "")]
         return [(modifier.name, modifier.name, "", modifier.icon, index) for index, modifier in enumerate(modifiers)]
@@ -639,15 +561,7 @@ class YAWindowProps(PropertyGroup):
     shape_modifiers: EnumProperty(
         name= "",
         description= "Select a deform modifier",
-        items=lambda self, context: self.get_deform_modifiers(context)
-        )  # type: ignore
-    
-    shape_source: PointerProperty(
-        type= Object,
-        name= "",
-        description= "YAS source",
-        update=set_modifiers,
-
+        items=get_deform_modifiers
         )  # type: ignore
     
     rename_import: StringProperty(
@@ -775,10 +689,6 @@ class YAWindowProps(PropertyGroup):
         shape_modifiers : str
         waiting_import  : bool
         shape_source    : Object
-        yas_source      : Object
-        yas_vindex      : int
-        yas_vgroups     : Iterable[YASVGroups]
-        yas_empty       : bool
         file_format     : str
         export_prefix   : str
         remove_yas      : str
@@ -864,6 +774,10 @@ class YAFileProps(PropertyGroup):
         import_armature   : Object
         
 class YAOutfitProps(PropertyGroup):
+
+    shape_modifiers_group: CollectionProperty(type=ShapeModifiers) # type: ignore
+
+    yas_vgroups : CollectionProperty(type=YASVGroups) # type: ignore
 
     YAS_BONES = {
     'n_root':              'Root', 
@@ -981,7 +895,7 @@ class YAOutfitProps(PropertyGroup):
            "atr_leg": "Boot",
            "atr_lpd": "Knee Pad",
         }
-
+    
     @staticmethod
     def extra_options() -> None:
         for (name, category, default, description) in YAOutfitProps.outfit_buttons:
@@ -1186,6 +1100,86 @@ class YAOutfitProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
+    def set_yas_vgroups(self, context):
+        obj = self.yas_source
+        window = get_window_properties()
+        update_groups = (window.weights_category and window.filter_vgroups and obj)
+
+        if update_groups:
+            self.yas_vgroups.clear()
+
+            yas_groups = [group for group in obj.vertex_groups if group.name.startswith(("iv_", "ya_"))]
+            if yas_groups:
+                self.yas_empty = False
+                for group in yas_groups:
+                    new_group = self.yas_vgroups.add()
+                    new_group.name = group.name
+                    new_group.lock_weight = group.lock_weight
+
+            else:
+                new_group = self.yas_vgroups.add()
+                new_group.name  = "Mesh has no YAS Groups"
+                self.yas_empty = True
+
+    def set_modifiers(self, context):
+        obj    = self.mod_shape_source
+        window = get_window_properties()
+
+        update_modifiers = (window.mesh_category and window.button_modifiers_expand and obj)
+
+        if update_modifiers:
+            mod_types = {
+                    "ARMATURE", "DISPLACE", "LATTICE", "MESH_DEFORM", "SIMPLE_DEFORM",
+                    "WARP", "SMOOTH", "SHRINKWRAP", "SURFACE_DEFORM", "CORRECTIVE_SMOOTH",
+                    "DATA_TRANSFER"
+                }
+            
+            self.shape_modifiers_group.clear()
+            modifiers = [modifier for modifier in obj.modifiers if modifier.type in mod_types]
+            for modifier in modifiers:
+                new_modifier = self.shape_modifiers_group.add()
+                new_modifier.name = modifier.name
+                new_modifier.icon = "MOD_SMOOTH" if "SMOOTH" in modifier.type else \
+                                    "MOD_MESHDEFORM" if "DEFORM" in modifier.type else \
+                                    f"MOD_{modifier.type}"
+            
+            if self.shape_modifiers_group and window.shape_modifiers == "":
+                self.shape_modifiers = self.shape_modifiers_group[0].name
+
+        else:
+            self.shape_modifiers_group.clear()
+
+    yas_source: PointerProperty(
+        type= Object,
+        name= "",
+        description= "YAS source",
+        update=set_yas_vgroups,
+
+        )  # type: ignore
+    
+    yas_empty: BoolProperty(
+        name="",
+        default=False,
+        ) # type: ignore
+    
+    def selected_yas_vgroup(self, context) -> None:
+        obj = bpy.context.active_object
+        if len(self.yas_vgroups) == 1 and self.yas_vgroups[0].name != "Mesh has no YAS Groups":
+            try:
+                obj.vertex_groups.active = obj.vertex_groups.get(self.yas_vgroups[self.yas_vindex].name)
+            except:
+                pass
+
+    yas_vindex: IntProperty(name="YAS Group Index", description="Index of the YAS groups on the active object", update=selected_yas_vgroup) # type: ignore
+
+    mod_shape_source: PointerProperty(
+        type= Object,
+        name= "",
+        description= "YAS source",
+        update=set_modifiers,
+
+        )  # type: ignore
+
     if TYPE_CHECKING:
         loaded_pmp_groups      : Iterable[LoadedModpackGroup]
         shape_modifiers_group  : Iterable[ShapeModifiers]
@@ -1206,6 +1200,12 @@ class YAOutfitProps(PropertyGroup):
         shapes_source          : Object
         shapes_target          : Object
         outfit_armature        : Object
+
+        yas_source       : Object
+        yas_vindex       : int
+        yas_vgroups      : Iterable[YASVGroups]
+        yas_empty        : bool
+        mod_shapes_source: Object
         
         # Created at registration
         scaling_armature       : bool
