@@ -32,5 +32,6 @@ paths_exclude_pattern = [
   "/.*",
   "/*.zip",
   "testing/",
-  "repo.json"
+  "repo.json",
+  "*.ps1"
 ]
