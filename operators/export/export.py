@@ -280,7 +280,7 @@ class SimpleExport(Operator):
     def invoke(self, context: Context, event):
         self.props       = get_file_properties()
         self.window      = get_window_properties()
-        self.check_tris  = self.props.check_tris
+        self.check_tris  = self.window.check_tris
         self.directory   = Path(get_prefs().export_dir)
         self.file_format = self.window.file_format
 
