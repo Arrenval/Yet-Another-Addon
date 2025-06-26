@@ -7,7 +7,7 @@ This is a Blender add-on which aims to give various tools to aid in XIV Modding 
 
 A more extensive overview of the features can be found [here](https://docs.google.com/document/d/1WRKKUZZsAzDOTpt6F7iJkN8TDvwDBm0s0Z4DHdWqT_o/edit?usp=sharing), as well as the compatible YAB+ Devkit.
 
-You'll find most of the features under the "XIV Kit" pannel in the 3D Viewport.
+You'll find most of the features under the "XIV Kit" tab in the 3D Viewport.
 
 ## Installing
 For automatic updates, you should install this as a Blender Extension by adding this URL to Blender's extension repositories:
