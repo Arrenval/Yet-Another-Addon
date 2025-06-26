@@ -63,9 +63,6 @@ class YetAnotherLogger:
             self.send_command("$WarningPreference = 'SilentlyContinue'")
             self.send_command(f"$host.ui.RawUI.WindowTitle = '{self.terminal_title}'")
             self.send_command(f"Clear-Host")
-            # self.send_command(f"Get-Content -Path '{self.log_file.name}' -Tail 0 -Wait")
-            
-            time.sleep(1)
             self.refresh_display()
             
         except Exception as e:
