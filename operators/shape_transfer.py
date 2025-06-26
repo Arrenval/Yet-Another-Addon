@@ -1,7 +1,8 @@
 import bpy   
 
-from bpy.types     import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
-from ..properties  import get_outfit_properties, get_devkit_properties
+from bpy.types       import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
+from ..properties    import get_outfit_properties, get_devkit_properties
+from ..utils.objects import get_object_from_mesh
     
     
 class ShapeKeyTransfer(Operator):
@@ -32,18 +33,17 @@ class ShapeKeyTransfer(Operator):
             return (obj is not None and source is not None) and obj.visible_get() and (obj.type == 'MESH' and source.type == 'MESH') and context.mode == "OBJECT"
 
     def execute(self, context):
-        if hasattr(context.scene, "devkit"):
-            self.devkit                 = bpy.context.scene.devkit
-
-        props                           = get_outfit_properties()
-        self.deform_target              = {}
-        self.input_method       :str    = props.shapes_method
-        self.vertex_pin         :str    = props.obj_vertex_groups
-        self.exclude_wrap       :str    = props.exclude_vertex_groups
-        self.smooth_level       :str    = props.shapes_corrections
-        self.shrinkwrap         :bool   = props.add_shrinkwrap
-        self.object_target      :Object = props.shapes_target
-        self.seam_values        :dict   = {"wa_": props.seam_waist, "wr_": props.seam_wrist, "an_": props.seam_ankle}
+  
+        self.devkit                = get_devkit_properties()
+        props                      = get_outfit_properties()
+        self.deform_target         = {}
+        self.input_method  :str    = props.shapes_method
+        self.vertex_pin    :str    = props.obj_vertex_groups
+        self.exclude_wrap  :str    = props.exclude_vertex_groups
+        self.smooth_level  :str    = props.shapes_corrections
+        self.shrinkwrap    :bool   = props.add_shrinkwrap
+        self.object_target :Object = props.shapes_target
+        self.seam_values   :dict   = {"wa_": props.seam_waist, "wr_": props.seam_wrist, "an_": props.seam_ankle}
 
         match self.input_method:
             case "Chest":
@@ -51,7 +51,7 @@ class ShapeKeyTransfer(Operator):
                 self.overhang       :bool   = props.adjust_overhang
                 self.chest_base     :str    = props.shape_chest_base  
         
-                source = self.devkit.get_object_from_mesh("Torso")
+                source = self.devkit.yam_torso
                 self.deform_target = self.get_shape_keys()
 
             case "Legs":
@@ -63,7 +63,7 @@ class ShapeKeyTransfer(Operator):
                 if self.leg_base == "Melon":
                     self.leg_base = "Gen A/Watermelon Crushers"
 
-                source = self.devkit.get_object_from_mesh("Waist")
+                source = self.devkit.yam_legs
                 self.deform_target = self.get_shape_keys()
 
             case "Seams":
@@ -73,7 +73,7 @@ class ShapeKeyTransfer(Operator):
                 if self.seam_base == "YAB":
                     self.seam_base = "Gen A/Watermelon Crushers"
                 
-                source = self.devkit.get_object_from_mesh("Body Controller")
+                source = get_object_from_mesh("Body Controller")
 
             case "Selected":
                 self.all_keys       :bool   = props.all_keys
@@ -81,8 +81,8 @@ class ShapeKeyTransfer(Operator):
                 self.existing       :bool   = props.existing_only
                 self.shape_source   :str    = props.shapes_source_enum
                 self.shape_target   :str    = props.shapes_target_enum
-                self.object_source  :Object = props.shapes_source
-                    
+                source              :Object = props.shapes_source
+                
         self.transfer(source, self.object_target)
         return {'FINISHED'}
     
@@ -235,9 +235,9 @@ class ShapeKeyTransfer(Operator):
 
         shape_key_queue = []
 
-        if hasattr(bpy.context.scene, "devkit"):
-            chest_controller: Object = self.devkit.get_object_from_mesh("Chest Controller")
-            body_controller : Object = self.devkit.get_object_from_mesh("Body Controller")
+        if self.devkit:
+            chest_controller: Object = get_object_from_mesh("Chest Controller")
+            body_controller : Object = get_object_from_mesh("Body Controller")
 
         for source_key in shape_key_list:
             # Model state is a list of keys that should be turned on before enabling the surface deform

@@ -293,6 +293,8 @@ class OutfitStudio(Panel):
 
                 col.separator(type="LINE", factor=2)
 
+                obj  = get_object_from_mesh("Chest Controller")
+                keys = obj.data.shape_keys.key_blocks
                 slot = "Chest"
                 labels = {
                         "Large":      "LARGE",    
@@ -305,10 +307,10 @@ class OutfitStudio(Panel):
                 
                 # del labels[self.outfit_props.shape_chest_base]
                 row = col.row(align=True)
-                col.prop(self.devkit_prop, "key_pushup_large_ctrl", text="Push-Up Adjustment:")
-                col.prop(self.devkit_prop, "key_squeeze_large_ctrl", text="Squeeze Adjustment:")
+                col.prop(keys["Push-Up"], "value", text="Push-Up Adjustment:")
+                col.prop(keys["Squeeze"], "value", text="Squeeze Adjustment:")
 
-                self.dynamic_column_buttons(2, col, self.devkit_prop, labels, slot, button_type)
+                self.dynamic_column_buttons(2, col, self.devkit_props, labels, slot, button_type)
                 
                 col.separator(type="LINE", factor=2)
 
@@ -348,7 +350,7 @@ class OutfitStudio(Panel):
                     }
                 
                 # del labels[self.outfit_props.shape_leg_base]
-                self.dynamic_column_buttons(2, col, self.devkit_prop, labels, slot, button_type)
+                self.dynamic_column_buttons(2, col, self.devkit_props, labels, slot, button_type)
 
                 col.separator(type="LINE", factor=2)
 
