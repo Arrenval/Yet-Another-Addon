@@ -471,7 +471,7 @@ class OutfitStudio(Panel):
         elif button:
             row = box.row(align=True)
             row.alignment = "CENTER"
-            row.label(text="No Object Selected.", icon="INFO")
+            row.label(text="No object selected.", icon="INFO")
         
         row = box.row(align=True)
         button = self.window_props.button_transp_expand
@@ -506,16 +506,20 @@ class OutfitStudio(Panel):
         obj = bpy.context.active_object
         row = box.row()
         col = row.column(align=True)
+        if not obj:
+            row = box.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="No active object.", icon="INFO")
+            return
+        
         if self.window_props.filter_vgroups:
             col.template_list(
                 "MESH_UL_YAS", "", 
-                self.window_props, "yas_vgroups", 
-                self.window_props, "yas_vindex", 
+                self.outfit_props, "yas_vgroups", 
+                self.outfit_props, "yas_vindex", 
                 rows=5
                 )
         else:
-            if not obj:
-                obj = self.devkit_props.yam_mannequin
             col.template_list(
                 "MESH_UL_YAS", "", 
                 obj, "vertex_groups", 
@@ -540,7 +544,7 @@ class OutfitStudio(Panel):
         split.label(text="Armature:")
         split.prop(self.outfit_props, "outfit_armature", text="", icon="ARMATURE_DATA")
         box.separator(factor=0.5, type="LINE")
-        if not self.window_props.outfit_armature:
+        if not self.outfit_props.outfit_armature:
             row = box.row()
             row.alignment = "CENTER"
             row.label(text="Please select an Armature.", icon="INFO")
@@ -571,8 +575,7 @@ class OutfitStudio(Panel):
             split.label(text="Animation:")
             split.prop(self.outfit_props, "actions", text="", icon="ACTION")
 
-            
-            if not self.window_props.outfit_armature and self.outfit_props.actions != "None":
+            if not self.outfit_props.outfit_armature and self.outfit_props.actions != "None":
                 # box.separator(factor=0.5, type="LINE")
                 row = box.row(align=True)
                 col = row.column(align=True)
