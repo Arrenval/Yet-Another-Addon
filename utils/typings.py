@@ -27,6 +27,21 @@ class ObjectState:
     name: str
     hide: bool
 
+class TorsoState:
+    chest_size: str
+    buff      : bool
+    rue       : bool
+    lavabod   : bool
+
+class LegState:
+    gen       :str
+    legs      :str
+    rue       :bool
+    small_butt:bool
+    soft_butt :bool
+    hips      :bool
+    squish    :str
+
 class DevkitProps:
     chest_shape_enum   : str
     shape_mq_chest_bool: bool
@@ -41,6 +56,8 @@ class DevkitProps:
     yam_hands          : Object
     yam_feet           : Object
     yam_mannequin      : Object
+    kit_torso          : TorsoState
+    kit_legs           : LegState
 
     ALL_SHAPES  : dict[str, tuple]
     torso_floats: list[dict[str, dict[str, float]]]        
