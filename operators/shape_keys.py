@@ -14,7 +14,7 @@ class ModifierState(PropertyGroup):
 class ShapeKeyModifier(Operator):
     bl_idname = "ya.apply_modifier_sk"
     bl_label = ""
-    bl_description = ""
+    bl_description = "Apply modifiers to meshes with shape keys"
 
     bl_options = {"UNDO"}
 
