@@ -2,7 +2,7 @@ import bpy
 
 from bpy.types            import Object
 from bpy.app.handlers     import persistent
-from .properties          import get_object_from_mesh, get_window_properties, get_devkit_properties, get_outfit_properties
+from .properties          import get_object_from_mesh, get_window_properties, get_devkit_properties, get_outfit_properties, get_devkit_win_props
 
 
 _active_obj = None
@@ -48,12 +48,12 @@ def remove_devkit(dummy):
 @persistent
 def pre_anim_handling(dummy) ->None:
     props    = get_window_properties()
-    devkit   = get_devkit_properties()
+    devkit   = get_devkit_win_props()
     context = bpy.context
     props.animation_optimise.clear()
     optimise = props.animation_optimise.add()
     if devkit:
-        optimise.triangulation = devkit.controller_triangulation
+        optimise.triangulation = devkit.devkit_triangulation
         context.scene.devkit_props.controller_triangulation = False
         get_object_from_mesh("Controller").update_tag()
         bpy.ops.yakit.collection_manager(preset="Animation")
@@ -73,11 +73,11 @@ def pre_anim_handling(dummy) ->None:
 @persistent
 def post_anim_handling(dummy) ->None:
     props    = get_window_properties()
-    devkit   = get_devkit_properties()
+    devkit   = get_devkit_win_props()
     context  = bpy.context
     optimise = props.animation_optimise
     if devkit:
-        devkit.controller_triangulation = optimise[0].triangulation
+        devkit.devkit_triangulation = optimise[0].triangulation
         bpy.ops.yakit.collection_manager(preset="Restore") 
     
     props.animation_frame = context.scene.frame_current
