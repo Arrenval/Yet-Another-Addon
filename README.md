@@ -11,7 +11,7 @@ You'll find most of the features under the "XIV Kit" tab in the 3D Viewport.
 
 ## Installing
 For automatic updates, you should install this as a Blender Extension by adding this URL to Blender's extension repositories:
-- https://raw.githubusercontent.com/Arrenval/Yet-Another-Addon/refs/heads/main/repo.json
+- https://raw.githubusercontent.com/Arrenval/Yet-Another-Addon/main/repo.json
 
 Installing this as an addon and later updating to an extension will incur a loss of user preferences, and vice versa.
 

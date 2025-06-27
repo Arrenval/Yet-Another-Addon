@@ -3,42 +3,11 @@
   "blocklist": [],
   "data": [
     {
-      "schema_version": "0.16.0",
-      "id": "yet_another_addon_ffxiv",
-      "name": "Yet Another Addon",
-      "tagline": "Several tools to speed up XIV modding workflows",
-      "version": "0.16.0",
-      "type": "add-on",
-      "maintainer": "Aleks",
-      "license": [
-        "SPDX:GPL-3.0-or-later"
-      ],
-      "blender_version_min": "4.2.0",
-      "blender_version_max": "4.5.0",
-      "website": "https://github.com/Arrenval/Yet-Another-Addon",
-      "permissions": {
-        "files": "Import/export files from/to disk",
-        "clipboard": "Paste bone scaling"
-      },
-      "tags": [
-        "Animation",
-        "Import-Export",
-        "Modeling",
-        "Mesh",
-        "Object",
-        "Rigging",
-        "User Interface"
-      ],
-      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/0.16.2/Yet.Another.Addon.v0.16.0.zip",
-      "archive_size": 102862,
-      "archive_hash": "sha256:eae4e99046c7b3d89a41f53a5ee4c9d904dc6bcfcacd5b4f6ba2fb59bc2f91ac"
-    },
-    {
       "schema_version": "1.0.0",
       "id": "yet_another_addon_ffxiv",
       "name": "Yet Another Addon",
       "tagline": "Several tools to speed up XIV modding workflows",
-      "version": "0.16.1",
+      "version": "0.16.3",
       "type": "add-on",
       "maintainer": "Aleks",
       "license": [
@@ -60,40 +29,9 @@
         "Rigging",
         "User Interface"
       ],
-      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/0.16.2/Yet.Another.Addon.v0.16.1.zip",
-      "archive_size": 101619,
-      "archive_hash": "sha256:b7fb22a63ca807bc69ab3ba8db946f341c274d098e56ac498b7f412eadb5d13f"
-    },
-    {
-      "schema_version": "1.0.0",
-      "id": "yet_another_addon_ffxiv",
-      "name": "Yet Another Addon",
-      "tagline": "Several tools to speed up XIV modding workflows",
-      "version": "0.16.2",
-      "type": "add-on",
-      "maintainer": "Aleks",
-      "license": [
-        "SPDX:GPL-3.0-or-later"
-      ],
-      "blender_version_min": "4.2.0",
-      "blender_version_max": "4.5.0",
-      "website": "https://github.com/Arrenval/Yet-Another-Addon",
-      "permissions": {
-        "files": "Import/export files from/to disk",
-        "clipboard": "Paste bone scaling"
-      },
-      "tags": [
-        "Animation",
-        "Import-Export",
-        "Modeling",
-        "Mesh",
-        "Object",
-        "Rigging",
-        "User Interface"
-      ],
-      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/0.16.2/Yet.Another.Addon.v0.16.2.zip",
-      "archive_size": 101625,
-      "archive_hash": "sha256:ee4979fa6f18a9ff66fb0ee6d098b298a8a07b03bef6d43ac04d75ab1dd2897a"
+      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/v0.16.3/Yet.Another.Addon.v0.16.3.zip",
+      "archive_size": 101609,
+      "archive_hash": "sha256:6cf1992e75f8423e07fd1350bbe05c8e7000427d6be355ce2d68571e98863209"
     }
   ]
 }
