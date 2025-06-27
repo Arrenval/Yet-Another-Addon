@@ -315,8 +315,8 @@ class RemoveGenGroups(Operator):
             'iv_ochinko_e',         
             'iv_ochinko_f',
             ]
-        tuple(genitalia)
-        remove_vertex_groups(obj, ("iv_", "ya_"))
+        
+        remove_vertex_groups(obj, tuple(genitalia))
         props.set_yas_vgroups(context)
         return {"FINISHED"}
 
