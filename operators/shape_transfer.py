@@ -71,7 +71,7 @@ class ShapeKeyTransfer(Operator):
                 self.seam_base      :str     = props.shape_seam_base
 
                 if self.seam_base == "YAB":
-                    self.seam_base = "Gen A/Watermelon Crushers"
+                    self.seam_base = "BASE"
                 
                 source = get_object_from_mesh("Body Controller")
 
