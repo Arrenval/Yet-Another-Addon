@@ -577,14 +577,14 @@ class OutfitStudio(Panel):
             split.label(text="Animation:")
             split.prop(self.outfit_props, "actions", text="", icon="ACTION")
 
-            if not self.outfit_props.outfit_armature and self.outfit_props.actions != "None":
+            if self.outfit_props.outfit_armature and self.outfit_props.actions != "None":
                 # box.separator(factor=0.5, type="LINE")
                 row = box.row(align=True)
                 col = row.column(align=True)
                 row = col.row(align=True)
                 row.alignment = "CENTER"
                 row.label(text="Animation Frame:")
-                col.prop(self.outfit_props, "animation_frame", text="")
+                col.prop(self.window_props, "animation_frame", text="")
                 row = box.row(align=True)
                 row.alignment = "CENTER"
                 row.operator("ya.frame_jump", text="", icon="FRAME_PREV").end = False

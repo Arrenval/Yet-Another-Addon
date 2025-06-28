@@ -442,14 +442,6 @@ class ShapeModifiers(PropertyGroup):
         name: str
         icon: str
 
-class AnimationOptimise(PropertyGroup):
-    triangulation: BoolProperty() # type: ignore
-    show_armature: BoolProperty() # type: ignore
-
-    if TYPE_CHECKING:
-        triangulation: bool
-        show_armature: bool
-
 class YAWindowProps(PropertyGroup):
     
     ui_buttons_list = [
@@ -496,9 +488,6 @@ class YAWindowProps(PropertyGroup):
         type=BlendModGroup
         ) # type: ignore
     
-    animation_optimise: CollectionProperty(type=AnimationOptimise) # type: ignore
-
-
     export_prefix: StringProperty(
         name="",
         description="This will be prefixed to all your exported filenames",
@@ -703,7 +692,6 @@ class YAWindowProps(PropertyGroup):
         new_mod_version     : str
         author_name         : str
 
-        animation_optimise  : Iterable[AnimationOptimise]
         animation_frame     : int  
 
         # Created at registration
@@ -933,15 +921,16 @@ class YAOutfitProps(PropertyGroup):
         return armature_actions
     
     def set_action(self, context:Context) -> None:
-        if not self.armature:
+        window = get_window_properties()
+        if not self.outfit_armature:
             return
         if self.actions == "None":
-            self.armature.animation_data.action = None
+            self.outfit_armature.animation_data.action = None
             return
     
         action = bpy.data.actions.get(self.actions)
 
-        self.armature.animation_data.action = action
+        self.outfit_armature.animation_data.action = action
         if bpy.app.version >= (4, 4, 0):
             self.armature.animation_data.action_slot = action.slots[0]
         context.scene.frame_end = int(action.frame_end)
@@ -954,7 +943,7 @@ class YAOutfitProps(PropertyGroup):
             default=0,
             max=int(action.frame_end),
             min=0,
-            update=lambda self, context: self.animation_frames(context)
+            update=lambda self, context: window.animation_frames(context)
             ) 
         setattr(YAWindowProps, "animation_frame", prop)
 
@@ -1276,7 +1265,6 @@ CLASSES = [
     LoadedModpackGroup,
     YASVGroups,
     ShapeModifiers,
-    AnimationOptimise,
     YAWindowProps,
     YAFileProps,
     YAOutfitProps

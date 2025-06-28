@@ -2,7 +2,7 @@ import bpy
 
 from bpy.types          import Operator
 from bpy.props          import BoolProperty
-from ..properties       import get_outfit_properties
+from ..properties       import get_window_properties
 
 
 class FrameJump(Operator):
@@ -11,11 +11,11 @@ class FrameJump(Operator):
     bl_description = "Jump to first/last frame in frame range"
     bl_options = {"UNDO", "REGISTER"}
 
-    end: BoolProperty() # type: ignore
+    end: BoolProperty(options={'HIDDEN'}) # type: ignore
  
     def execute(self, context):
         bpy.ops.screen.frame_jump(end=self.end)
-        get_outfit_properties().animation_frame = context.scene.frame_current
+        get_window_properties().animation_frame = context.scene.frame_current
 
         return {'FINISHED'}
 
@@ -25,11 +25,11 @@ class KeyframeJump(Operator):
     bl_description = "Jump to previous/next keyframe"
     bl_options = {"UNDO", "REGISTER"}
 
-    next: BoolProperty() # type: ignore
+    next: BoolProperty(options={'HIDDEN'}) # type: ignore
 
     def execute(self, context):
         bpy.ops.screen.keyframe_jump(next=self.next)
-        get_outfit_properties().animation_frame = context.scene.frame_current
+        get_window_properties().animation_frame = context.scene.frame_current
 
         return {'FINISHED'}
 
