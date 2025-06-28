@@ -63,7 +63,7 @@ class LegState(PropertyGroup):
 class HandState(PropertyGroup):
     nails    : str
     hand_size: str
-    clawsies : bool
+    clawsies : str
 
 class FeetState(PropertyGroup):
     rue_feet: bool
@@ -72,6 +72,7 @@ class MannequinState(TorsoState, LegState, HandState, FeetState):
     pass
 
 class DevkitProps(PropertyGroup):
+    ALL_SHAPES         : dict[str, tuple[str, ...]]
     chest_shape_enum   : str
     shape_mq_chest_bool: bool
     shape_mq_legs_bool : bool
