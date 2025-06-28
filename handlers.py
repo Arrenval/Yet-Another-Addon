@@ -7,6 +7,10 @@ from .properties          import get_object_from_mesh, get_window_properties, ge
 
 _active_obj = None
 
+_pre_armature = None
+_pre_tri      = None
+
+
 def frame_ui(dummy):
     get_window_properties().animation_frame = bpy.context.scene.frame_current
 
@@ -47,23 +51,22 @@ def remove_devkit(dummy):
 
 @persistent
 def pre_anim_handling(dummy) ->None:
-    props    = get_window_properties()
+    global _pre_tri
+    global _pre_armature
+
     devkit   = get_devkit_win_props()
     context = bpy.context
-    props.animation_optimise.clear()
-    optimise = props.animation_optimise.add()
     if devkit:
-        optimise.triangulation = devkit.devkit_triangulation
+        _pre_tri = devkit.devkit_triangulation
         context.scene.devkit_props.controller_triangulation = False
-        get_object_from_mesh("Controller").update_tag()
-        bpy.ops.yakit.collection_manager(preset="Animation")
+        get_devkit_properties().collection_state.export = False
     
     try:
         area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
         view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
 
         with context.temp_override(area=area, space=view3d):
-            optimise.show_armature = context.space_data.show_object_viewport_armature
+            _pre_armature = context.space_data.show_object_viewport_armature
             context.space_data.show_object_viewport_armature = False
     except:
         pass
@@ -72,13 +75,14 @@ def pre_anim_handling(dummy) ->None:
 
 @persistent
 def post_anim_handling(dummy) ->None:
+    global _pre_tri
+    global _pre_armature
+
     props    = get_window_properties()
     devkit   = get_devkit_win_props()
     context  = bpy.context
-    optimise = props.animation_optimise
     if devkit:
-        devkit.devkit_triangulation = optimise[0].triangulation
-        bpy.ops.yakit.collection_manager(preset="Restore") 
+        devkit.devkit_triangulation = _pre_tri
     
     props.animation_frame = context.scene.frame_current
     
@@ -87,7 +91,7 @@ def post_anim_handling(dummy) ->None:
         view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
 
         with context.temp_override(area=area, space=view3d):
-            context.space_data.show_object_viewport_armature = optimise[0].show_armature
+            context.space_data.show_object_viewport_armature = _pre_armature
     except:
         pass
     bpy.app.handlers.frame_change_pre.remove(frame_ui)

@@ -46,7 +46,7 @@ class PoseApply(Operator):
         
     @classmethod
     def poll(cls, context):
-        window = get_window_properties()
+        window = get_outfit_properties()
         return window.outfit_armature
     
     def invoke(self, context, event):
