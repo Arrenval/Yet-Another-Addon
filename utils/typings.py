@@ -1,6 +1,6 @@
 
 from typing      import TypedDict, Iterable
-from bpy.types   import Object
+from bpy.types   import Object, PropertyGroup
 
 
 Preset = TypedDict(
@@ -20,49 +20,76 @@ BlendEnum   = list[tuple[str, str, str]]
 
 # Classes from Yet Another Devkit
 
-class CollectionState:
-    name: str
+class CollectionState(PropertyGroup):
+    skeleton        : bool
+    chest           : bool
+    nipple_piercings: bool
+    legs            : bool
+    pubes           : bool
+    hands           : bool
+    nails           : bool
+    clawsies        : bool
+    practical       : bool
+    feet            : bool
+    toenails        : bool
+    toe_clawsies    : bool
+    mannequin       : bool
+    export          : bool
 
-class ObjectState:
-    name: str
-    hide: bool
+class SubKeyValues(PropertyGroup):
+    name : str
+    value: float
 
-class TorsoState:
+class TorsoState(PropertyGroup):
+    MANNEQUIN: bool
+
     chest_size: str
     buff      : bool
     rue       : bool
     lavabod   : bool
 
-class LegState:
-    gen       :str
-    legs      :str
-    rue       :bool
-    small_butt:bool
-    soft_butt :bool
-    hips      :bool
-    squish    :str
+    yab_keys : Iterable[SubKeyValues]
+    lava_keys: Iterable[SubKeyValues]
 
-class DevkitProps:
+class LegState(PropertyGroup):
+    gen       : str
+    leg_size  : str
+    rue       : bool
+    small_butt: bool
+    soft_butt : bool
+    alt_hips  : bool
+    squish    : str
+
+class HandState(PropertyGroup):
+    nails    : str
+    hand_size: str
+    clawsies : bool
+
+class FeetState(PropertyGroup):
+    rue_feet: bool
+
+class MannequinState(TorsoState, LegState, HandState, FeetState):
+    pass
+
+class DevkitProps(PropertyGroup):
     chest_shape_enum   : str
     shape_mq_chest_bool: bool
     shape_mq_legs_bool : bool
     shape_mq_other_bool: bool
-    collection_state   : Iterable[CollectionState]
-    object_state       : Iterable[ObjectState]
-    overview_ui        : str
-    is_exporting       : bool
+    
+    collection_state   : CollectionState
+    torso_state        : TorsoState
+    leg_state          : LegState
+    hand_state         : HandState
+    feet_state         : FeetState
     yam_torso          : Object
     yam_legs           : Object
     yam_hands          : Object
     yam_feet           : Object
     yam_mannequin      : Object
-    kit_torso          : TorsoState
-    kit_legs           : LegState
 
-    ALL_SHAPES  : dict[str, tuple]
-    torso_floats: list[dict[str, dict[str, float]]]        
-    mq_floats   : list[dict[str, dict[str, float]]]  
-    mesh_list   : list[str]
+    mannequin_state: MannequinState
 
-class DevkitWindowProps:
+class DevkitWindowProps(PropertyGroup):
     overview_ui: str
+    devkit_triangulation: bool
