@@ -8,102 +8,39 @@ from bpy.types                import Operator, Context
 from .simple                  import check_triangulation, get_export_path, export_result
 from ...properties            import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
 from ...preferences           import get_prefs
-from ...utils.objects         import get_object_from_mesh
 from ...utils.logging         import YetAnotherLogger
 from ...utils.scene_optimiser import SceneOptimiser
-
-def save_sizes() -> list[dict[str, dict[str, float]]]:
-    devkit_props = get_devkit_properties()
-    obj = get_object_from_mesh("Torso").data.shape_keys.key_blocks
-    
-    saved_sizes = [
-        {
-            "Large": devkit_props.torso_floats[0]["Large"].copy(),
-            "Medium": devkit_props.torso_floats[0]["Medium"].copy(), 
-            "Small": devkit_props.torso_floats[0]["Small"].copy(),
-            "Masc": devkit_props.torso_floats[0].get("Masc", {}).copy()
-        },
-        {
-            "Large": devkit_props.torso_floats[1]["Large"].copy(),
-            "Medium": devkit_props.torso_floats[1]["Medium"].copy(),
-            "Small": devkit_props.torso_floats[1]["Small"].copy(), 
-            "Masc": devkit_props.torso_floats[1].get("Masc", {}).copy()
-        }
-    ]
-    
-    if obj["Lavabod"].mute:
-        current_index = 0
-    else:
-        current_index = 1
-
-    for key in obj:
-        key_name = key.name
-        current_value = round(key.value, 2)
-        
-        if key_name.startswith("- "):
-            saved_sizes[current_index]["Large"][key_name] = current_value
-        elif key_name.startswith("-- "):
-            saved_sizes[current_index]["Medium"][key_name] = current_value
-        elif key_name.startswith("--- "):
-            saved_sizes[current_index]["Small"][key_name] = current_value
-        elif key_name.startswith("---- "):
-            saved_sizes[0]["Masc"][key_name] = current_value
-            saved_sizes[1]["Masc"][key_name] = current_value
-    
-    return saved_sizes
-
-def reset_chest_values(saved_sizes) -> None:
-    devkit_props = get_devkit_properties()
-    key_blocks   = get_object_from_mesh("Torso").data.shape_keys.key_blocks
-    base_size    = ["Large", "Medium", "Small", "Masc"]
-
-    if key_blocks["Lavabod"].mute:
-        index  = 0
-        saved_sizes[1] = devkit_props.torso_floats[1]
-    else:
-        index  = 1
-        saved_sizes[0] = devkit_props.torso_floats[0]
-
-    for size in base_size:
-        preset      = saved_sizes[index][size]
-        for key_name, value in preset.items():
-            key_blocks[key_name].value = value
-    
-    bpy.context.view_layer.update()
 
 
 class BatchQueue(Operator):
     # Currently very messy, will refactor later
+    # The combinations and queue calculation is atrocious why did past me do this
+    # It works tho, somehow
 
     bl_idname = "ya.batch_queue"
     bl_label = "Export"
     bl_description = "Exports your scene based on your selections"
     bl_options = {'UNDO'}
-
-    ob_mesh_dict = {
-            "Chest": "Torso", 
-            "Legs" : "Waist", 
-            "Hands": "Hands",
-            "Feet" : "Feet"
-            }
     
     @classmethod
     def poll(cls, context):
         return context.mode == "OBJECT"
 
-    def execute(self, context):
-        self.props              = get_file_properties()
-        self.window             = get_window_properties()
-        self.prefs              = get_prefs()
-        self.devkit_props       = get_devkit_properties()
-        self.devkit_win         = get_devkit_win_props()
-        self.check_tris  : bool = self.window.check_tris
-        self.subfolder   : bool = self.window.create_subfolder
+    def execute(self, context: Context):
+        self.props        = get_file_properties()
+        self.window       = get_window_properties()
+        self.prefs        = get_prefs()
+        self.devkit_props = get_devkit_properties()
+        self.devkit_win   = get_devkit_win_props()
+        self.size_options = self.get_size_options()
+
+        self.check_tris : bool  = self.window.check_tris
+        self.subfolder  : bool  = self.window.create_subfolder
         self.export_dir         = Path(self.prefs.export_dir)
         self.file_format        = self.window.file_format
-        self.body_slot   : str  = self.window.export_body_slot
-        self.size_options       = self.get_size_options()
-        self.prefix      : str  = self.window.export_prefix
+        self.body_slot  : str   = self.window.export_body_slot
+        self.prefix     : str   = self.window.export_prefix
+        self.collections        = self.devkit_props.collection_state
     
         self.leg_sizes = {
             "Melon": self.size_options["Melon"],
@@ -146,10 +83,9 @@ class BatchQueue(Operator):
         if self.body_slot == "Chest & Legs" and self.leg_queue == []:
             self.report({'ERROR'}, "No valid combinations!")
             return {'CANCELLED'} 
-
+        
+        self.save_chest_sizes()
         self.collection_state()
-        bpy.ops.yakit.collection_manager(preset="Export")
-        self.saved_sizes = save_sizes()
 
         try:
             with SceneOptimiser(context, optimisation_level="high"):
@@ -161,7 +97,7 @@ class BatchQueue(Operator):
                     self.logger.log(f"Size: {item[0]}")
                     self.logger.log_separator()
                     self.logger.log("Applying sizes...", 2)
-                    self.export_queue(context, item, self.body_slot)
+                    self.export_queue(item, self.body_slot)
                     
         except Exception as e:
             if self.logger:
@@ -169,57 +105,59 @@ class BatchQueue(Operator):
         finally:
             if self.logger:
                 self.logger.close()
-
-            reset_chest_values(self.saved_sizes)
-            bpy.ops.yakit.collection_manager(preset="Restore")
-            return {"FINISHED"}
+            self.reset_chest_values()
+            self.collections.export = False
+            bpy.context.view_layer.update()
+        return {"FINISHED"}
        
     def collection_state(self) -> None:
-        devkit_props = get_devkit_properties()
-        collection_state = devkit_props.collection_state
-        collection_state.clear()
-        collections = []
-        match self.body_slot:
-            case "Chest":
-                collections = ["Chest"]
-                if self.size_options["Piercings"]:
-                    collections.append("Nipple Piercings")
+        if self.body_slot == "Chest" or self.body_slot == "Chest & Legs":
+            self.collections.chest = True
+            if self.size_options["Piercings"]:
+                self.collections.nipple_piercings = True
+            else:
+                self.collections.nipple_piercings = False
+            
+            self.collections.legs = False
+            self.collections.feet = False
+            self.collections.hands = False
+                
+        if self.body_slot == "Legs" or self.body_slot == "Chest & Legs":
+            self.collections.legs = True
+            if self.size_options["Pubes"]:
+                self.collections.pubes = True
+            
+            self.collections.feet = False
+            self.collections.chest = False
+            self.collections.hands = False
 
-            case "Legs":
-                collections = ["Legs"]
-                if self.size_options["Pubes"]:
-                    collections.append("Pubes")
+        elif self.body_slot ==  "Hands":
+            self.collections.hands = True
 
-            case "Chest & Legs":
-                collections = ["Chest", "Legs"]
-                if self.size_options["Piercings"]:
-                    collections.append("Nipple Piercings")
-                if self.size_options["Pubes"]:
-                    collections.append("Pubes")
+            self.collections.feet = False
+            self.collections.legs = False
+            self.collections.chest = False
 
-            case "Hands":
-                collections = ["Hands"]
+        elif self.body_slot ==  "Feet":
+            self.collections.feet = True
 
-            case "Feet":
-                collections = ["Feet"]
-
-        for name in collections:
-            state = collection_state.add()
-            state.name = name
+            self.collections.legs = False
+            self.collections.hands = False
+            self.collections.chest = False
+         
+        self.collections.export = True
 
     def get_size_options(self) -> dict[str, bool]:
         options     = {}
-        devkit_win  = get_devkit_win_props()
-        devkit      = get_devkit_properties()
         
-        for shape, (name, slot, shape_category, description, body, key) in devkit.ALL_SHAPES.items():
+        for shape, (name, slot, shape_category, description, body, key) in self.devkit_props.ALL_SHAPES.items():
             slot_lower = slot.lower().replace("/", " ")
             name_lower = name.lower().replace(" ", "_")
 
             prop_name = f"export_{name_lower}_{slot_lower}_bool"
 
-            if hasattr(devkit_win, prop_name):
-                options[shape] = getattr(devkit_win, prop_name)
+            if hasattr(self.devkit_win, prop_name):
+                options[shape] = getattr(self.devkit_win, prop_name)
 
         return options
 
@@ -253,21 +191,18 @@ class BatchQueue(Operator):
                     continue
                 if body_slot =="Legs" and body == "Rue" and "Rue Legs" not in options:
                     continue
-                if body == "Lava" or body_key == "Masc Legs":
+                if body in ("Lava", "Rue") or body_key == "Masc Legs":
                     options = (*options, body_key)
 
                 name = self.name_generator(options, size, body, len(enabled_bodies), gen, gen_options, body_slot)
                 if (body_slot == "Feet" or body_slot == "Hands") and any(name in entry[0] for entry in self.queue):
                     continue
-            
                 if self.body_slot == "Chest & Legs" and body_slot == "Legs":
-                    self.leg_queue.append((name, options, size, gen, target))
+                    self.leg_queue.append((name, options, size, gen))
                 else:
-                    self.queue.append((name, options, size, gen, target))
+                    self.queue.append((name, options, size, gen))
                 
-        mesh            = self.ob_mesh_dict[body_slot]
         rue_export      = self.window.rue_export
-        target          = get_object_from_mesh(mesh).data.shape_keys.key_blocks
         leg_sizes       = [key for key in self.leg_sizes.keys() if self.leg_sizes[key]]
         gen_options     = len(self.actual_combinations.keys())
         all_bodies      = ["YAB", "Rue", "Lava", "Masc"]
@@ -298,12 +233,13 @@ class BatchQueue(Operator):
                         exception_handling(size, gen, gen_options)
                  
     def shape_combinations(self, body_slot:str) -> dict[str, set[tuple]]:
-        devkit              = get_devkit_properties()
-        possible_parts      = [ 
+        devkit         = get_devkit_properties()
+        possible_parts = [ 
             "Small Butt", "Soft Butt", "Hip Dips", "Rue Legs",
             "Buff", "Rue",
             "Clawsies"
             ]
+        
         actual_parts        = []
         all_combinations    = set()
         actual_combinations = {}
@@ -395,7 +331,7 @@ class BatchQueue(Operator):
         
         return " - ".join(list(file_names))
 
-    def export_queue(self, context:Context, item: tuple, body_slot:str) -> int | None:
+    def export_queue(self, item: tuple, body_slot:str) -> int | None:
 
         def clean_file_name (file_name: str) -> str:
             parts = file_name.split(" - ")
@@ -426,100 +362,22 @@ class BatchQueue(Operator):
                 return False
         
             return True
-
-        def apply_model_state(options: tuple[str], size:str , gen: str, body_slot: str, key_blocks, saved_sizes: dict[str, dict[str, float]]) -> None:
-            Devkit = bpy.data.texts["devkit.py"].as_module()
-            devkit_props = get_devkit_properties()
-            if body_slot == "Chest & Legs":
-                body_slot = "Chest"
-
-            for shape, (name, slot, category, description, body, key) in devkit_props.ALL_SHAPES.items():
-                if shape == size and key != "":
-                    key_blocks[key].mute = False
-
-                if any(shape in options for option in options):
-                    if key != "":
-                        key_blocks[key].mute = False
-
-            # Adds the shape value presets alongside size toggles
-            if body_slot == "Chest":
-                keys_to_filter  = ["Nip Nops"]
-                preset          = {}
-                filtered_preset = {}
-                index           = 1 if any(option == "Lava" for option in options) else 0
-
-                try:
-                    preset = saved_sizes[index][size]
-                except:
-                    preset = Devkit.get_shape_presets(size)
-                
-                for key in preset.keys():
-                    if not any(key.endswith(sub) for sub in keys_to_filter):
-                        filtered_preset[key] = preset[key]
-
-                category = devkit_props.ALL_SHAPES[size][2]
-                Devkit.ApplyShapes.mute_chest_shapes(key_blocks, category)
-                for key_name, value in filtered_preset.items():
-                    key_blocks[key_name].value = value
-                    
-            if gen != None and gen.startswith("Gen") and gen != "Gen A":
-                key_blocks[gen].mute = False
-
-        def reset_model_state(body_slot: str, key_block) -> None:
-            devkit = get_devkit_properties()
-            if body_slot == "Chest & Legs":
-                body_slot = "Chest"
-
-            reset_shape_keys = []
-
-            for shape, (name, slot, shape_category, description, body, key) in devkit.ALL_SHAPES.items():
-                if key != "" and slot == body_slot:
-                    if shape == "Hip Dips":
-                        reset_shape_keys.append("Hip Dips (for YAB)")
-                        reset_shape_keys.append("Less Hip Dips (for Rue)")
-                    else:
-                        reset_shape_keys.append(key)
-
-            for key in reset_shape_keys:   
-                key_block[key].mute = True
-
-        collection   = context.view_layer.layer_collection.children
     
-        main_name, options, size, gen, target = item
+        main_name, options, size, gen = item
 
-        reset_model_state(body_slot, target)
-        apply_model_state(options, size, gen, body_slot, target, self.saved_sizes)
+        self.hand_feet_collection(body_slot, options, size)
 
-        if body_slot == "Hands":
-
-            if size == "Straight" or size == "Curved":
-                collection["Hands"].children["Clawsies"].exclude = False
-                collection["Hands"].children["Nails"].exclude = True
-                collection["Hands"].children["Nails"].exclude = True
-    
-            else:
-                collection["Hands"].children["Clawsies"].exclude = True
-                collection["Hands"].children["Nails"].exclude = False
-                collection["Hands"].children["Nails"].children["Practical Uses"].exclude = False
-        
-        if body_slot == "Feet":
-
-            if "Clawsies" in options:
-                collection["Feet"].children["Toe Clawsies"].exclude = False
-                collection["Feet"].children["Toenails"].exclude = True
-                
-            else:
-                collection["Feet"].children["Toe Clawsies"].exclude = True
-                collection["Feet"].children["Toenails"].exclude = False
+        self.reset_model_state(body_slot)
+        self.apply_model_state(options, size, gen, body_slot)
         
         if body_slot == "Chest & Legs":
             exported = []
             for leg_task in self.leg_queue:
-                leg_name, options, size, gen, leg_target = leg_task
+                leg_name, options, size, gen = leg_task
                 # rue_match stops non-rue tops to be used with rue legs and vice versa
                 if check_rue_match(options, main_name):
-                    reset_model_state("Legs", leg_target)
-                    apply_model_state(options, size, gen, "Legs", leg_target, self.saved_sizes)
+                    self.reset_model_state("Legs")
+                    self.apply_model_state(options, size, gen, "Legs")
 
                     combined_name = main_name + " - " + leg_name
                     final_name = clean_file_name(combined_name)
@@ -533,7 +391,204 @@ class BatchQueue(Operator):
             bpy.context.evaluated_depsgraph_get()
             file_path = get_export_path(self.export_dir, main_name, self.subfolder, self.body_slot)
             export_result(file_path, self.file_format, self.logger)
-      
+    
+    def hand_feet_collection(self, body_slot: str, options: tuple, size: str) -> None:
+        if body_slot == "Hands":
+            if size in ("Straight", "Curved"):
+                self.collections.clawsies = True
+    
+            else:
+                self.collections.nails = True
+                self.collections.practical = True
+        
+        if body_slot == "Feet":
+            if "Clawsies" in options:
+                self.collections.toe_clawsies = True
+                
+            else:
+                self.collections.toenails = True
+
+    def apply_model_state(self, options: tuple[str, ...], size:str , gen: str, body_slot: str) -> None:
+        if body_slot == "Chest & Legs":
+            body_slot = "Chest"
+        
+        model = self.devkit_props
+
+        if body_slot == "Legs":
+            legs_to_value = {
+                "Gen A":   '0',
+                "Gen B":   '1',
+                "Gen C":   '2',
+                "Gen SFW": '3',
+
+                "Melon":   '0',
+                "Skull":   '1',
+                "Yanilla": '2',
+                "Masc Legs": '3',
+                "Lava Legs": '4',
+                "Mini Legs": '5',
+            }
+
+            leg_options = ("Masc Legs", "Lava Legs", "Mini Legs")
+        
+            leg_size = size
+            for option in options:
+                if option in leg_options:
+                    leg_size = option
+
+            model.leg_state.gen        = legs_to_value[gen]
+            model.leg_state.leg_size   = legs_to_value[leg_size]
+            model.leg_state.rue        = "Rue Legs" in options
+            model.leg_state.small_butt = "Small Butt" in options
+            
+        elif body_slot == "Hands":
+            hands_to_value = {
+                "Rue Hands"  : '1',
+                "Lava Hands" : '2'
+            }
+
+            nails_to_value = {
+                "Long":      '0',
+                "Short":     '1',
+                "Ballerina": '2',
+                "Stabbies":  '3',
+
+                "Straight": '0',
+                "Curved"  : '1',
+            }
+
+            hands = None
+            for option in options:
+                if option in hands_to_value:
+                    hands = option
+
+            model.hand_state.hand_size = '0' if hands is None else hands_to_value[option]
+            model.hand_state.nails     = '0' if size not in nails_to_value[size] else nails_to_value[size]
+            model.hand_state.clawsies  = '0' if size not in nails_to_value[size] else nails_to_value[size]
+            
+        elif body_slot == "Feet":
+            model.feet_state.rue_feet = "Rue Feet" in options
+
+        elif body_slot == "Chest":
+            chest_to_value = {
+                "Large":  '0',
+                "Medium": '1',
+                "Small":  '2',
+                "Masc":   '3',
+            }
+
+            category = self.devkit_props.ALL_SHAPES[size][2]
+
+            model.torso_state.chest_size = chest_to_value[category]
+            model.torso_state.buff       = "Buff" in options
+            model.torso_state.rue        = "Rue" in options
+            model.torso_state.lavabod    = "Lava" in options
+
+            if model.torso_state.lavabod:
+                saved_sizes = self.lava_keys
+            else:
+                saved_sizes = self.yab_keys
+
+            skip_keys                = ("Nip Nops",)
+            preset: dict[str, float] = {}
+
+            try:
+                preset = saved_sizes[size]
+            except:
+                preset = self.devkit_props.get_shape_presets(size)
+            
+            key_filter = []
+            for key in preset.keys():
+                if key.endswith(skip_keys):
+                    key_filter.append(key)
+            
+            for key in key_filter:
+                del preset[key]
+            
+            for key_name, value in preset.items():
+                model.yam_torso.data.shape_keys.key_blocks[key_name].value = value
+                
+    def reset_model_state(self,body_slot: str) -> None:
+        if body_slot == "Chest & Legs":
+            body_slot = "Chest"
+
+        if body_slot == "Chest":
+            self.devkit_props.torso_state.chest_size = '0'
+            self.devkit_props.torso_state.buff       = False
+            self.devkit_props.torso_state.rue        = False
+            self.devkit_props.torso_state.lavabod    = False
+
+        elif body_slot == "Legs":
+            self.devkit_props.leg_state.gen        = '0'
+            self.devkit_props.leg_state.leg_size   = '0'
+            self.devkit_props.leg_state.small_butt = False
+            self.devkit_props.leg_state.soft_butt  = False
+            self.devkit_props.leg_state.alt_hips   = False
+
+        elif body_slot == "Hands":
+            self.devkit_props.hand_state.nails     = '0'
+            self.devkit_props.hand_state.clawsies  = '0'
+            self.devkit_props.hand_state.hand_size = '0'
+            
+        elif body_slot == "Feet":
+            self.devkit_props.feet_state.rue_feet = False
+
+    def save_chest_sizes(self) -> None:
+        self.yab_keys: dict[str, float]  = {}
+        self.lava_keys: dict[str, float] = {}
+
+        obj       = self.devkit_props.yam_torso
+        obj_state = self.devkit_props.torso_state
+        
+        if obj_state.lavabod:
+            stored_keys = obj_state.yab_keys
+        else:
+            stored_keys = obj_state.lava_keys
+
+        for key in obj.data.shape_keys.key_blocks:
+            if not key.name.startswith("- "):
+                continue
+            if key.name.startswith("---- "):
+                continue
+
+            if obj_state.lavabod:
+                self.lava_keys[key.name] = key.value
+            else:
+                self.yab_keys[key.name]  = key.value
+        
+        for key in stored_keys:
+            if obj_state.lavabod:
+                self.yab_keys[key.name]  = key.value
+            else:
+                self.lava_keys[key.name] = key.value
+
+    def reset_chest_values(self) -> None:
+        obj       = self.devkit_props.yam_torso
+        obj_state = self.devkit_props.torso_state
+        
+        if obj_state.lavabod:
+            new_values = obj_state.yab_keys
+        else:
+            new_values = obj_state.lava_keys
+
+        new_values.clear()
+        if obj_state.lavabod:
+            for key_name, value in self.lava_keys.items():
+                obj.data.shape_keys.key_blocks[key_name].value = value
+
+            for key_name, value in self.yab_keys.items():
+                new_value = new_values.add()
+                new_value.name  = key_name  
+                new_value.value = value      
+        else:
+            for key_name, value in self.yab_keys.items():
+                obj.data.shape_keys.key_blocks[key_name].value = value
+
+            for key_name, value in self.lava_keys.items():
+                new_value = new_values.add()
+                new_value.name  = key_name  
+                new_value.value = value     
+    
 
 CLASSES = [
     BatchQueue
