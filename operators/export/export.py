@@ -682,7 +682,7 @@ class BatchQueue(Operator):
             return True
 
         def apply_model_state(options: tuple[str], size:str , gen: str, body_slot: str, key_blocks, saved_sizes: dict[str, dict[str, float]]) -> None:
-            Devkit = bpy.context.scene.ya_devkit
+            Devkit = bpy.data.texts["devkit.py"].as_module()
             devkit_props = get_devkit_properties()
             if body_slot == "Chest & Legs":
                 body_slot = "Chest"
