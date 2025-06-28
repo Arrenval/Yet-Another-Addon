@@ -32,6 +32,37 @@
       "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/v0.16.5/Yet.Another.Addon.v0.16.5.zip",
       "archive_size": 101617,
       "archive_hash": "sha256:1ad84d2fde3861257cd1f78bbfb15c52c8e8613cd1361cfb338df1a81500f6ba"
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "yet_another_addon_ffxiv",
+      "name": "Yet Another Addon",
+      "tagline": "Several tools to speed up XIV modding workflows",
+      "version": "0.17.0",
+      "type": "add-on",
+      "maintainer": "Aleks",
+      "license": [
+        "SPDX:GPL-3.0-or-later"
+      ],
+      "blender_version_min": "4.2.0",
+      "blender_version_max": "4.5.0",
+      "website": "https://github.com/Arrenval/Yet-Another-Addon",
+      "permissions": {
+        "files": "Import/export files from/to disk",
+        "clipboard": "Paste bone scaling"
+      },
+      "tags": [
+        "Animation",
+        "Import-Export",
+        "Modeling",
+        "Mesh",
+        "Object",
+        "Rigging",
+        "User Interface"
+      ],
+      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/v0.17.0/Yet.Another.Addon.v0.17.0.zip",
+      "archive_size": 102901,
+      "archive_hash": "sha256:1dba405001b4e976f338a4f9a33ec11305dd1313430f480af05bc008388a6638"
     }
   ]
 }
