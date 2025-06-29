@@ -4,12 +4,12 @@ import bpy
 from typing          import Iterable, TYPE_CHECKING, Literal
 from pathlib         import Path
 from itertools       import chain
-from bpy.types       import PropertyGroup, Object, Context, Armature
+from bpy.types       import PropertyGroup, Object, Context
 from bpy.props       import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty
 
 from .utils.objects  import get_object_from_mesh
 from .utils.typings  import BlendEnum, DevkitProps, DevkitWindowProps
-from .utils.penumbra import Modpack
+from .formats.pmp    import Modpack
 
 
 def modpack_data() -> None:
