@@ -3,7 +3,7 @@ import bpy
 import bmesh
 import numpy as np
 
-from numpy         import float32
+from numpy         import float32, uint32
 from numpy.typing  import NDArray
 from bpy.types     import Object, TriangulateModifier, Depsgraph, ShapeKey, DataTransferModifier
 from bmesh.types   import BMFace, BMesh
@@ -59,13 +59,13 @@ def get_shape_mix(source_obj: Object, extra_key: str="") -> NDArray[float32]:
     return mix_coords
     
 def triangulation_method(obj:Object)-> tuple[str, str]:
-            tri_method = ('BEAUTY', 'BEAUTY')
-            for modifier in reversed(obj.modifiers):
-                if modifier.type == "TRIANGULATE" and modifier.show_viewport:
-                    modifier: TriangulateModifier
-                    tri_method = (modifier.quad_method, modifier.ngon_method)
-                    break
-            return tri_method
+    tri_method = ('BEAUTY', 'BEAUTY')
+    for modifier in reversed(obj.modifiers):
+        if modifier.type == "TRIANGULATE" and modifier.show_viewport:
+            modifier: TriangulateModifier
+            tri_method = (modifier.quad_method, modifier.ngon_method)
+            break
+    return tri_method
 
 
 def create_backfaces(obj:Object) -> None:
@@ -156,58 +156,50 @@ def _get_backfaces(bm: BMesh, bf_idx: int) -> list[BMFace]:
     
 
 def remove_vertex_groups(obj: Object, prefix: tuple[str]) -> None:
-    """Can remove any vertex group and add weights to parent group."""
-    group_to_parent = _get_group_parent(obj, prefix)
-    source_groups   = [value for value in group_to_parent.keys()]
-    missing_groups  = {value for value in group_to_parent.values() if isinstance(value, str)}
+        """Can remove any vertex group and add weights to parent group."""
+        group_to_parent = _get_group_parent(obj, prefix)
+        source_groups   = [value for value in group_to_parent.keys()]
 
-    if not source_groups:
-        return
+        if not source_groups:
+            return
 
-    verts         = len(obj.data.vertices)
-    max_groups    = len(obj.vertex_groups) + len(missing_groups)
-    weight_matrix = np.zeros((verts, max_groups), dtype=np.float32)
-
-    if len(source_groups) == 1:
-        bm = bmesh.new()
-        bm.from_mesh(obj.data)
-
-        group_idx = source_groups[0]
-        deform_layer = bm.verts.layers.deform.active
-        for vert_idx, vert in enumerate(bm.verts):
-            weight_matrix[vert_idx, group_idx] = vert[deform_layer].get(group_idx, 0)
-
-        bm.free()
-    else:
-        for vertex_idx, vertex in enumerate(obj.data.vertices):
-            for group in vertex.groups:
-                if group.group in source_groups:
-                    weight_matrix[vertex_idx, group.group] = group.weight
-    
-    added_parents   = {}
-    updated_indices = defaultdict(lambda: np.array([], dtype=np.uint32))
-    for group_idx, parent in group_to_parent.items():
-        if isinstance(parent, str):
-            parent = _get_missing_parent(obj, group_idx, parent, added_parents)
-
-        group_vertices = np.flatnonzero(weight_matrix[:, group_idx])
+        weight_matrix = _create_weight_matrix(obj, group_to_parent, source_groups)
         
-        existing = updated_indices[parent]
-        updated_indices[parent] = np.union1d(existing, group_vertices)
+        # Adds weights to parent
+        updated_groups = {value for value in group_to_parent.values()}
+        for v_group in obj.vertex_groups:
+            if v_group.index not in updated_groups:
+                continue
 
-        weight_matrix[:, parent] += weight_matrix[:, group_idx]
+            indices = np.flatnonzero(weight_matrix[:, v_group.index])
+            weights = weight_matrix[:, v_group.index][indices]
+            if len(indices) == 0:
+                continue
 
-    for v_group in obj.vertex_groups:
-        if v_group.index not in updated_indices:
-            continue
+            grouped_indices, unique_weights = group_weights(indices, weights)
+            
+            for array_idx, vert_indices in enumerate(grouped_indices):
+                vert_indices = vert_indices.tolist()
+                v_group.add(vert_indices, unique_weights[array_idx], type='ADD')
         
-        for index in updated_indices[v_group.index]:
-            v_group.add([int(index)], weight_matrix[index, v_group.index], type="ADD")
+        for v_group in obj.vertex_groups:
+            if v_group.name.startswith(prefix):
+                obj.vertex_groups.remove(v_group)
 
-    for v_group in obj.vertex_groups:
-        if v_group.name.startswith(prefix):
-            obj.vertex_groups.remove(v_group)
-    
+def group_weights(indices: NDArray[uint32], weights: NDArray[float32]) -> tuple[list[NDArray[uint32]], NDArray[float32]]:
+    '''Groups vert indices based on unique weight values. 
+    This limits the calls to the Blender API vertex_group.add() function.'''
+    unique_weights, inverse_indices = np.unique(weights, return_inverse=True)
+
+    sort_order     = np.argsort(inverse_indices)
+    sorted_groups  = inverse_indices[sort_order]
+    sorted_indices = indices[sort_order]
+
+    split_points    = np.where(np.diff(sorted_groups))[0] + 1
+    grouped_indices = np.split(sorted_indices, split_points)
+
+    return grouped_indices, unique_weights
+
 def _get_group_parent(obj: Object, prefix: set[str]) -> dict[int, int | str]:
     group_to_parent = {}
 
@@ -225,19 +217,58 @@ def _get_group_parent(obj: Object, prefix: set[str]) -> dict[int, int | str]:
     
     return group_to_parent
 
-def _get_missing_parent(obj: Object, group_idx:int, parent:str, added_parents: dict) -> int:
-    if parent in added_parents:
-        return added_parents[parent]
+def _create_weight_matrix(obj: Object, group_to_parent: dict[int, int | str], source_groups: set[int]) -> NDArray[float32]:
+    verts          = len(obj.data.vertices)
+    missing_groups = {value for value in group_to_parent.values() if isinstance(value, str)}
+    max_groups     = len(obj.vertex_groups) + len(missing_groups)
+    weight_matrix  = np.zeros((verts, max_groups), dtype=float32)
+    
+    if len(source_groups) == 1:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
 
+        group_idx = source_groups[0]
+        deform_layer = bm.verts.layers.deform.active
+        for vert_idx, vert in enumerate(bm.verts):
+            weight_matrix[vert_idx, group_idx] = vert[deform_layer].get(group_idx, 0)
+
+        bm.free()
     else:
-        v_group   = obj.vertex_groups[group_idx].name
-        parent    = obj.parent.data.bones.get(v_group).parent.name
-        new_group = obj.vertex_groups.new(name=parent)
+        for vertex_idx, vertex in enumerate(obj.data.vertices):
+            for group in vertex.groups:
+                if group.group in source_groups:
+                    weight_matrix[vertex_idx, group.group] = group.weight
 
-        added_parents[parent] = new_group.index
+    _create_missing_parents(obj, group_to_parent)
 
-        return new_group.index
-        
+    for group_idx, parent in group_to_parent.items():
+        weight_matrix[:, parent] += weight_matrix[:, group_idx]
+    
+    return weight_matrix
+
+def _create_missing_parents(obj: Object, group_to_parent: dict[int, int | str]) -> None:
+    parent_to_group = {}
+    for group, parent in group_to_parent.items():
+        parent_to_group[parent] = parent_to_group.get(parent, []) + [group]
+
+    added_parents = set()
+    for group_idx, parent in group_to_parent.items():
+        if not isinstance(parent, str):
+            continue
+        if parent in added_parents:
+            continue
+
+        v_group     = obj.vertex_groups[group_idx].name
+        parent_name = obj.parent.data.bones.get(v_group).parent.name
+        new_group   = obj.vertex_groups.new(name=parent)
+
+        added_parents.add(parent_name)
+
+        parent = new_group.index
+
+        for group in parent_to_group[parent_name]:
+            group_to_parent[group] = parent
+
 
 class MeshHandler:
     """
@@ -435,7 +466,7 @@ class MeshHandler:
             )
 
         tri_to_verts : dict[BMFace, set[int]] = {}
-        vert_to_faces: list[set[BMFace]]       = [set() for _ in range(len(bm.verts))]
+        vert_to_faces: list[set[BMFace]]      = [set() for _ in range(len(bm.verts))]
         for tri in bm.faces:
             vert_indices = set()
             for vert in tri.verts:
@@ -443,27 +474,26 @@ class MeshHandler:
                 vert_to_faces[vert.index].add(tri)
             tri_to_verts[tri] = vert_indices
             
+        new_index     = 0
         ordered_faces = {}
-        new_index = 0
-        
         for face_verts, tri_count in original_faces:
             face_count = 0
-
+            
             if tri_count > 2:
-                # Checks if faces shares a vertex.
+                # Checks if faces share a vertex.
                 adjacent_faces: set[BMFace] = {tri for vert in face_verts for tri in vert_to_faces[vert]}
                 
             else:
-                # Checks if faces shares an edge.
+                # Checks if faces share an edge.
                 face_shared_verts = Counter(tri for vert in face_verts for tri in vert_to_faces[vert])
                 adjacent_faces = {tri for tri, count in face_shared_verts.items() if count >= 2}
             
             for tri in adjacent_faces:
                 if tri not in ordered_faces and tri_to_verts[tri] <= face_verts:
                     ordered_faces[tri] = new_index
-                    new_index += 1
+                    new_index  += 1
                     face_count += 1
-                
+
                 if face_count == tri_count:
                     break
        
