@@ -5,7 +5,7 @@ from typing          import Iterable, TYPE_CHECKING, Literal
 from pathlib         import Path
 from itertools       import chain
 from bpy.types       import PropertyGroup, Object, Context
-from bpy.props       import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty
+from bpy.props       import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
 
 from .utils.objects  import get_object_from_mesh
 from .utils.typings  import BlendEnum, DevkitProps, DevkitWindowProps
@@ -398,7 +398,7 @@ class BlendModGroup(ModpackHelper):
         shared_game_path: bool
         name_set        : bool
         subfolder       : str
-       
+
 
 class LoadedModpackGroup(PropertyGroup):
     group_value      : StringProperty() # type: ignore
@@ -414,7 +414,7 @@ class LoadedModpackGroup(PropertyGroup):
         group_page       : int
         group_priority   : int
 
-class YASVGroups(PropertyGroup):
+class YASUIList(PropertyGroup):
     def update_lock_weight(self, context:Context) -> None:
         obj = context.active_object
         if obj.type == "MESH":
@@ -423,6 +423,7 @@ class YASVGroups(PropertyGroup):
                 group.lock_weight = self.lock_weight
 
     name       : StringProperty() # type: ignore
+
     lock_weight: BoolProperty(
         name="",
         default=False,
@@ -433,6 +434,29 @@ class YASVGroups(PropertyGroup):
     if TYPE_CHECKING:
         name       : str
         lock_weight: bool
+
+class YASWeights(PropertyGroup):
+    idx: IntProperty(name="Vertex Index") # type: ignore
+    value: FloatProperty(name="Weight Value") # type: ignore
+
+    if TYPE_CHECKING:
+        idx  : int
+        value: float
+
+class YASGroup(PropertyGroup):
+    name: StringProperty(name="Vertex Group") # type: ignore
+    parent: StringProperty(name="Parent Group", description="Parent of the vertex group") # type: ignore
+    vertices: CollectionProperty(type=YASWeights, description="Contains all vertices with weights in this group") # type: ignore
+    old_count: IntProperty(description="The vertex count of the mesh at the time of storage") # type: ignore
+    all_groups: BoolProperty(default=False) # type: ignore
+
+    if TYPE_CHECKING:
+        name      : str
+        parent    : str
+        vertices  : Iterable[YASWeights]
+        old_count : int
+        all_groups: bool
+
 
 class ShapeModifiers(PropertyGroup):
     name: StringProperty() # type: ignore
@@ -448,6 +472,7 @@ class YAWindowProps(PropertyGroup):
         ("backfaces",   "expand",     "Opens the category"),
         ("modifiers",   "expand",     "Opens the category"),
         ("transp",      "expand",     "Opens the category"),
+        ("yas_man",     "expand",     "Opens the category"),
         
         ]
     
@@ -504,6 +529,15 @@ class YAWindowProps(PropertyGroup):
         ]
         )  # type: ignore
 
+    yas_storage: EnumProperty(
+        name="",
+        description="Select what vertex groups to store",
+        items=[
+            ('ALL', "All Weights", "Store all YAS weights."),
+            ('GEN', "Genitalia", "Store all genitalia related weights.")
+        ]
+        ) # type: ignore
+    
     export_body_slot: EnumProperty(
         name= "",
         description= "Select a body slot",
@@ -673,6 +707,7 @@ class YAWindowProps(PropertyGroup):
     if TYPE_CHECKING:
         pmp_mod_groups   : Iterable[BlendModGroup]
         
+        yas_storage     : str
         file_man_ui     : str
         export_body_slot: str
         shape_modifiers : str
@@ -705,6 +740,7 @@ class YAWindowProps(PropertyGroup):
         button_backfaces_expand: bool
         button_modifiers_expand: bool
         button_transp_expand   : bool
+        button_yas_man_expand  : bool
 
         create_backfaces    : bool
         check_tris          : bool
@@ -765,7 +801,7 @@ class YAOutfitProps(PropertyGroup):
 
     shape_modifiers_group: CollectionProperty(type=ShapeModifiers) # type: ignore
 
-    yas_vgroups : CollectionProperty(type=YASVGroups) # type: ignore
+    yas_ui_vgroups : CollectionProperty(type=YASUIList) # type: ignore
 
     YAS_BONES = {
     'n_root':              'Root', 
@@ -1089,24 +1125,24 @@ class YAOutfitProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-    def set_yas_vgroups(self, context):
+    def set_yas_ui_vgroups(self, context):
         obj = self.yas_source
         window = get_window_properties()
         update_groups = (window.weights_category and window.filter_vgroups and obj)
 
         if update_groups:
-            self.yas_vgroups.clear()
+            self.yas_ui_vgroups.clear()
 
             yas_groups = [group for group in obj.vertex_groups if group.name.startswith(("iv_", "ya_"))]
             if yas_groups:
                 self.yas_empty = False
                 for group in yas_groups:
-                    new_group = self.yas_vgroups.add()
+                    new_group = self.yas_ui_vgroups.add()
                     new_group.name = group.name
                     new_group.lock_weight = group.lock_weight
 
             else:
-                new_group = self.yas_vgroups.add()
+                new_group = self.yas_ui_vgroups.add()
                 new_group.name  = "Mesh has no YAS Groups"
                 self.yas_empty = True
 
@@ -1142,7 +1178,7 @@ class YAOutfitProps(PropertyGroup):
         type= Object,
         name= "",
         description= "YAS source",
-        update=set_yas_vgroups,
+        update=set_yas_ui_vgroups,
 
         )  # type: ignore
     
@@ -1153,9 +1189,9 @@ class YAOutfitProps(PropertyGroup):
     
     def selected_yas_vgroup(self, context) -> None:
         obj = bpy.context.active_object
-        if len(self.yas_vgroups) == 1 and self.yas_vgroups[0].name != "Mesh has no YAS Groups":
+        if len(self.yas_ui_vgroups) == 1 and self.yas_ui_vgroups[0].name != "Mesh has no YAS Groups":
             try:
-                obj.vertex_groups.active = obj.vertex_groups.get(self.yas_vgroups[self.yas_vindex].name)
+                obj.vertex_groups.active = obj.vertex_groups.get(self.yas_ui_vgroups[self.yas_vindex].name)
             except:
                 pass
 
@@ -1192,7 +1228,7 @@ class YAOutfitProps(PropertyGroup):
 
         yas_source       : Object
         yas_vindex       : int
-        yas_vgroups      : Iterable[YASVGroups]
+        yas_ui_vgroups   : Iterable[YASUIList]
         yas_empty        : bool
         mod_shapes_source: Object
         
@@ -1244,6 +1280,9 @@ def set_addon_properties() -> None:
 
     bpy.types.Scene.ya_outfit_props = PointerProperty(
         type=YAOutfitProps)
+    
+    bpy.types.Object.yas_groups = CollectionProperty(
+        type=YASGroup)
 
     YAWindowProps.ui_buttons()
     YAWindowProps.set_extra_options()
@@ -1253,6 +1292,7 @@ def remove_addon_properties() -> None:
     del bpy.types.Scene.ya_file_props
     del bpy.types.WindowManager.ya_window_props
     del bpy.types.Scene.ya_outfit_props
+    del bpy.types.Object.yas_groups 
 
 
 CLASSES = [    
@@ -1263,7 +1303,9 @@ CLASSES = [
     BlendModOption,
     BlendModGroup,
     LoadedModpackGroup,
-    YASVGroups,
+    YASUIList,
+    YASWeights,
+    YASGroup,
     ShapeModifiers,
     YAWindowProps,
     YAFileProps,

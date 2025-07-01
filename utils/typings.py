@@ -94,3 +94,4 @@ class DevkitProps(PropertyGroup):
 class DevkitWindowProps(PropertyGroup):
     overview_ui: str
     devkit_triangulation: bool
+    yas_storage: str

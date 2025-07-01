@@ -1,7 +1,7 @@
 from functools    import singledispatchmethod, cache
 from bpy.types    import UIList, UILayout, Context, VertexGroup, ShapeKey
 
-from ..properties import get_outfit_properties, get_window_properties, YASVGroups
+from ..properties import get_outfit_properties, get_window_properties, YASUIList
 
 
 @cache
@@ -11,9 +11,9 @@ def get_icon_value(icon_name: str) -> int:
 class MESH_UL_YAS(UIList):
     bl_idname = "MESH_UL_YAS"
 
-    def draw_item(self, context:Context, layout:UILayout, data, item: VertexGroup | YASVGroups, icon, active_data, active_propname):
+    def draw_item(self, context:Context, layout:UILayout, data, item: VertexGroup | YASUIList, icon, active_data, active_propname):
         window = get_window_properties()
-        if isinstance(item, YASVGroups) and getattr(window, "yas_empty", False):
+        if isinstance(item, YASUIList) and getattr(window, "yas_empty", False):
             error = get_icon_value("INFO")
             if self.layout_type in {"DEFAULT", "COMPACT"}:
                 layout.prop(item, "name", text="", emboss=False, icon_value=error)

@@ -9,11 +9,12 @@ from bpy.types     import Object, TriangulateModifier, Depsgraph, ShapeKey, Data
 from bmesh.types   import BMFace, BMesh
 from collections   import Counter, defaultdict
 
-from .typings      import ObjIterable
+from typing        import Iterable
 from .logging      import YetAnotherLogger
 from .objects      import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
 from .ya_exception import XIVMeshParentError
-from ..properties  import get_window_properties, get_devkit_properties
+from ..properties  import get_window_properties, get_devkit_properties, YASGroup
+
 
 def get_shape_mix(source_obj: Object, extra_key: str="") -> NDArray[float32]:
     """
@@ -104,7 +105,7 @@ def create_backfaces(obj:Object) -> None:
 
     mesh.normals_split_custom_set(normals)
 
-def backfaces_with_shapes(obj: Object):
+def backfaces_with_shapes(obj: Object) -> None:
     key_blocks = obj.data.shape_keys.key_blocks
 
     temp_obj = {}
@@ -155,16 +156,16 @@ def _get_backfaces(bm: BMesh, bf_idx: int) -> list[BMFace]:
     return backfaces
     
 
-def remove_vertex_groups(obj: Object, prefix: tuple[str]) -> None:
+def remove_vertex_groups(obj: Object, skeleton: Object, prefix: tuple[str, ...], store_yas=False, all_groups=False) -> None:
         """Can remove any vertex group and add weights to parent group."""
-        group_to_parent = _get_group_parent(obj, prefix)
+        group_to_parent = _get_group_parent(obj, skeleton, prefix)
         source_groups   = [value for value in group_to_parent.keys()]
 
         if not source_groups:
             return
 
-        weight_matrix = _create_weight_matrix(obj, group_to_parent, source_groups)
-        
+        weight_matrix = _create_weight_matrix(obj, skeleton, group_to_parent, source_groups)
+
         # Adds weights to parent
         updated_groups = {value for value in group_to_parent.values()}
         for v_group in obj.vertex_groups:
@@ -182,9 +183,76 @@ def remove_vertex_groups(obj: Object, prefix: tuple[str]) -> None:
                 vert_indices = vert_indices.tolist()
                 v_group.add(vert_indices, unique_weights[array_idx], type='ADD')
         
+        if store_yas:
+            _store_yas_groups(obj, skeleton, group_to_parent, weight_matrix, all_groups)
+
         for v_group in obj.vertex_groups:
             if v_group.name.startswith(prefix):
                 obj.vertex_groups.remove(v_group)
+
+def _store_yas_groups(obj: Object, skeleton: Object, group_to_parent: dict[int, int], weight_matrix: NDArray[float32], all_groups) -> None:
+    yas_groups: Iterable[YASGroup] = obj.yas_groups
+    
+    existing_groups = [group.name for group in yas_groups]
+    current_verts = len(obj.data.vertices)
+    for group in group_to_parent:
+        group_name = obj.vertex_groups[group].name
+        if group_name in existing_groups:
+            continue
+
+        indices = np.flatnonzero(weight_matrix[:, group])
+        weights = weight_matrix[:, group][indices]
+        if len(indices) == 0:
+            continue
+
+        new_group: YASGroup  = yas_groups.add()
+        new_group.name       = group_name
+        new_group.parent     = skeleton.data.bones.get(group_name).parent.name
+        new_group.old_count  = current_verts
+        new_group.all_groups = all_groups
+
+        for _ in range(len(indices)):
+            new_group.vertices.add()
+
+        new_group.vertices.foreach_set("idx", indices)
+        new_group.vertices.foreach_set("value", weights)
+
+def restore_yas_groups(obj: Object) -> None:
+    yas_groups: Iterable[YASGroup] = obj.yas_groups
+    yas_to_parent: dict[str, str] = {}
+    stored_weights: dict[str, tuple[list[NDArray], NDArray]] = {}
+
+    for v_group in yas_groups:
+        verts =  len(v_group.vertices)
+        yas_to_parent[v_group.name] = v_group.parent
+
+        indices = np.zeros(verts, dtype=uint32)
+        weights = np.zeros(verts, dtype=float32)
+
+        v_group.vertices.foreach_get("idx", indices)
+        v_group.vertices.foreach_get("value", weights)
+
+        grouped_indices, unique_weights = group_weights(indices, weights)
+        
+        stored_weights[v_group.name] = (grouped_indices, unique_weights)
+
+    for yas_name, parent_name in yas_to_parent.items():
+        parent = obj.vertex_groups.get(parent_name)
+        if not parent: 
+            continue
+
+        if obj.vertex_groups.get(yas_name):
+            yas_group = obj.vertex_groups.get(yas_name)
+        else: 
+            yas_group = obj.vertex_groups.new(name=yas_name)
+
+        weights = stored_weights[yas_name]
+        for array_idx, vert_indices in enumerate(weights[0]):
+            vert_indices = vert_indices.tolist()
+            parent.add(vert_indices, weights[1][array_idx], type='SUBTRACT')
+            yas_group.add(vert_indices, weights[1][array_idx], type='REPLACE')
+    
+    yas_groups.clear()
 
 def group_weights(indices: NDArray[uint32], weights: NDArray[float32]) -> tuple[list[NDArray[uint32]], NDArray[float32]]:
     '''Groups vert indices based on unique weight values. 
@@ -200,14 +268,14 @@ def group_weights(indices: NDArray[uint32], weights: NDArray[float32]) -> tuple[
 
     return grouped_indices, unique_weights
 
-def _get_group_parent(obj: Object, prefix: set[str]) -> dict[int, int | str]:
+def _get_group_parent(obj: Object, skeleton: Object, prefix: set[str]) -> dict[int, int | str]:
     group_to_parent = {}
 
     for v_group in obj.vertex_groups:
         if not v_group.name.startswith(prefix):
             continue
         
-        parent = obj.parent.data.bones.get(v_group.name).parent.name
+        parent = skeleton.data.bones.get(v_group.name).parent.name
         parent_group = obj.vertex_groups.get(parent)
 
         if parent_group:
@@ -217,7 +285,7 @@ def _get_group_parent(obj: Object, prefix: set[str]) -> dict[int, int | str]:
     
     return group_to_parent
 
-def _create_weight_matrix(obj: Object, group_to_parent: dict[int, int | str], source_groups: set[int]) -> NDArray[float32]:
+def _create_weight_matrix(obj: Object, skeleton: Object, group_to_parent: dict[int, int | str], source_groups: set[int]) -> NDArray[float32]:
     verts          = len(obj.data.vertices)
     missing_groups = {value for value in group_to_parent.values() if isinstance(value, str)}
     max_groups     = len(obj.vertex_groups) + len(missing_groups)
@@ -239,14 +307,14 @@ def _create_weight_matrix(obj: Object, group_to_parent: dict[int, int | str], so
                 if group.group in source_groups:
                     weight_matrix[vertex_idx, group.group] = group.weight
 
-    _create_missing_parents(obj, group_to_parent)
+    _create_missing_parents(obj, skeleton, group_to_parent)
 
     for group_idx, parent in group_to_parent.items():
         weight_matrix[:, parent] += weight_matrix[:, group_idx]
     
     return weight_matrix
 
-def _create_missing_parents(obj: Object, group_to_parent: dict[int, int | str]) -> None:
+def _create_missing_parents(obj: Object, skeleton: Object, group_to_parent: dict[int, int | str]) -> None:
     parent_to_group = {}
     for group, parent in group_to_parent.items():
         parent_to_group[parent] = parent_to_group.get(parent, []) + [group]
@@ -259,7 +327,7 @@ def _create_missing_parents(obj: Object, group_to_parent: dict[int, int | str]) 
             continue
 
         v_group     = obj.vertex_groups[group_idx].name
-        parent_name = obj.parent.data.bones.get(v_group).parent.name
+        parent_name = skeleton.data.bones.get(v_group).parent.name
         new_group   = obj.vertex_groups.new(name=parent)
 
         added_parents.add(parent_name)
@@ -337,7 +405,7 @@ class MeshHandler:
         if no_skeleton:
             raise XIVMeshParentError(len(no_skeleton))
 
-    def devkit_checks(self, visible_obj: ObjIterable) -> None:
+    def devkit_checks(self, visible_obj: Iterable[Object]) -> None:
         for obj in visible_obj:
             if not obj.data.shape_keys:
                 continue 
@@ -591,7 +659,7 @@ class MeshHandler:
 
                     safe_object_delete(copy)
 
-    def handle_backfaces(self, backfaces: ObjIterable):
+    def handle_backfaces(self, backfaces: Iterable[Object]):
         if self.logger:
             self.logger.log("Creating backfaces...", 2)
 
@@ -604,7 +672,7 @@ class MeshHandler:
             else:
                 create_backfaces(dupe)
 
-    def handle_vertex_groups(self, dupes: ObjIterable):
+    def handle_vertex_groups(self, dupes: Iterable[Object]):
         if self.logger:
             self.logger.log("Cleaning vertex groups...", 2)
 
@@ -614,7 +682,7 @@ class MeshHandler:
                 if not dupe.parent.data.bones.get(v_group.name):
                     dupe.vertex_groups.remove(v_group)
             if prefix:
-                remove_vertex_groups(dupe, prefix)
+                remove_vertex_groups(dupe, dupe.parent, prefix)
 
     def _get_yas_filter(self) -> tuple[str]:
         excluded_groups = set()

@@ -1,9 +1,11 @@
 import bpy
 
 from bpy.props            import StringProperty, EnumProperty, BoolProperty
-from bpy.types            import Operator, Context
-from ..properties         import get_window_properties, get_outfit_properties
-from ..utils.mesh_handler import remove_vertex_groups
+from bpy.types            import Operator, Context, Object
+from ..properties         import get_window_properties, get_outfit_properties, get_devkit_properties
+from ..utils.typings      import DevkitProps
+from ..utils.objects      import get_collection_obj
+from ..utils.mesh_handler import remove_vertex_groups, restore_yas_groups
 
 
 class RemoveEmptyVGroups(Operator):                         
@@ -31,21 +33,21 @@ class RemoveEmptyVGroups(Operator):
         
         vgroups = {vg.index: False for vg in obj.vertex_groups if not vg.lock_weight}
     
-        for v in obj.data.vertices:
-            for g in v.groups:
-                if g.group in vgroups and g.weight > 0:
-                    vgroups[g.group] = True
+        for vert in obj.data.vertices:
+            for v_group in vert.groups:
+                if v_group.group in vgroups and v_group.weight > 0:
+                    vgroups[v_group.group] = True
         
         removed = []
-        for i, used in sorted(vgroups.items(), reverse=True):
+        for idx, used in sorted(vgroups.items(), reverse=True):
             if not used:
-                removed.append(obj.vertex_groups[i].name)
-                obj.vertex_groups.remove(obj.vertex_groups[i])
+                removed.append(obj.vertex_groups[idx].name)
+                obj.vertex_groups.remove(obj.vertex_groups[idx])
                 
 
         self.report({'INFO'}, f"Removed {', '.join(removed)}.")
         bpy.ops.object.mode_set(mode=old_mode)
-        props.set_yas_vgroups(context)
+        props.set_yas_ui_vgroups(context)
         return {"FINISHED"}
     
 class RemoveSelectedVGroups(Operator):
@@ -87,16 +89,16 @@ class RemoveSelectedVGroups(Operator):
             self.report({'ERROR'}, "Selected group has no parent.")
             return {'CANCELLED'}
 
-        if not obj.parent and obj.parent.type == "ARMATURE":
+        if not obj.parent or obj.parent.type != 'ARMATURE':
             self.report({'ERROR'}, "Mesh is missing a parent skeleton")
             return {'CANCELLED'}
         
-        remove_vertex_groups(obj, (vertex_group.name))
+        remove_vertex_groups(obj, obj.parent, (vertex_group.name))
 
         parent_vgroup = obj.parent.data.bones.get(vertex_group.name).parent.name
         self.report({'INFO'}, f"Removed {vertex_group.name}, weights added to {parent_vgroup}.")
         bpy.ops.object.mode_set(mode=old_mode)
-        props.set_yas_vgroups(context)
+        props.set_yas_ui_vgroups(context)
         return {"FINISHED"}
 
 class AddYASGroups(Operator):
@@ -272,58 +274,182 @@ class AddYASGroups(Operator):
             bpy.ops.object.vertex_group_add()
             obj.vertex_groups.active.name = group
 
-        props.set_yas_vgroups(context)
+        props.set_yas_ui_vgroups(context)
         return {"FINISHED"}  
 
-class RemoveGenGroups(Operator):
-    bl_idname = "ya.remove_gen"
+class YASManager(Operator):
+    bl_idname = "ya.yas_manager"
     bl_label = ""
-    bl_description = "Removes most genitalia related groups and adds the weights to the parent group"
-    bl_options = {"UNDO"}
 
-    preset: StringProperty() # type: ignore
+    bl_options = {'UNDO', 'REGISTER'}
+
+    mode: StringProperty(default="ACTIVE", options={'HIDDEN', 'SKIP_SAVE'}) # type: ignore
+    target: StringProperty(options={'HIDDEN', 'SKIP_SAVE'}) # type: ignore
+    store: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'}) # type: ignore
 
     @classmethod
-    def poll(cls, context:Context):
-        obj = context.active_object
-        return obj is not None and obj.type == 'MESH' and obj.vertex_groups
-
-    def execute(self, context: Context):
-        props = get_outfit_properties()
-        obj   = context.active_object
-        genitalia = [
-            'iv_kuritto',                   
-            'iv_inshin_l',               
-            'iv_inshin_r',               
-            'iv_omanko', 
-            'iv_koumon',                      
-            'iv_koumon_l',                 
-            'iv_koumon_r',
-
-            'iv_kintama_phys_l',              
-            'iv_kintama_phys_r',    
-            'iv_kougan_l',
-            'iv_kougan_r',
-           
-            'iv_funyachin_phy_b',        
-            'iv_funyachin_phy_c',        
-            'iv_funyachin_phy_d',     
-            'iv_ochinko_a',                 
-            'iv_ochinko_b',              
-            'iv_ochinko_c',              
-            'iv_ochinko_d',                 
-            'iv_ochinko_e',         
-            'iv_ochinko_f',
-            ]
+    def description(cls, context, properties):
+        if properties.mode == "RESTORE":
+            return '''Restore weights to target object.
+    *CTRL click to delete the stored weights'''
         
-        remove_vertex_groups(obj, tuple(genitalia))
-        props.set_yas_vgroups(context)
-        return {"FINISHED"}
+        elif properties.target == "DEVKIT":
+            return "Store weights for devkit meshes"
+        
+        else: 
+            return '''Store target weights.
+    *CTRL click to delete without storage''' 
 
+    def invoke(self, context, event):
+        self.store = not event.ctrl
+        dependent  = self._dependent_target([context.active_object], get_devkit_properties())
+        delete_dep = self.target != "DEVKIT" and dependent and not self.store
 
+        if (self.target == "ACTIVE" or delete_dep) and dependent:
+            cond_text = "restored" if self.mode == "RESTORE" else "stored"
+            if delete_dep:
+                cond_text = "deleted"
+
+            context.window_manager.invoke_confirm(
+                self,
+                event=None, 
+                title="YAS Manager", 
+                message=f"The selected mesh is dependent on other devkit source meshes, the dependencies will also be {cond_text}.",
+                icon='INFO'
+                )
+            return {'RUNNING_MODAL'}
+        else:
+            return self.execute(context)
+    
+    def execute(self, context: Context):
+        props   = get_outfit_properties()
+        devkit  = get_devkit_properties()
+        targets = self.get_targets(context, devkit)
+        all_groups = self.mode == "ALL"
+
+        if self.mode == "RESTORE":
+            for obj in targets:
+                if not obj.yas_groups:
+                    continue
+                if len(obj.data.vertices) != obj.yas_groups[0].old_count:
+                    self.report({'ERROR'}, f"{obj.name}'s vertex count has changed, not possible to restore.")
+                    return {'CANCELLED'}
+
+                if self.store:
+                    restore_yas_groups(obj)
+                else:
+                    obj.yas_groups.clear()
+                    
+        else:
+            if self.mode == "ALL":
+                prefix = ("iv_", "ya_")
+            else:
+                prefix = (
+                    "iv_kuritto",                   
+                    "iv_inshin_l",               
+                    "iv_inshin_r",               
+                    "iv_omanko", 
+                    "iv_koumon",                      
+                    "iv_koumon_l",                 
+                    "iv_koumon_r",
+
+                    "iv_kintama_phys_l",              
+                    "iv_kintama_phys_r",    
+                    "iv_kougan_l",
+                    "iv_kougan_r",
+                
+                    "iv_funyachin_phy_a",
+                    "iv_funyachin_phy_b",        
+                    "iv_funyachin_phy_c",        
+                    "iv_funyachin_phy_d",     
+                    "iv_ochinko_a",                 
+                    "iv_ochinko_b",              
+                    "iv_ochinko_c",              
+                    "iv_ochinko_d",                 
+                    "iv_ochinko_e",         
+                    "iv_ochinko_f",
+                )
+            
+            for obj in targets:
+                if devkit:
+                    skeleton  = bpy.data.objects.get("Skeleton")
+                elif obj.parent.type == 'ARMATURE':
+                    skeleton = obj.parent
+                else:
+                    self.report({'ERROR'}, f"{obj.name} is not parented to a skeleton.")
+                    return {'CANCELLED'}
+                
+                remove_vertex_groups(obj, skeleton, prefix, self.store, all_groups=all_groups)
+
+        props.set_yas_ui_vgroups(context)
+        return {'FINISHED'}
+    
+    def get_targets(self, context: Context, devkit: DevkitProps) -> list[Object]:
+        base_targets = self._get_base_targets(context, devkit)
+        
+        if self._dependent_target(base_targets, devkit):
+            print("Test")
+            return self._get_devkit_targets(devkit)
+        
+        return base_targets
+
+    def _get_base_targets(self, context: Context, devkit: DevkitProps) -> list[Object]:
+        devkit_targets = {
+            "TORSO": devkit.yam_torso,
+            "LEGS": devkit.yam_legs,
+            "HANDS": devkit.yam_hands,
+            "FEET": devkit.yam_feet,
+            "MANNEQUIN": devkit.yam_mannequin,
+        }
+
+        if self.target == "DEVKIT" and self.mode == "GEN":
+            return [devkit.yam_legs, devkit.yam_mannequin]
+        
+        if self.target in devkit_targets:
+            return [devkit_targets[self.target]]
+        
+        return [context.active_object] if context.active_object else []
+
+    def _dependent_target(self, base_targets: list[Object], devkit: DevkitProps) -> bool:
+        if not devkit or not base_targets:
+            return False
+        
+        if self.target == "DEVKIT":
+            return self.mode != "GEN"
+        
+        if self.mode == "RESTORE":
+            all_groups = any(group.all_groups for group in base_targets[0].yas_groups)
+            if not all_groups:
+                return False
+        
+        if self.mode in ("ALL", "RESTORE"):
+            dependent_targets = {"TORSO", "LEGS", "MANNEQUIN"}
+            
+            if self.target in dependent_targets:
+                return True
+            
+            if self.target == "ACTIVE":
+                devkit_objects = [devkit.yam_torso, devkit.yam_legs, devkit.yam_mannequin]
+                return base_targets[0] in devkit_objects
+        
+        return False
+
+    def _get_devkit_targets(self, devkit: DevkitProps) -> list[Object]:
+        if self.target == "DEVKIT" and self.mode == "ALL":
+            devkit_objects = [devkit.yam_torso, devkit.yam_legs,devkit.yam_hands, devkit.yam_feet, devkit.yam_mannequin]
+        else:
+            devkit_objects = [devkit.yam_torso, devkit.yam_legs, devkit.yam_mannequin]
+
+        data_source_objects = get_collection_obj("Data Sources", type='MESH', sub_collections=True)
+        
+        devkit_targets = devkit_objects + data_source_objects
+        return devkit_targets
+        
+        
+    
 CLASSES = [
     RemoveEmptyVGroups,
     RemoveSelectedVGroups,
     AddYASGroups,
-    RemoveGenGroups
+    YASManager
 ]

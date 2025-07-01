@@ -15,6 +15,24 @@ def visible_meshobj() -> ObjIterable:
 
     return sorted(visible_meshobj, key=lambda obj: obj.name)
 
+def get_collection_obj(collection_name: str, type='ANY', sub_collections=False) -> list[Object]:
+    collection = bpy.data.collections.get(collection_name)
+
+    all_objects = []
+    if type == 'ANY':
+        all_objects.extend[collection.objects]
+
+    else:
+        objects = [obj for obj in collection.objects if obj.type == type]
+        all_objects.extend(objects)
+    
+    if sub_collections:
+        for children in collection.children:
+            sub_obj = get_collection_obj(children.name, type=type, sub_collections=True)
+            all_objects.extend(sub_obj)
+    
+    return all_objects
+
 def get_object_from_mesh(mesh_name:str) -> Object | Literal[False]:
     """Returns the object bashed on mesh name."""
     for obj in bpy.context.scene.objects:

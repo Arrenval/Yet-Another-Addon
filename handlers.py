@@ -24,7 +24,7 @@ def get_mesh_props(dummy=None) -> None:
         outfit.shape_modifiers_group.clear()
         outfit.mod_shape_source = None
 
-        outfit.yas_vgroups.clear()
+        outfit.yas_ui_vgroups.clear()
         outfit.yas_source = None
         return 
 

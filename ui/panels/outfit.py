@@ -517,7 +517,7 @@ class OutfitStudio(Panel):
         if self.window_props.filter_vgroups:
             col.template_list(
                 "MESH_UL_YAS", "", 
-                self.outfit_props, "yas_vgroups", 
+                self.outfit_props, "yas_ui_vgroups", 
                 self.outfit_props, "yas_vindex", 
                 rows=5
                 )
@@ -531,10 +531,58 @@ class OutfitStudio(Panel):
             
         row = col.row(align=True)
         row.operator("ya.remove_select_vgroups", text= "Selected").preset = "PANEL"
-        row.operator("ya.remove_gen", text= "Genitalia")
         row.operator("ya.remove_empty_vgroups", text= "Empty")
         row.prop(self.window_props, "filter_vgroups", text="", icon="FILTER")
-                    
+
+        row = box.row(align=True)
+        button = self.window_props.button_yas_man_expand
+        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+        row.prop(self.window_props, "button_yas_man_expand", text="", icon=icon, emboss=False)
+        row.label(text="YAS Manager")
+
+        if button:
+            row = box.row(align=True)
+            split = row.split(factor=0.33, align=True)
+            split.prop(self.window_props, 'yas_storage', text="")
+
+            icon, text = self.yas_status()
+            split.label(text=text, icon=icon)
+            if obj.yas_groups:
+                op = row.operator("ya.yas_manager", text="", icon='FILE_PARENT')
+                op.mode = 'RESTORE'
+                op.target = 'ACTIVE'
+            else:
+                op = row.operator("ya.yas_manager", text="", icon='FILE_TICK')
+                op.mode = self.window_props.yas_storage
+                op.target = 'ACTIVE'
+
+    def yas_status(self) -> tuple[str, str]:
+        no_weights  = "No stored weights."
+        gen_weights = "Genitalia weights stored."
+        all_weights = "All weights stored."
+        vertices    = "Vertex count changed."
+        missing_obj = "Check your devkit settings."
+
+        obj = bpy.context.active_object
+
+        if not obj:
+            icon = 'ERROR'
+            text = missing_obj
+        
+        elif not obj.yas_groups:
+            icon = 'X'
+            text = no_weights
+        
+        elif obj.yas_groups[0].old_count != len(obj.data.vertices):
+            icon = 'ERROR'
+            text = vertices
+
+        else:
+            icon = 'CHECKMARK'
+            text = all_weights if any(group.all_groups for group in obj.yas_groups) else gen_weights
+    
+        return icon, text
+           
     def draw_armature(self, layout:UILayout):
         box = layout.box()
         row = box.row()
