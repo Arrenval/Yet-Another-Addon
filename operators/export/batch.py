@@ -90,7 +90,6 @@ class BatchQueue(Operator):
         try:
             with SceneOptimiser(context, optimisation_level="high"):
                 self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
-                self.logger.start_terminal()
                 for item in self.queue:
                     self.logger.log_progress(operation="Exporting files", clear_messages=True)
                     self.logger.log_separator()

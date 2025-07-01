@@ -1,6 +1,7 @@
 import time
 import traceback
 import subprocess
+import platform
 
 from pathlib     import Path
 from collections import deque
@@ -34,15 +35,14 @@ class YetAnotherLogger:
         self.messages   = deque(maxlen=50)
         self.last_item  = None  # Stores the last processed item at the lowest level of detail. Used in final error output.
         self.total      = total  
-        self.current    = 0      
+        self.current    = 0
+        self.estimate   = 0      
         
     def start_terminal(self) -> None:
         """Start the Windows terminal using PowerShell"""
         if self.running:
             print("Terminal logger is already running.")
             return
-        
-        # self._create_log_file()
 
         try:
             startupinfo = subprocess.STARTUPINFO()
@@ -109,13 +109,13 @@ class YetAnotherLogger:
             else:
                 total_time   = time.time() - self.start_time 
                 average_time = total_time / self.current
-                estimate = int((self.total - self.current) * average_time)
+                self.estimate = int((self.total - self.current) * average_time)
 
-            if estimate < 60:
-                time_left = f"| ~{estimate} seconds"
+            if self.estimate < 60:
+                time_left = f"| ~{self.estimate} seconds"
             else:
-                minutes = estimate / 60
-                seconds = estimate % 60
+                minutes = self.estimate / 60
+                seconds = self.estimate % 60
                 time_left = f"~{int(minutes)} min {int(seconds)} seconds"
             
             return time_left
@@ -123,22 +123,22 @@ class YetAnotherLogger:
             return ""
         
     def log(self, message: str, indent=0) -> None:
-        """Write log to file"""
+        """Logs internally and checks if the terminal should run."""
        
-        if not self.running and not self.warning:
-            self.warning = True
-            print("Terminal not started. Call start_terminal() first.")
-            return
+        if not self.running and self.estimate > 10 and platform.system() == "Windows":
+            self.start_terminal()
         
-        self.messages.append(f"{message}\n") 
-        self.send_command(f"Write-Host '{' ' * indent}{message}'")
+        self.messages.append(f"{message}\n")
+
+        if self.running: 
+            self.send_command(f"Write-Host '{' ' * indent}{message}'")
           
     def log_separator(self, char=None) -> None:
         char = char or self.STANDARD_SEP_CHAR
         self.log(char * self.SEPARATOR_LENGTH)
     
     def log_progress(self, current: int=None, temp_total: int=None, operation="Processing", time_estimate=True, clear_messages=False) -> None:
-        """Log a progress bar - now updates the persistent progress display at top
+        """Logs progress as well as refreshing the terminal display. When this is called the terminal window is fully reset with the current progress.
         
         Args:
             current: Current progress count. If None, increments by 1. -1 will just reprint the main process' value.
@@ -164,7 +164,8 @@ class YetAnotherLogger:
 
         message = self._generate_progress_display(current, total) + time_estimate
         
-        self.refresh_display()
+        if self.running:
+            self.refresh_display()
         self.log(message)
     
     def log_exception(self, message: str, indent: int) -> None:
@@ -218,5 +219,4 @@ class YetAnotherLogger:
 
         finally:
             self.running = False
-            # print("Terminal logger closed.")
 
