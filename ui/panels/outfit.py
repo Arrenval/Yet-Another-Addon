@@ -269,11 +269,11 @@ class OutfitStudio(Panel):
                 split.alignment = "RIGHT"
                 split.label(text="")
                 split.prop(self.outfit_props, "adjust_overhang", text="Overhang")
-                ctrl = bpy.data.objects["Chest"].visible_get(view_layer=bpy.context.view_layer)
-                icon = "HIDE_ON" if not ctrl else "HIDE_OFF"
-                adj_op = split.operator("yakit.apply_visibility", text="Source", icon=icon, depress=ctrl)
-                adj_op.target = "Shape"
-                adj_op.key = ""
+                # ctrl = bpy.data.objects["Chest"].visible_get(view_layer=bpy.context.view_layer)
+                # icon = "HIDE_ON" if not ctrl else "HIDE_OFF"
+                # adj_op = split.operator("yakit.apply_visibility", text="Source", icon=icon, depress=ctrl)
+                # adj_op.target = "Shape"
+                # adj_op.key = ""
                 col.separator(type="LINE", factor=2)
             
                 split = col.split(factor=0.25, align=True)
@@ -530,8 +530,8 @@ class OutfitStudio(Panel):
                 )
             
         row = col.row(align=True)
-        row.operator("ya.remove_select_vgroups", text= "Selected").preset = "PANEL"
-        row.operator("ya.remove_empty_vgroups", text= "Empty")
+        row.operator("ya.remove_select_vgroups", text= "Remove Selected").preset = "PANEL"
+        row.operator("ya.remove_empty_vgroups", text= "Remove Empty")
         row.prop(self.window_props, "filter_vgroups", text="", icon="FILTER")
 
         row = box.row(align=True)
