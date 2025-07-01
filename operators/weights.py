@@ -1,11 +1,11 @@
 import bpy
 
-from bpy.props            import StringProperty, EnumProperty, BoolProperty
-from bpy.types            import Operator, Context, Object
-from ..properties         import get_window_properties, get_outfit_properties, get_devkit_properties
-from ..utils.typings      import DevkitProps
-from ..utils.objects      import get_collection_obj
-from ..utils.mesh_handler import remove_vertex_groups, restore_yas_groups
+from bpy.props       import StringProperty, EnumProperty, BoolProperty
+from bpy.types       import Operator, Context, Object
+from ..properties    import get_window_properties, get_outfit_properties, get_devkit_properties
+from ..mesh.weights  import remove_vertex_groups, restore_yas_groups
+from ..utils.typings import DevkitProps
+from ..utils.objects import get_collection_obj
 
 
 class RemoveEmptyVGroups(Operator):                         

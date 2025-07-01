@@ -1,15 +1,15 @@
 import bpy
 import json
 
-from pathlib                  import Path
-from bpy.props                import StringProperty
-from bpy.types                import Operator, Context
+from pathlib          import Path
+from bpy.props        import StringProperty
+from bpy.types        import Operator, Context
     
-from ...properties            import get_file_properties, get_devkit_properties, get_window_properties
-from ...preferences           import get_prefs
-from ...utils.objects         import visible_meshobj, safe_object_delete
-from ...utils.logging         import YetAnotherLogger
-from ...utils.mesh_handler    import MeshHandler
+from ...properties    import get_file_properties, get_devkit_properties, get_window_properties
+from ...preferences   import get_prefs
+from ...mesh.handler  import MeshHandler
+from ...utils.objects import visible_meshobj, safe_object_delete
+from ...utils.logging import YetAnotherLogger
 
 
 def check_triangulation() -> list[str]:
