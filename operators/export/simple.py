@@ -1,43 +1,16 @@
 import bpy
-import time
 import json
 
 from pathlib                  import Path
-from itertools                import combinations
 from bpy.props                import StringProperty
-from bpy.types                import Operator, Object, Context, ShapeKey, LayerCollection
+from bpy.types                import Operator, Context
     
-from ...properties            import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ...properties            import get_file_properties, get_devkit_properties, get_window_properties
 from ...preferences           import get_prefs
-from ...utils.objects         import visible_meshobj, get_object_from_mesh, safe_object_delete
+from ...utils.objects         import visible_meshobj, safe_object_delete
 from ...utils.logging         import YetAnotherLogger
 from ...utils.mesh_handler    import MeshHandler
-from ...utils.scene_optimiser import SceneOptimiser
 
-
-def add_driver(shape_key:ShapeKey, source:Object) -> None:
-            shape_key.driver_remove("value")
-            shape_key.driver_remove("mute")
-            value = shape_key.driver_add("value").driver
-            mute = shape_key.driver_add("mute").driver
-            
-            value.type = "AVERAGE"
-            value_var = value.variables.new()
-            value_var.name = "key_value"
-            value_var.type = "SINGLE_PROP"
-
-            value_var.targets[0].id_type = "KEY"
-            value_var.targets[0].id = source.data.shape_keys
-            value_var.targets[0].data_path = f'key_blocks["{shape_key.name}"].value'
-
-            mute.type = "AVERAGE"
-            mute_var = mute.variables.new()
-            mute_var.name = "key_mute"
-            mute_var.type = "SINGLE_PROP"
-            
-            mute_var.targets[0].id_type = "KEY"
-            mute_var.targets[0].id = source.data.shape_keys
-            mute_var.targets[0].data_path = f'key_blocks["{shape_key.name}"].mute'
 
 def check_triangulation() -> list[str]:
     visible = visible_meshobj()
@@ -242,29 +215,14 @@ class SimpleExport(Operator):
         devkit = get_devkit_properties()
 
         if devkit:
-            collection_state = devkit.collection_state
-            self.save_current_state(context, collection_state)
-            bpy.ops.yakit.collection_manager(preset="Export")
+            devkit.collection_state.export = True
         
         export_result(self.directory / self.user_input, self.file_format)
    
         if devkit:
-            bpy.ops.yakit.collection_manager(preset="Restore")
+            devkit.collection_state.export = False
 
         return {'FINISHED'}
-
-    def save_current_state(self, context:Context, collection_state):
-
-        def save_current_state_recursive(layer_collection:LayerCollection):
-            if not layer_collection.exclude:
-                    state = collection_state.add()
-                    state.name = layer_collection.name
-            for child in layer_collection.children:
-                save_current_state_recursive(child)
-
-        collection_state.clear()
-        for layer_collection in context.view_layer.layer_collection.children:
-            save_current_state_recursive(layer_collection)
 
     def draw(self, context):
         layout = self.layout
