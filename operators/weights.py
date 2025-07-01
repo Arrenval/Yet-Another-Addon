@@ -298,7 +298,7 @@ class YASManager(Operator):
         
         else: 
             return '''Store target weights.
-    *CTRL click to delete without storage''' 
+    *CTRL click to delete without storing''' 
 
     def invoke(self, context, event):
         self.store = not event.ctrl
@@ -388,7 +388,6 @@ class YASManager(Operator):
         base_targets = self._get_base_targets(context, devkit)
         
         if self._dependent_target(base_targets, devkit):
-            print("Test")
             return self._get_devkit_targets(devkit)
         
         return base_targets
@@ -444,8 +443,7 @@ class YASManager(Operator):
         
         devkit_targets = devkit_objects + data_source_objects
         return devkit_targets
-        
-        
+             
     
 CLASSES = [
     RemoveEmptyVGroups,

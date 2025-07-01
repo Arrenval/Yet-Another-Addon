@@ -111,38 +111,16 @@ class BatchQueue(Operator):
        
     def collection_state(self) -> None:
         if self.body_slot == "Chest" or self.body_slot == "Chest & Legs":
-            self.collections.chest = True
-            if self.size_options["Piercings"]:
-                self.collections.nipple_piercings = True
-            else:
-                self.collections.nipple_piercings = False
-            
-            self.collections.legs = False
-            self.collections.feet = False
-            self.collections.hands = False
+            self.collections.export_chest(self.size_options["Piercings"])
                 
         if self.body_slot == "Legs" or self.body_slot == "Chest & Legs":
-            self.collections.legs = True
-            if self.size_options["Pubes"]:
-                self.collections.pubes = True
-            
-            self.collections.feet = False
-            self.collections.chest = False
-            self.collections.hands = False
+            self.collections.export_legs(self.size_options["Pubes"])
 
         elif self.body_slot ==  "Hands":
-            self.collections.hands = True
-
-            self.collections.feet = False
-            self.collections.legs = False
-            self.collections.chest = False
+            self.collections.export_hands()
 
         elif self.body_slot ==  "Feet":
-            self.collections.feet = True
-
-            self.collections.legs = False
-            self.collections.hands = False
-            self.collections.chest = False
+            self.collections.export_feet()
          
         self.collections.export = True
 
