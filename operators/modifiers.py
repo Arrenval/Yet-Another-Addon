@@ -1,10 +1,12 @@
 import bpy
 import numpy as np
 
-from ..ui.draw       import get_conditional_icon
 from bpy.props       import StringProperty, BoolProperty, CollectionProperty
-from bpy.types       import Operator, PropertyGroup, Context, Object, Mesh, UILayout, ShapeKey, Depsgraph
+from bpy.types       import Operator, PropertyGroup, Context, Object, Mesh, UILayout
+
+from ..ui.draw       import get_conditional_icon
 from ..properties    import get_outfit_properties, get_window_properties
+from ..mesh.shapes   import create_co_cache, create_shape_keys
 from ..utils.objects import quick_copy, evaluate_obj, safe_object_delete
 
 
@@ -158,6 +160,9 @@ class ShapeKeyModifier(Operator):
                     new_shape = self.main_copy.shape_key_add(name=key.name)
 
                     new_shape.data.foreach_set("co", shape_co)
+                
+                self._set_relative_keys()
+
             else:
                 self._vert_mismatch(context)
 
@@ -185,11 +190,11 @@ class ShapeKeyModifier(Operator):
         return {"FINISHED"}
     
     def _vert_mismatch(self, context: Context) -> None:
-        self.base_key = self.original.data.shape_keys.key_blocks[0].name
-        vert_count    = len(self.main_copy.data.vertices)
-        self.co_cache = {}
+        base_key   = self.original.data.shape_keys.key_blocks[0].name
+        vert_count = len(self.main_copy.data.vertices)
+        co_cache   = {}
 
-        self.temp_copies: dict[ShapeKey, tuple[Object, Mesh]] = {}
+        temp_copies: dict[str, tuple[Object, Mesh]] = {}
 
         for key in self.original.data.shape_keys.key_blocks:
             relative_key = key.relative_key.name
@@ -212,57 +217,29 @@ class ShapeKeyModifier(Operator):
                 else:
                     temp_key.value = 0
 
-            if relative_key not in self.co_cache:
-                self.co_cache[key.relative_key.name] = None
+            if relative_key not in co_cache:
+                co_cache[key.relative_key.name] = None
 
-            self.temp_copies[key] = (temp_copy, old_mesh)
+            temp_copies[key.name] = (temp_copy, old_mesh)
 
-        for key in self.original.data.shape_keys.key_blocks:
-            self.main_copy.shape_key_add(name=key.name)
-        
+        self. _set_relative_keys(add_keys=True)
+
         depsgraph = context.evaluated_depsgraph_get()
 
-        self._create_co_cache(vert_count, depsgraph)
+        create_co_cache(co_cache, temp_copies, self.main_copy, base_key, vert_count, depsgraph)
 
-        self._create_shape_keys(vert_count, depsgraph)
+        create_shape_keys(co_cache, temp_copies, self.main_copy, base_key, vert_count, depsgraph)
 
-    def _create_co_cache(self, vert_count: int, depsgraph: Depsgraph) -> None:
-        for key_name in self.co_cache:
-            key = self.original.data.shape_keys.key_blocks.get(key_name)
-            temp_copy, old_mesh = self.temp_copies[key]
-            evaluate_obj(temp_copy, depsgraph)
+    def _set_relative_keys(self, add_keys=False):
+        rel_keys = {}
+        for key in self.original.data.shape_keys.key_blocks:
+            if add_keys:
+                self.main_copy.shape_key_add(name=key.name)
 
-            shape_co = np.zeros(vert_count * 3, dtype=np.float32)
-            temp_copy.data.vertices.foreach_get("co", shape_co)
-
-            self.co_cache[key_name] = shape_co
-
-            if key.name == self.base_key:
-                self.main_copy.data.shape_keys.key_blocks[0].data.foreach_set("co", shape_co)
-            else:
-                new_shape = self.main_copy.data.shape_keys.key_blocks.get(key_name)
-                new_shape.data.foreach_set("co", shape_co)
-
-            bpy.data.meshes.remove(old_mesh, do_unlink=True)
-            safe_object_delete(temp_copy)
-            del self.temp_copies[key]
-
-    def _create_shape_keys(self, vert_count: int, depsgraph: Depsgraph) -> None:
-        for key, (temp_copy, old_mesh) in self.temp_copies.items():
-            evaluate_obj(temp_copy, depsgraph)
-            shape_co = np.zeros(vert_count * 3, dtype=np.float32)
-            temp_copy.data.vertices.foreach_get("co", shape_co)
-
-            rel_key = self.main_copy.data.shape_keys.key_blocks.get(key.relative_key.name)
-            new_shape = self.main_copy.data.shape_keys.key_blocks.get(key.name)
-            new_shape.relative_key = rel_key  
-            
-            offset = shape_co - self.co_cache[self.base_key]
-            mix_coords = self.co_cache[rel_key.name] + offset
-            new_shape.data.foreach_set("co", mix_coords)
-
-            bpy.data.meshes.remove(old_mesh, do_unlink=True)
-            safe_object_delete(temp_copy)
+            rel_keys[key.name] = key.relative_key.name
+        
+        for key in self.main_copy.data.shape_keys.key_blocks:
+            key.relative_key = self.main_copy.data.shape_keys.key_blocks.get(rel_keys[key.name])
 
     def _cleanup(self) -> None:
         for mesh in self.delete_mesh:
