@@ -1,12 +1,13 @@
 import bmesh
 
-from bpy.types     import Object, DataTransferModifier
+from bpy.types     import Object
 from bmesh.types   import BMFace
 from collections   import Counter
 
+def get_original_faces(obj: Object) -> list[tuple[set[int], int]]:
+    '''A list denoting the verts in the original faces and the amount of triangles when triangulated'''
 
-def sequential_faces(self, dupe: Object, original: Object) -> None:
-    mesh = dupe.data
+    mesh = obj.data
     bm = bmesh.new()
     bm.from_mesh(mesh)
 
@@ -14,13 +15,15 @@ def sequential_faces(self, dupe: Object, original: Object) -> None:
         (set(v.index for v in face.verts), len(face.verts) - 2) 
         for face in bm.faces
         ]
+    
+    bm.free()
 
-    bmesh.ops.triangulate(
-        bm, 
-        faces=bm.faces[:], 
-        quad_method=self.tri_method[0], 
-        ngon_method=self.tri_method[1]
-        )
+    return original_faces
+
+def sequential_faces(obj: Object, original_faces: list[tuple[set[int], int]]) -> None:
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
 
     tri_to_verts : dict[BMFace, set[int]] = {}
     vert_to_faces: list[set[BMFace]]      = [set() for _ in range(len(bm.verts))]
@@ -59,9 +62,4 @@ def sequential_faces(self, dupe: Object, original: Object) -> None:
 
     bm.to_mesh(mesh)
     bm.free()  
-
-    modifier:DataTransferModifier = dupe.modifiers.new(name="keep_transparent_normals", type="DATA_TRANSFER")
-    modifier.object               = original
-    modifier.use_loop_data        = True
-    modifier.data_types_loops     = {"CUSTOM_NORMAL"}
-    modifier.loop_mapping         = "NEAREST_POLYNOR"  
+  

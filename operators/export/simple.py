@@ -22,8 +22,7 @@ def check_triangulation() -> list[str]:
             if modifier.type == "TRIANGULATE" and modifier.show_viewport:
                 tri_modifier = True
                 break
-        if "xiv_transparency" in obj and obj["xiv_transparency"]:
-            tri_modifier = True
+
         if not tri_modifier:
             triangulated = True
             for poly in obj.data.polygons:
@@ -31,8 +30,10 @@ def check_triangulation() -> list[str]:
                 if verts > 3:
                     triangulated = False
                     break
+
             if not triangulated:
                 not_triangulated.append(obj.name)
+
     return not_triangulated
    
 def get_export_path(directory: Path, file_name: str, subfolder: bool, body_slot:str ="") -> Path:
@@ -95,6 +96,7 @@ class FileExport:
                 print(f"Emergency cleanup error: {cleanup_error}")
 
             raise e
+        
         finally:
             if mesh_handler:
                 try:

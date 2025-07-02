@@ -11,7 +11,7 @@ from collections   import defaultdict
 
 from typing               import Iterable
 from .weights             import remove_vertex_groups
-from .face_order          import sequential_faces
+from .face_order          import get_original_faces, sequential_faces
 from ..properties         import get_window_properties, get_devkit_properties
 from ..utils.logging      import YetAnotherLogger
 from ..utils.objects      import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
@@ -61,15 +61,6 @@ def get_shape_mix(source_obj: Object, extra_key: str="") -> NDArray[float32]:
     
     return mix_coords
     
-def triangulation_method(obj:Object)-> tuple[str, str]:
-    tri_method = ('BEAUTY', 'BEAUTY')
-    for modifier in reversed(obj.modifiers):
-        if modifier.type == "TRIANGULATE" and modifier.show_viewport:
-            modifier: TriangulateModifier
-            tri_method = (modifier.quad_method, modifier.ngon_method)
-            break
-    return tri_method
-
 
 def create_backfaces(obj:Object) -> None:
     """Assumes the mesh is triangulated to get the faces from _get_backfaces."""
@@ -271,27 +262,39 @@ class MeshHandler:
 
     def process_meshes(self) -> None:
         dupe: Object 
-        transparency = []
+        fixed_transp = {}
         shape_keys   = []
         backfaces    = []
         dupes        = []
 
         if not self.depsgraph:
             self.depsgraph = bpy.context.evaluated_depsgraph_get()
+        
+        transparency = []
+        for obj, stats in self.meshes.items():
+            if self.logger:
+                self.logger.last_item = f"{obj.name}"
+            
+            if stats["transparency"]:
+                transparency.append(obj)
+
+        if transparency:
+            fixed_transp = self.handle_transparency(transparency)
 
         for obj, stats in self.meshes.items():
             if self.logger:
                 self.logger.last_item = f"{obj.name}"
-            dupe = copy_mesh_object(obj, self.depsgraph)
 
-            if re.search(r"^\d+.\d+\s", obj.name):
-                name_parts = obj.name.split(" ")
-                dupe.name = " ".join(["ExportMesh"] + name_parts[1:] + name_parts[0:1])
+            if obj in fixed_transp:
+                dupe = fixed_transp[obj]
             else:
-                dupe.name = "ExportMesh " + obj.name
+                dupe = copy_mesh_object(obj, self.depsgraph)
 
-            if stats["transparency"]:
-                transparency.append((dupe, obj))
+                if re.search(r"^\d+.\d+\s", obj.name):
+                    name_parts = obj.name.split(" ")
+                    dupe.name = " ".join(["ExportMesh"] + name_parts[1:] + name_parts[0:1])
+                else:
+                    dupe.name = "ExportMesh " + obj.name
 
             if stats["shape"]:
                 shape_keys.append((dupe, obj, stats["shape"]))
@@ -301,9 +304,6 @@ class MeshHandler:
             
             dupes.append(dupe)
             self.delete.append(dupe)
-        
-        if transparency:
-            self.handle_transparency(transparency)
         
         if shape_keys:
             self.handle_shape_keys(shape_keys)
@@ -316,25 +316,41 @@ class MeshHandler:
         for obj in self.meshes:
             obj.hide_set(state=True)
 
-    def handle_transparency(self, transparency: list[tuple[Object, Object]]) -> None:
+    def handle_transparency(self, transparency: list[Object]) -> dict[Object, Object]:
         if self.logger:
             self.logger.log("Fixing face order...", 2)
 
-        for dupe, original in transparency:
+        fixed_transp = {}
+        to_process: list[tuple[Object, list]] = []
+        for obj in transparency:
             if self.logger:
-                self.logger.last_item = f"{dupe.name}"
+                self.logger.last_item = f"{obj.name}"
+            
+            original_faces = get_original_faces(obj)
 
-            self.tri_method = triangulation_method(dupe)
-            sequential_faces(dupe, original)
+            dupe = copy_mesh_object(obj, self.depsgraph)
+
+            if re.search(r"^\d+.\d+\s", obj.name):
+                name_parts = obj.name.split(" ")
+                dupe.name = " ".join(["ExportMesh"] + name_parts[1:] + name_parts[0:1])
+            else:
+                dupe.name = "ExportMesh " + obj.name
+
+            fixed_transp[obj] = dupe
+            to_process.append((dupe, original_faces))
         
-        if transparency:
-            normal_graph = bpy.context.evaluated_depsgraph_get()
-            for dupe, original in transparency:
-                eval_obj  = dupe.evaluated_get(normal_graph)
-                dupe.data = bpy.data.meshes.new_from_object(
+        tri_graph = bpy.context.evaluated_depsgraph_get()
+        for dupe, original_faces in to_process:
+            eval_obj  = dupe.evaluated_get(tri_graph)
+            dupe.data = bpy.data.meshes.new_from_object(
                             eval_obj, 
                             preserve_all_data_layers=True,
-                            depsgraph=normal_graph)
+                            depsgraph=tri_graph
+                            )
+            
+            sequential_faces(dupe, original_faces)
+        
+        return fixed_transp
    
     def handle_shape_keys(self, shape_keys: list[tuple[Object, Object, list[ShapeKey]]]) -> None:
         if self.logger:
