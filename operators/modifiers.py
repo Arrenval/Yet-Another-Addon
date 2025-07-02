@@ -220,9 +220,9 @@ class ShapeKeyModifier(Operator):
             if relative_key not in co_cache:
                 co_cache[key.relative_key.name] = None
 
-            temp_copies[key.name] = (temp_copy, old_mesh)
+            temp_copies[key.name] = temp_copy
 
-        self. _set_relative_keys(add_keys=True)
+        self._set_relative_keys(add_keys=True)
 
         depsgraph = context.evaluated_depsgraph_get()
 

@@ -3,9 +3,9 @@ import numpy as np
 
 from numpy         import float32
 from numpy.typing  import NDArray
-from bpy.types     import Object, Mesh, Depsgraph
+from bpy.types     import Object, Depsgraph
 
-from ..utils.objects import safe_object_delete, evaluate_obj
+from ..utils.objects import evaluate_obj
 
 
 def get_shape_mix(source_obj: Object, extra_key: str="") -> NDArray[float32]:
@@ -51,14 +51,14 @@ def get_shape_mix(source_obj: Object, extra_key: str="") -> NDArray[float32]:
     
     return mix_coords
 
-def create_co_cache(co_cache: dict[str, None], temp_copies: dict[str, tuple[Object, Mesh]], target: Object, base_key: str, vert_count: int, depsgraph: Depsgraph) -> None:
+def create_co_cache(co_cache: dict[str, None], shapes: dict[str, Object], target: Object, base_key: str, vert_count: int, depsgraph: Depsgraph) -> None:
     '''Takes a dict of shape key names of relative keys on a mesh and creates a cache of their coordinates per key.'''
     for key_name in co_cache:
-        temp_copy, old_mesh = temp_copies[key_name]
-        evaluate_obj(temp_copy, depsgraph)
+        shape = shapes[key_name]
+        evaluate_obj(shape, depsgraph)
 
         shape_co = np.zeros(vert_count * 3, dtype=np.float32)
-        temp_copy.data.vertices.foreach_get("co", shape_co)
+        shape.data.vertices.foreach_get("co", shape_co)
 
         co_cache[key_name] = shape_co
 
@@ -68,23 +68,20 @@ def create_co_cache(co_cache: dict[str, None], temp_copies: dict[str, tuple[Obje
             new_shape = target.data.shape_keys.key_blocks.get(key_name)
             new_shape.data.foreach_set("co", shape_co)
 
-        bpy.data.meshes.remove(old_mesh, do_unlink=True)
-        safe_object_delete(temp_copy)
-        del temp_copies[key_name]
+        del shapes[key_name]
 
-def create_shape_keys(co_cache: dict[str, NDArray[float32]], temp_copies: dict[str, tuple[Object, Mesh]], target: Object, base_key:str, vert_count: int, depsgraph: Depsgraph) -> None:
+def create_shape_keys(co_cache: dict[str, NDArray[float32]], shapes: dict[str, Object], target: Object, base_key:str, vert_count: int, depsgraph: Depsgraph) -> None:
     '''Uses a co_cache to recreate shape keys on target mesh.'''
-    for key_name, (temp_copy, old_mesh) in temp_copies.items():
-        evaluate_obj(temp_copy, depsgraph)
+    for key_name, shape in shapes.items():
+        evaluate_obj(shape, depsgraph)
         shape_co = np.zeros(vert_count * 3, dtype=np.float32)
-        temp_copy.data.vertices.foreach_get("co", shape_co)
+        shape.data.vertices.foreach_get("co", shape_co)
 
         rel_key = target.data.shape_keys.key_blocks.get(key_name).relative_key
         new_shape = target.data.shape_keys.key_blocks.get(key_name)
+        if rel_key.name not in co_cache:
+            continue
  
         offset = shape_co - co_cache[base_key]
         mix_coords = co_cache[rel_key.name] + offset
         new_shape.data.foreach_set("co", mix_coords)
-
-        bpy.data.meshes.remove(old_mesh, do_unlink=True)
-        safe_object_delete(temp_copy)

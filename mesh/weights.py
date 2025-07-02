@@ -3,7 +3,7 @@ import numpy as np
 
 from numpy         import float32, uint32
 from typing        import Iterable
-from bpy.types     import Object
+from bpy.types     import Object, VertexGroup
 from numpy.typing  import NDArray
 from ..properties  import YASGroup
 
@@ -188,3 +188,25 @@ def _create_missing_parents(obj: Object, skeleton: Object, group_to_parent: dict
 
         for group in parent_to_group[parent_name]:
             group_to_parent[group] = parent
+
+
+def combine_v_groups(obj: Object, v_groups: list[int]) -> VertexGroup:
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+
+    deform_layer = bm.verts.layers.deform.active
+
+    vertex_weights = np.zeros((len(bm.verts), len(v_groups)), dtype=np.float32)
+    for idx, vert in enumerate(bm.verts):
+        for col_idx, group_idx in enumerate(v_groups):
+            vertex_weights[idx, col_idx] = vert[deform_layer].get(group_idx, 0)
+    
+    bm.free()
+
+    indices = np.where(np.any(vertex_weights > 0, axis=1))[0]
+    indices = indices.tolist()
+
+    combined_group = obj.vertex_groups.new()
+    combined_group.add(indices, 1.0, type='REPLACE')
+
+    return combined_group

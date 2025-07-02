@@ -18,6 +18,12 @@ class ModpackGamePathError(ModpackError):
     """XIV game path is not valid"""
     pass
 
+class SurfaceDeformBindError(Exception):
+    pass
+
+class VertexCountError(Exception):
+    pass
+
 class XIVMeshError(Exception):
     """Base class"""
     pass
