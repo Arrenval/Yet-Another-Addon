@@ -28,14 +28,13 @@ class PoseApply(Operator):
    
     @classmethod
     def description(cls, context, properties):
-        props = get_outfit_properties()
         if properties.reset:
             return "Click to reset pose. SHIFT click to reset scale"
    
         if properties.use_clipboard:
             return "Apply C+ scaling from clipboard"
         else:
-            if props.scaling_armature:
+            if get_window_properties().scaling_armature:
                 return """Select and apply scaling to armature:
             *Hold Shift to reapply.
             *Hold Alt to open folder"""
@@ -46,8 +45,7 @@ class PoseApply(Operator):
         
     @classmethod
     def poll(cls, context):
-        window = get_outfit_properties()
-        return window.outfit_armature
+        return get_outfit_properties().outfit_armature
     
     def invoke(self, context, event):
         self.actual_file = Path(self.filepath)
@@ -79,7 +77,7 @@ class PoseApply(Operator):
     def execute(self, context):
         self.props        = get_outfit_properties()
         self.window       = get_window_properties()
-        self.scaling      = self.props.scaling_armature
+        self.scaling      = self.window.scaling_armature
         self.old_bone_map = {
             "j_asi_e_l": "ToesLeft",
             "j_asi_d_l": "FootLeft",
@@ -192,7 +190,7 @@ class PoseApply(Operator):
         return {"FINISHED"}
     
     def reset_armature(self, context: Context, scaling:bool):
-        armature_obj = get_window_properties().outfit_armature
+        armature_obj = self.props.outfit_armature
         for bone in armature_obj.pose.bones:
             if scaling:
                 bone.scale = (1.0, 1.0, 1.0)

@@ -1,6 +1,6 @@
 from bpy.types          import Operator, Context
 from bpy.props          import StringProperty
-from ...properties      import get_file_properties, get_outfit_properties, get_window_properties
+from ...properties      import get_outfit_properties, get_window_properties
 
  
 class OutfitCategory(Operator):
@@ -13,7 +13,7 @@ class OutfitCategory(Operator):
     menu: StringProperty() # type: ignore
     panel: StringProperty() # type: ignore
 
-    def invoke(self, context, event):
+    def invoke(self, context: Context, event):
         props = get_window_properties()
         categories = ["overview", "shapes", "mesh", "weights", "armature"]
         if event.shift:
@@ -28,6 +28,9 @@ class OutfitCategory(Operator):
                     setattr(props, f"{category.lower()}_category", True)
                 else:
                     setattr(props, f"{category.lower()}_category", False)
+
+        if self.menu == "WEIGHTS":
+            get_outfit_properties().set_yas_ui_vgroups(context)
 
         return {'FINISHED'}
 

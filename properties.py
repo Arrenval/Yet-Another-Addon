@@ -630,14 +630,14 @@ class YAWindowProps(PropertyGroup):
     def _shapes_type_items(self, context) -> BlendEnum:
         if self.include_deforms:
             return [
-                ('EXISTING', "Existing", "Transfer/links all keys that already exist on the target"),
-                ('ALL', "All Keys", "Transfer/links all keys"),
-                ('SINGLE', "Single", "Transfer/links the selected key"),
+                ('EXISTING', "Existing", "Transfer/link all keys that already exist on the target"),
+                ('ALL', "All Keys", "Transfer/link all keys"),
+                ('SINGLE', "Single", "Transfers/links the selected key"),
             ]
         else:
             return [
-                ('EXISTING', "Existing", "Transfer/links all keys that already exist on the target"),
-                ('ALL', "All Keys", "Transfer/links all keys"),
+                ('EXISTING', "Existing", "Transfer/link all keys that already exist on the target"),
+                ('ALL', "All Keys", "Transfer/link all keys"),
             ]
 
     shapes_type: EnumProperty(
@@ -1068,7 +1068,7 @@ class YAOutfitProps(PropertyGroup):
 
         key_blocks[props.shape_chest_base.upper()].mute = False
 
-    def scene_actions(self) -> BlendEnum: 
+    def scene_actions(self, context) -> BlendEnum: 
         armature_actions = [("None", "None", ""), None]
     
         for action in bpy.data.actions:
@@ -1082,13 +1082,19 @@ class YAOutfitProps(PropertyGroup):
             return
         if self.actions == "None":
             self.outfit_armature.animation_data.action = None
+            for bone in self.outfit_armature.pose.bones:
+                bone.location = (0.0, 0.0, 0.0)
+                if bone.rotation_mode == "QUATERNION":
+                    bone.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+                else:
+                    bone.rotation_euler = (0.0, 0.0, 0.0)
             return
     
         action = bpy.data.actions.get(self.actions)
 
         self.outfit_armature.animation_data.action = action
         if bpy.app.version >= (4, 4, 0):
-            self.armature.animation_data.action_slot = action.slots[0]
+            self.outfit_armature.animation_data.action_slot = action.slots[0]
         context.scene.frame_end = int(action.frame_end)
 
         if hasattr(YAWindowProps, "animation_frame"):
@@ -1101,6 +1107,7 @@ class YAOutfitProps(PropertyGroup):
             min=0,
             update=lambda self, context: window.animation_frames(context)
             ) 
+        
         setattr(YAWindowProps, "animation_frame", prop)
 
     def update_directory(self, context:Context, category:str) -> None:
@@ -1150,9 +1157,9 @@ class YAOutfitProps(PropertyGroup):
     actions: EnumProperty(
         name="Animations",
         description="Select an animation from the scene",
-        items=lambda self, context: self.scene_actions(),
+        items=scene_actions,
         default= 0,
-        update=lambda self, context: self.set_action(context)
+        update=set_action
     ) # type: ignore
 
     outfit_armature: PointerProperty(

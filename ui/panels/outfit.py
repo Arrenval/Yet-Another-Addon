@@ -333,7 +333,6 @@ class OutfitStudio(Panel):
             sub.operator("ya.tag_backfaces", text="", icon="REMOVE").preset = 'REMOVE'
             sub.scale_x = 1
             
-
         row = box.row(align=True)
         button = self.window_props.button_modifiers_expand
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
@@ -348,8 +347,8 @@ class OutfitStudio(Panel):
                 split = row.split(factor=0.75, align=True)
                 split.prop(self.window_props, "shape_modifiers")
                 split.operator("ya.apply_modifier", text="Apply")
-                icon = "PINNED" if self.outfit_props.keep_modifier else "UNPINNED"
-                row.prop(self.outfit_props, "keep_modifier", text="", icon=icon)
+                icon = "PINNED" if self.window_props.keep_modifier else "UNPINNED"
+                row.prop(self.window_props, "keep_modifier", text="", icon=icon)
                 if self.window_props.shape_modifiers == "None" or self.window_props.shape_modifiers == "":
                     pass
                 elif  obj.modifiers[self.window_props.shape_modifiers].type == "DATA_TRANSFER":
@@ -509,19 +508,19 @@ class OutfitStudio(Panel):
             row = box.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
-            split.label(text="Scaling:" if self.outfit_props.scaling_armature else "Pose:")
+            split.label(text="Scaling:" if self.window_props.scaling_armature else "Pose:")
             split.label(text=self.outfit_props.pose_display_directory)
             buttonrow = split.row(align=True)
             op = buttonrow.operator("ya.pose_apply", text="Apply")
       
-            buttonrow.prop(self.outfit_props, "scaling_armature", text="", icon="FIXED_SIZE")
+            buttonrow.prop(self.window_props, "scaling_armature", text="", icon="FIXED_SIZE")
             op = buttonrow.operator("ya.pose_apply", text="", icon="FILE_REFRESH")
             op.reset = True
 
             row = box.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
-            split.label(text="" if self.outfit_props.scaling_armature else "Scaling:")
+            split.label(text="" if self.window_props.scaling_armature else "Scaling:")
             op = split.operator("ya.pose_apply", text="Import from Clipboard")
             op.use_clipboard = True
 

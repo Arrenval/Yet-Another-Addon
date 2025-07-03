@@ -36,9 +36,8 @@ class ModifierShape(Operator):
             return "Applies Deform Modifier to active shape key"
 
     def execute(self, context: Context):
-        props     = get_outfit_properties()
         window    = get_window_properties()
-        self.keep = props.keep_modifier
+        self.keep = window.keep_modifier
 
         obj          = context.active_object
         modifier:str = window.shape_modifiers
