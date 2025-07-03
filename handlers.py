@@ -43,16 +43,8 @@ def active_obj_msgbus(dummy):
         )
 
 @persistent
-def remove_devkit(dummy):
-    if hasattr(bpy.context.scene, "devkit"):
-        del bpy.types.Scene.devkit
-    elif hasattr(bpy.context.scene, "ya_devkit"):
-        del bpy.types.Scene.ya_devkit
-
-@persistent
 def pre_anim_handling(dummy) ->None:
-    global _pre_tri
-    global _pre_armature
+    global _pre_tri, _pre_armature
 
     devkit   = get_devkit_win_props()
     context = bpy.context
@@ -75,9 +67,6 @@ def pre_anim_handling(dummy) ->None:
 
 @persistent
 def post_anim_handling(dummy) ->None:
-    global _pre_tri
-    global _pre_armature
-
     props    = get_window_properties()
     devkit   = get_devkit_win_props()
     context  = bpy.context
@@ -101,13 +90,11 @@ def set_handlers() -> None:
     dummy = None
     active_obj_msgbus(dummy)
     bpy.app.handlers.load_post.append(active_obj_msgbus)
-    bpy.app.handlers.load_pre.append(remove_devkit)
     bpy.app.handlers.animation_playback_pre.append(pre_anim_handling)
     bpy.app.handlers.animation_playback_post.append(post_anim_handling)
 
 def remove_handlers() -> None:
     bpy.msgbus.clear_by_owner(_active_obj)
-    bpy.app.handlers.load_pre.remove(remove_devkit)
     bpy.app.handlers.load_post.remove(active_obj_msgbus)
     bpy.app.handlers.animation_playback_pre.remove(pre_anim_handling)
     bpy.app.handlers.animation_playback_post.remove(post_anim_handling)
