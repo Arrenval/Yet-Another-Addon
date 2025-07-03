@@ -27,7 +27,8 @@ class YetAnotherLogger:
         self.current_operation = "Waiting..."
 
         self.process    = None
-        self.running    = False
+        self.terminal   = False
+        self.logging    = True
         self.exception  = False
         self.warning    = False
         self.start_time = start_time
@@ -40,7 +41,7 @@ class YetAnotherLogger:
         
     def start_terminal(self) -> None:
         """Start the Windows terminal using PowerShell"""
-        if self.running:
+        if self.terminal:
             print("Terminal logger is already running.")
             return
 
@@ -59,7 +60,7 @@ class YetAnotherLogger:
                 startupinfo=startupinfo
             )
             
-            self.running = True
+            self.terminal = True
             self.send_command("$WarningPreference = 'SilentlyContinue'")
             self.send_command(f"$host.ui.RawUI.WindowTitle = '{self.terminal_title}'")
             self.send_command(f"Clear-Host")
@@ -67,12 +68,12 @@ class YetAnotherLogger:
             
         except Exception as e:
             print(f"Error starting terminal: {e}")
-            self.running = False
+            self.terminal = False
             raise 
 
     def send_command(self, command) -> bool:
         """Send a command to the terminal"""
-        if not self.running or not self.process or not self.process.stdin:
+        if not self.terminal or not self.process or not self.process.stdin:
             return False
             
         try:
@@ -81,7 +82,7 @@ class YetAnotherLogger:
             return True
         except (BrokenPipeError, OSError) as e:
             print(f"Connection to terminal lost: {e}")
-            self.running = False
+            self.terminal = False
             return False
     
     def refresh_display(self) -> None:
@@ -125,12 +126,12 @@ class YetAnotherLogger:
     def log(self, message: str, indent=0) -> None:
         """Logs internally and checks if the terminal should run."""
        
-        if not self.running and self.estimate > 10 and platform.system() == "Windows":
+        if not self.terminal and self.estimate > 10 and platform.system() == "Windows":
             self.start_terminal()
         
         self.messages.append(f"{message}\n")
 
-        if self.running: 
+        if self.terminal: 
             self.send_command(f"Write-Host '{' ' * indent}{message}'")
           
     def log_separator(self, char=None) -> None:
@@ -164,7 +165,7 @@ class YetAnotherLogger:
 
         message = self._generate_progress_display(current, total) + time_estimate
         
-        if self.running:
+        if self.terminal:
             self.refresh_display()
         self.log(message)
     
@@ -172,9 +173,9 @@ class YetAnotherLogger:
         self.exception = True
         self.log(f"[ERROR]: {message}", indent)
 
-    def save_log(self, error: str | Exception=None) -> str | None:
+    def save_log(self, error: str | Exception=None) -> None:
         if self.output_dir:
-            with open(self.output_dir / "ya_error.log", "w") as log:
+            with open(self.output_dir / "yet_another_error.log", "w") as log:
                 log.writelines(self.messages)
 
                 if error:
@@ -198,11 +199,9 @@ class YetAnotherLogger:
                     log.write(self.ERROR_SEP_CHAR * self.SEPARATOR_LENGTH + "\n")
                     log.write(str(self.last_item) + "\n")
 
-            return "ya_error.log"
-
     def close(self, error: str | Exception=None) -> None:
         """Close the terminal logger"""
-        if not self.running:
+        if not self.logging:
             return
         
         if self.exception or error:
@@ -218,5 +217,6 @@ class YetAnotherLogger:
             print(f"Error during cleanup: {e}")
 
         finally:
-            self.running = False
+            self.logging  = False
+            self.terminal = False
 

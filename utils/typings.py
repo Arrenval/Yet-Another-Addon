@@ -21,12 +21,6 @@ BlendEnum   = list[tuple[str, str, str]]
 # Classes from Yet Another Devkit
 
 class CollectionState(PropertyGroup):
-
-    def export_chest(self, piercings: bool) -> None:...
-    def export_legs(self, pubes: bool) -> None:...
-    def export_hands(self) -> None:...
-    def export_feet(self) -> None:...
-
     skeleton        : bool
     chest           : bool
     nipple_piercings: bool
@@ -47,6 +41,7 @@ class SubKeyValues(PropertyGroup):
     value: float
 
 class TorsoState(PropertyGroup):
+
     MANNEQUIN: bool
 
     chest_size: str
@@ -58,6 +53,9 @@ class TorsoState(PropertyGroup):
     lava_keys: Iterable[SubKeyValues]
 
 class LegState(PropertyGroup):
+
+    def reset_legs(self, context) -> None:...
+
     gen       : str
     leg_size  : str
     rue       : bool
@@ -67,17 +65,30 @@ class LegState(PropertyGroup):
     squish    : str
 
 class HandState(PropertyGroup):
+
+    def reset_hands(self, context) -> None:...
+
     nails    : str
     hand_size: str
     clawsies : str
 
 class FeetState(PropertyGroup):
+
+    def reset_feet(self, context) -> None:...
+
     rue_feet: bool
 
 class MannequinState(TorsoState, LegState, HandState, FeetState):
     pass
 
 class DevkitProps(PropertyGroup):
+    def export_state(self, category: str, piercings: bool, pubes: bool) -> None:...
+    def reset_torso(self) -> None:...
+    def reset_legs(self) -> None:...
+    def reset_hands(self) -> None:...
+    def reset_feet(self) -> None:...
+    def get_shape_presets(self, size: str) -> dict[str, float]:...
+
     ALL_SHAPES         : dict[str, tuple[str, ...]]
     chest_shape_enum   : str
     shape_mq_chest_bool: bool
