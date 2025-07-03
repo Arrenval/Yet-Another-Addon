@@ -493,6 +493,21 @@ class YAWindowProps(PropertyGroup):
         ("hands",    "g_category", False,  "Changes gamepath category"),
         ("legs",     "g_category", False,  "Changes gamepath category"),
         ("feet",     "g_category", False,  "Changes gamepath category"),
+        ("scaling",   "armature",   False,   "Applies scaling to armature"),
+        ("keep",      "modifier",   False,   "Keeps the modifier after applying. Unable to keep Data Transfers"),
+        ("all",       "keys",       False,   "Transfers all shape keys from source to target"),
+        ("existing",  "only",       False,   "Only updates deforms of shape keys that already exist on the target"),
+        ("adjust",    "overhang",   False,   "Tries to adjust for clothing that hangs off of the breasts"),
+        ("add",       "shrinkwrap", False,   "Applies a shrinkwrap modifier when deforming the mesh. Remember to exclude parts of the mesh overlapping with the body"),
+        ("seam",      "waist",      False,   "Applies the selected seam shape key to your mesh"),
+        ("seam",      "wrist",      False,   "Applies the selected seam shape key to your mesh"),
+        ("seam",      "ankle",      False,   "Applies the selected seam shape key to your mesh"),
+        ("sub",       "shape_keys", False,   """Includes minor shape keys without deforms:
+        - Squeeze
+        - Push-Up
+        - Omoi
+        - Sag
+        - Nip Nops"""),
     ]
 
     @staticmethod
@@ -592,6 +607,131 @@ class YAWindowProps(PropertyGroup):
         description="Renames the prefix of the selected meshes",
         default="",
         maxlen=255,
+        )  # type: ignore
+    
+    shapes_method: EnumProperty(
+        name= "",
+        description= "Select an overview",
+        items= [
+            ("Selected", "Selection", "Uses the selected mesh as the source"),
+            ("Chest", "Chest", "Uses the YAB Chest mesh as source"),
+            ("Legs", "Legs", "Uses the YAB leg mesh as source"),
+            ("Seams", "Seams", "Transfer seam related shape keys"),
+        ]
+        )  # type: ignore
+    
+    def _shapes_type_validate(self, context) -> None:
+        items = self._shapes_type_items(context)
+        values = {item[0] for item in items}
+
+        if self.shapes_type not in values:
+            self.shapes_type = 'ALL'
+
+    def _shapes_type_items(self, context) -> BlendEnum:
+        if self.include_deforms:
+            return [
+                ('EXISTING', "Existing", "Transfer/links all keys that already exist on the target"),
+                ('ALL', "All Keys", "Transfer/links all keys"),
+                ('SINGLE', "Single", "Transfer/links the selected key"),
+            ]
+        else:
+            return [
+                ('EXISTING', "Existing", "Transfer/links all keys that already exist on the target"),
+                ('ALL', "All Keys", "Transfer/links all keys"),
+            ]
+
+    shapes_type: EnumProperty(
+        name= "",
+        description= "Select which keys to transfer",
+        default=0,
+        items=_shapes_type_items
+        )  # type: ignore
+    
+    include_deforms: BoolProperty(
+        default=False, 
+        name="", 
+        description="Enable this to include deforms. If disabled only the shape key entries are added", 
+        update=_shapes_type_validate
+        ) # type: ignore
+    
+    shape_leg_base: EnumProperty(
+        name= "",
+        description= "Select the base size",
+        items= [
+            ("Melon", "Watermelon Crushers", ""),
+            ("Skull", "Skull Crushers", ""),
+            ("Yanilla", "Yanilla", ""),
+            ("Mini", "Mini", ""),
+            ("Lavabod", "Lavabod", ""),
+            ("Masc", "Masc", ""),
+        ],
+        )  # type: ignore
+    
+    shape_seam_base: EnumProperty(
+        name= "",
+        description= "Select the base size, only affects waist seam",
+        items= [
+            ("YAB", "YAB", ""),
+            ("Lavabod", "Lavabod", ""),
+            ("Yanilla", "Yanilla", ""),
+            ("Masc", "Masc", ""),
+            ("Mini", "Mini", ""),
+        ],
+        )  # type: ignore
+    
+    def get_shape_key_enum(self, context:Context, obj:Object, new:bool=False) -> None:
+        if obj is not None and obj.data.shape_keys:
+            shape_keys = []
+            if new:
+                shape_keys.extend([("", "NEW:", ""),("None", "New Key", "")])
+            shape_keys.append(("", "BASE:", ""))
+            for index, key in enumerate(obj.data.shape_keys.key_blocks):
+                if key.name.endswith(":"):
+                    shape_keys.append(("", key.name, ""))
+                    continue
+                shape_keys.append((key.name, key.name, ""))
+            return shape_keys
+        else:
+            return [("None", "New Key", "")]
+
+    shapes_source_enum: EnumProperty(
+        name= "",
+        description= "Select a shape key",
+        items=lambda self, context: self.get_shape_key_enum(context, get_outfit_properties().shapes_source)
+        )  # type: ignore
+    
+    shapes_target_enum: EnumProperty(
+        name= "",
+        description= "Select a shape key",
+        items=lambda self, context: self.get_shape_key_enum(context, get_outfit_properties().shapes_target, new=True)
+        )  # type: ignore
+
+    shapes_corrections: EnumProperty(
+        name= "",
+        default= "None",
+        description= "Choose level of Corrective Smooth",
+        items= [("", "Select degree of smoothing", ""),
+                ("None", "None", ""),
+                ("Smooth", "Smooth", ""),
+                ("Aggressive", "Aggresive", ""),]
+        )  # type: ignore
+    
+    def get_vertex_groups(self, context:Context, obj:Object) -> BlendEnum:
+        if obj and obj.type == "MESH":
+            return [("None", "None", "")] + [(group.name, group.name, "") for group in obj.vertex_groups]
+        else:
+            return [("None", "Select a target", "")]
+
+    obj_vertex_groups: EnumProperty(
+        name= "",
+        description= "Select a group to pin, it will be ignored by any smoothing corrections",
+        items=lambda self, context: self.get_vertex_groups(context, get_outfit_properties().shapes_target)
+        )  # type: ignore
+    
+    exclude_vertex_groups: EnumProperty(
+        name= "",
+        description= "Select a group to exclude from shrinkwrapping",
+        items=lambda self, context: self.get_vertex_groups(context, get_outfit_properties().shapes_target)
         )  # type: ignore
     
 
@@ -717,18 +857,27 @@ class YAWindowProps(PropertyGroup):
         export_prefix   : str
         remove_yas      : str
 
-        modpack_replace     : bool
-        modpack_display_dir : str
-        modpack_dir         : str
-        modpack_version     : str
-        modpack_author      : str
-        modpack_rename_group: str
-        new_mod_name        : str
-        new_mod_version     : str
-        author_name         : str
-
-        animation_frame     : int  
-
+        obj_vertex_groups    : str
+        exclude_vertex_groups: str
+        shapes_source_enum   : str
+        shapes_target_enum   : str
+        shapes_corrections   : str
+        shapes_method        : str
+        shapes_type          : str
+        shape_leg_base       : str
+        shape_seam_base      : str
+        modpack_replace      : bool
+        modpack_display_dir  : str
+        modpack_dir          : str
+        modpack_version      : str
+        modpack_author       : str
+        modpack_rename_group : str
+        new_mod_name         : str
+        new_mod_version      : str
+        author_name          : str
+        animation_frame      : int  
+        include_deforms : bool
+ 
         # Created at registration
         overview_category: bool
         shapes_category  : bool
@@ -742,21 +891,30 @@ class YAWindowProps(PropertyGroup):
         button_transp_expand   : bool
         button_yas_man_expand  : bool
 
-        create_backfaces    : bool
-        check_tris          : bool
-        remove_nonmesh      : bool
-        reorder_mesh_id     : bool
-        update_material     : bool
-        keep_shapekeys      : bool
-        create_subfolder    : bool
-        rue_export          : bool
-        body_names          : bool
-        chest_g_category    : bool
-        hands_g_category    : bool
-        legs_g_category     : bool
-        feet_g_category     : bool
-        ui_size_category    : str
-        rename_import       : str
+        create_backfaces: bool
+        check_tris      : bool
+        remove_nonmesh  : bool
+        reorder_mesh_id : bool
+        update_material : bool
+        keep_shapekeys  : bool
+        create_subfolder: bool
+        rue_export      : bool
+        body_names      : bool
+        chest_g_category: bool
+        hands_g_category: bool
+        legs_g_category : bool
+        feet_g_category : bool
+        ui_size_category: str
+        rename_import   : str
+   
+        scaling_armature: bool
+        keep_modifier   : bool
+        adjust_overhang : bool
+        add_shrinkwrap  : bool
+        seam_waist      : bool
+        seam_wrist      : bool
+        seam_ankle      : bool
+        sub_shape_keys  : bool
 
 class YAFileProps(PropertyGroup):
 
@@ -889,25 +1047,6 @@ class YAOutfitProps(PropertyGroup):
     'n_throw': 'Throw'
     }
 
-    outfit_buttons = [
-        ("scaling",   "armature",   False,   "Applies scaling to armature"),
-        ("keep",      "modifier",   False,   "Keeps the modifier after applying. Unable to keep Data Transfers"),
-        ("all",       "keys",       False,   "Transfers all shape keys from source to target"),
-        ("include",   "deforms",    False,   "Enable this to include deforms. If disabled only the shape key entries are added"),
-        ("existing",  "only",       False,   "Only updates deforms of shape keys that already exist on the target"),
-        ("adjust",    "overhang",   False,   "Tries to adjust for clothing that hangs off of the breasts"),
-        ("add",       "shrinkwrap", False,   "Applies a shrinkwrap modifier when deforming the mesh. Remember to exclude parts of the mesh overlapping with the body"),
-        ("seam",      "waist",      False,   "Applies the selected seam shape key to your mesh"),
-        ("seam",      "wrist",      False,   "Applies the selected seam shape key to your mesh"),
-        ("seam",      "ankle",      False,   "Applies the selected seam shape key to your mesh"),
-        ("sub",       "shape_keys", False,   """Includes minor shape keys without deforms:
-        - Squeeze
-        - Push-Up
-        - Omoi
-        - Sag
-        - Nip Nops"""),
-        ]
-    
     attr_dict = {
            "atr_nek": "Neck",
            "atr_ude": "Elbow",
@@ -920,20 +1059,7 @@ class YAOutfitProps(PropertyGroup):
            "atr_lpd": "Knee Pad",
         }
     
-    @staticmethod
-    def extra_options() -> None:
-        for (name, category, default, description) in YAOutfitProps.outfit_buttons:
-            category_lower = category.lower()
-            name_lower = name.lower()
-            
-            prop_name = f"{name_lower}_{category_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=default, 
-                )
-            setattr(YAOutfitProps, prop_name, prop)
-    
+
     def chest_controller_update(self, context:Context) -> None:
         props = context.scene.outfit_props
         key_blocks = get_object_from_mesh("Chest Controller").data.shape_keys.key_blocks
@@ -941,12 +1067,6 @@ class YAOutfitProps(PropertyGroup):
             key.mute = True
 
         key_blocks[props.shape_chest_base.upper()].mute = False
-
-    def get_vertex_groups(self, context:Context, obj:Object) -> BlendEnum:
-        if obj and obj.type == "MESH":
-            return [("None", "None", "")] + [(group.name, group.name, "") for group in obj.vertex_groups]
-        else:
-            return [("None", "Select a target", "")]
 
     def scene_actions(self) -> BlendEnum: 
         armature_actions = [("None", "None", ""), None]
@@ -993,66 +1113,28 @@ class YAOutfitProps(PropertyGroup):
         if os.path.exists(display_directory):  
             setattr(prop, actual_prop, display_directory)
 
-    def get_shape_key_enum(self, context:Context, obj:Object, new:bool=False) -> None:
-        if obj is not None and obj.data.shape_keys:
-            shape_keys = []
-            if new:
-                shape_keys.extend([("", "NEW:", ""),("None", "New Key", "")])
-            shape_keys.append(("", "BASE:", ""))
-            for index, key in enumerate(obj.data.shape_keys.key_blocks):
-                if key.name.endswith(":"):
-                    shape_keys.append(("", key.name, ""))
-                    continue
-                shape_keys.append((key.name, key.name, ""))
-            return shape_keys
-        else:
-            return [("None", "New Key", "")]
+    def _validate_shapes_source_enum(self, context) -> None:
+        window = get_window_properties()
+        window.shapes_source_enum = self.shapes_source.data.shape_keys.key_blocks[0].name if self.shapes_source else "None"
 
-    shapes_method: EnumProperty(
-        name= "",
-        description= "Select an overview",
-        items= [
-            ("Selected", "Selection", "Uses the selected mesh as the source"),
-            ("Chest", "Chest", "Uses the YAB Chest mesh as source"),
-            ("Legs", "Legs", "Uses the YAB leg mesh as source"),
-            ("Seams", "Seams", "Transfer seam related shape keys"),
-        ]
-        )  # type: ignore
-    
+    def _validate_shapes_target_enum(self, context) -> None:
+        window = get_window_properties()
+        window.shapes_target_enum = "None"
+
     shapes_source: PointerProperty(
         type= Object,
         name= "",
         description= "Shape key/driver source",
+        update=_validate_shapes_source_enum
         )  # type: ignore
     
     shapes_target: PointerProperty(
         type= Object,
         name= "",
-        description= "Shape key/driver source"
+        description= "Shape key/driver source",
+        update=_validate_shapes_target_enum
         )  # type: ignore
 
-    shapes_source_enum: EnumProperty(
-        name= "",
-        description= "Select a shape key",
-        items=lambda self, context: self.get_shape_key_enum(context, self.shapes_source)
-        )  # type: ignore
-    
-    shapes_target_enum: EnumProperty(
-        name= "",
-        description= "Select a shape key",
-        items=lambda self, context: self.get_shape_key_enum(context, self.shapes_target, new=True)
-        )  # type: ignore
-
-    shapes_corrections: EnumProperty(
-        name= "",
-        default= "None",
-        description= "Choose level of Corrective Smooth",
-        items= [("", "Select degree of smoothing", ""),
-                ("None", "None", ""),
-                ("Smooth", "Smooth", ""),
-                ("Aggressive", "Aggresive", ""),]
-        )  # type: ignore
-    
     shape_chest_base: EnumProperty(
         name= "",
         description= "Select the base size",
@@ -1062,46 +1144,7 @@ class YAOutfitProps(PropertyGroup):
             ("Small", "Small", ""),
             ("Masc", "Masc", ""),
         ],
-        update=lambda self, context: self.chest_controller_update(context)
-        )  # type: ignore
-    
-    shape_leg_base: EnumProperty(
-        name= "",
-        description= "Select the base size",
-        items= [
-            ("Melon", "Watermelon Crushers", ""),
-            ("Skull", "Skull Crushers", ""),
-            ("Yanilla", "Yanilla", ""),
-            ("Mini", "Mini", ""),
-            ("Lavabod", "Lavabod", ""),
-            ("Masc", "Masc", ""),
-        ],
-        update=lambda self, context: self.chest_controller_update(context)
-        )  # type: ignore
-    
-    shape_seam_base: EnumProperty(
-        name= "",
-        description= "Select the base size, only affects waist seam",
-        items= [
-            ("YAB", "YAB", ""),
-            ("Lavabod", "Lavabod", ""),
-            ("Yanilla", "Yanilla", ""),
-            ("Masc", "Masc", ""),
-            ("Mini", "Mini", ""),
-        ],
-        update=lambda self, context: self.chest_controller_update(context)
-        )  # type: ignore
-    
-    obj_vertex_groups: EnumProperty(
-        name= "",
-        description= "Select a group to pin, it will be ignored by any smoothing corrections",
-        items=lambda self, context: self.get_vertex_groups(context, self.shapes_target)
-        )  # type: ignore
-    
-    exclude_vertex_groups: EnumProperty(
-        name= "",
-        description= "Select a group to exclude from shrinkwrapping",
-        items=lambda self, context: self.get_vertex_groups(context, self.shapes_target)
+        update=chest_controller_update
         )  # type: ignore
     
     actions: EnumProperty(
@@ -1211,15 +1254,8 @@ class YAOutfitProps(PropertyGroup):
         
         pose_display_directory : str
         
-        shapes_method          : str
-        shapes_source_enum     : str
-        shapes_target_enum     : str
-        shapes_corrections     : str
         shape_chest_base       : str
-        shape_leg_base         : str
-        shape_seam_base        : str
-        obj_vertex_groups      : str
-        exclude_vertex_groups  : str
+        
         actions                : str
         
         shapes_source          : Object
@@ -1231,19 +1267,6 @@ class YAOutfitProps(PropertyGroup):
         yas_ui_vgroups   : Iterable[YASUIList]
         yas_empty        : bool
         mod_shapes_source: Object
-        
-        # Created at registration
-        scaling_armature       : bool
-        keep_modifier          : bool
-        all_keys               : bool
-        include_deforms        : bool
-        existing_only          : bool
-        adjust_overhang        : bool
-        add_shrinkwrap         : bool
-        seam_waist             : bool
-        seam_wrist             : bool
-        seam_ankle             : bool
-        sub_shape_keys         : bool
 
 
 def get_window_properties() -> YAWindowProps:
@@ -1286,7 +1309,6 @@ def set_addon_properties() -> None:
 
     YAWindowProps.ui_buttons()
     YAWindowProps.set_extra_options()
-    YAOutfitProps.extra_options()
     
 def remove_addon_properties() -> None:
     del bpy.types.Scene.ya_file_props

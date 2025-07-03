@@ -2,7 +2,7 @@ import bpy
 import time
 from bpy.types       import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
 
-from ..properties         import get_outfit_properties, get_devkit_properties
+from ..properties         import get_outfit_properties, get_devkit_properties, get_window_properties
 from ..mesh.shapes        import create_co_cache, create_shape_keys
 from ..mesh.weights       import combine_v_groups
 from ..utils.objects      import get_object_from_mesh, quick_copy, safe_object_delete
@@ -25,8 +25,6 @@ class ShapeKeyTransfer(Operator):
     bl_options = {"UNDO"}
 
     sub_keys     :bool = False
-    all_keys     :bool = False
-    existing     :bool = False
     deforms      :bool = True
     vertex_pin   :str  = "None"
     exclude_wrap :str  = "None"
@@ -39,7 +37,7 @@ class ShapeKeyTransfer(Operator):
         props         = get_outfit_properties()
         obj:Object    = props.shapes_target
         source:Object = props.shapes_source
-        if props.shapes_method != "Selected":
+        if get_window_properties().shapes_method != "Selected":
             return obj is not None and obj.visible_get() and obj.type == 'MESH' and context.mode == "OBJECT"
         else:
             return (obj is not None and source is not None) and obj.visible_get() and (obj.type == 'MESH' and source.type == 'MESH') and context.mode == "OBJECT"
@@ -47,28 +45,29 @@ class ShapeKeyTransfer(Operator):
     def execute(self, context):
         self.devkit               = get_devkit_properties()
         props                     = get_outfit_properties()
+        window                    = get_window_properties()
         self.deform_target        = {}
-        self.input_method: str    = props.shapes_method
-        self.vertex_pin  : str    = props.obj_vertex_groups
-        self.exclude_wrap: str    = props.exclude_vertex_groups
-        self.smooth_level: str    = props.shapes_corrections
-        self.shrinkwrap  : bool   = props.add_shrinkwrap
+        self.input_method: str    = window.shapes_method
+        self.vertex_pin  : str    = window.obj_vertex_groups
+        self.exclude_wrap: str    = window.exclude_vertex_groups
+        self.smooth_level: str    = window.shapes_corrections
+        self.shrinkwrap  : bool   = window.add_shrinkwrap
         self.target      : Object = props.shapes_target
         self.shr_group   : str    = ""
-        self.seam_values : dict   = {"wa_": props.seam_waist, "wr_": props.seam_wrist, "an_": props.seam_ankle}
+        self.seam_values : dict   = {"wa_": window.seam_waist, "wr_": window.seam_wrist, "an_": window.seam_ankle}
     
         self.cleanup     : list[Object] = []    
 
         if self.input_method == "Chest":
-            self.sub_keys  :bool = props.sub_shape_keys
-            self.overhang  :bool = props.adjust_overhang
+            self.sub_keys  :bool = window.sub_shape_keys
+            self.overhang  :bool = window.adjust_overhang
             self.chest_base:str  = props.shape_chest_base  
     
             self.source = self.devkit.yam_torso
             self.deform_target = self.get_shape_keys()
 
         elif self.input_method == "Legs":
-            self.leg_base:str = props.shape_leg_base
+            self.leg_base:str = window.shape_leg_base
 
             if self.leg_base == "Skull":
                 self.leg_base = "Skull Crushers"
@@ -81,7 +80,7 @@ class ShapeKeyTransfer(Operator):
 
         elif self.input_method == "Seams":
             self.seams    :set = {key for key, value in self.seam_values.items() if value}
-            self.seam_base:str = props.shape_seam_base
+            self.seam_base:str = window.shape_seam_base
 
             if self.seam_base == "YAB":
                 self.seam_base = "BASE"
@@ -89,12 +88,11 @@ class ShapeKeyTransfer(Operator):
             self.source = get_object_from_mesh("Body Controller")
 
         else:
-            self.all_keys     :bool   = props.all_keys
-            self.deforms      :bool   = props.include_deforms
-            self.existing     :bool   = props.existing_only
-            self.shape_source :str    = props.shapes_source_enum
-            self.shape_target :str    = props.shapes_target_enum
-            self.source       :Object = props.shapes_source
+            self.shapes_type : bool   = window.shapes_type
+            self.deforms     : bool   = window.include_deforms
+            self.shape_source: str    = window.shapes_source_enum
+            self.shape_target: str    = window.shapes_target_enum
+            self.source      : Object = props.shapes_source
 
         try:
             shr_combined = self._shrinkwrap_exclude()
@@ -102,9 +100,11 @@ class ShapeKeyTransfer(Operator):
         
         except SurfaceDeformBindError:
             self.report({'ERROR'}, "Unable to bind Surface Deform. Adding a triangulate modifier can fix this.")
+            return {'CANCELLED'}
         
         except VertexCountError:
             self.report({'ERROR'}, "Vertex count mismatch, please disable any topology altering modifiers temporarily.")
+            return {'CANCELLED'}
         
         finally:
             if shr_combined:
@@ -119,7 +119,8 @@ class ShapeKeyTransfer(Operator):
                         bpy.data.meshes.remove(obj, do_id_user=True, do_ui_user=True, do_unlink=True)
                     except:
                         pass
-
+        
+        self.report('INFO', "Shapes transferred!")
         return {'FINISHED'}
     
     def get_shape_keys(self) -> dict:
@@ -250,7 +251,7 @@ class ShapeKeyTransfer(Operator):
         resolve_base_name()
         base_key   = self.target.data.shape_keys.key_blocks[0].name
         
-        if self.all_keys or self.input_method != "Selected":
+        if self.shapes_type == 'ALL' or self.input_method != "Selected":
             for key in self.source.data.shape_keys.key_blocks:
                 sk_transfer.append(key)
         else:
@@ -310,10 +311,13 @@ class ShapeKeyTransfer(Operator):
             driver_source = source_key
             deform        = True
 
-            if self.all_keys:
+            if self.shapes_type == 'ALL':
                 target_key = self.target.data.shape_keys.key_blocks.get(new_name)
-                if not target_key and not self.existing:
+                if not target_key:
                     target_key = self.target.shape_key_add(name=new_name, from_mix=False)
+
+            elif self.shapes_type == 'EXISTING':
+                target_key = self.target.data.shape_keys.key_blocks.get(new_name)
 
             else:
                 if self.shape_target == "None":
@@ -355,7 +359,7 @@ class ShapeKeyTransfer(Operator):
                 continue
 
             if source_key.name.startswith("-") or not self.deform_target[source_key.name]:
-                if self.all_keys and source_key.name.startswith("-"):
+                if self.sub_keys and source_key.name.startswith("-"):
                     deform = False
                 else:
                     continue

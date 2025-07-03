@@ -16,7 +16,7 @@ def frame_ui(dummy):
 
 def get_mesh_props(dummy=None) -> None:
     obj: Object = bpy.context.active_object
-    outfit       = get_outfit_properties()
+    outfit      = get_outfit_properties()
     if obj and obj.mode != 'OBJECT':
         return None
     
