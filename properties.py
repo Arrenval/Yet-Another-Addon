@@ -639,12 +639,19 @@ class YAWindowProps(PropertyGroup):
                 ('EXISTING', "Existing", "Transfer/link all keys that already exist on the target"),
                 ('ALL', "All Keys", "Transfer/link all keys"),
             ]
+    def _set_shape_enums(self, context):
+        props = get_outfit_properties()
+
+        if self.shapes_type == 'SINGLE':
+            props.validate_shapes_source_enum(context)
+            props.validate_shapes_target_enum(context)
 
     shapes_type: EnumProperty(
         name= "",
         description= "Select which keys to transfer",
         default=0,
-        items=_shapes_type_items
+        items=_shapes_type_items,
+        update=_set_shape_enums
         )  # type: ignore
     
     include_deforms: BoolProperty(
@@ -671,7 +678,7 @@ class YAWindowProps(PropertyGroup):
         name= "",
         description= "Select the base size, only affects waist seam",
         items= [
-            ("YAB", "YAB", ""),
+            ("BASE", "YAB", ""),
             ("Lavabod", "Lavabod", ""),
             ("Yanilla", "Yanilla", ""),
             ("Masc", "Masc", ""),
@@ -1060,13 +1067,14 @@ class YAOutfitProps(PropertyGroup):
         }
     
 
-    def chest_controller_update(self, context:Context) -> None:
-        props = context.scene.outfit_props
+    def _chest_controller_update(self, context: Context) -> None:
         key_blocks = get_object_from_mesh("Chest Controller").data.shape_keys.key_blocks
         for key in key_blocks:
             key.mute = True
 
-        key_blocks[props.shape_chest_base.upper()].mute = False
+        key_blocks[self.shape_chest_base].mute = False
+        if self.shape_chest_base in ("Teardrop", "Cupcake"):
+            key_blocks["Lavabod"].mute = False
 
     def scene_actions(self, context) -> BlendEnum: 
         armature_actions = [("None", "None", ""), None]
@@ -1076,7 +1084,7 @@ class YAOutfitProps(PropertyGroup):
                 armature_actions.append((action.name , action.name, "Action"))
         return armature_actions
     
-    def set_action(self, context:Context) -> None:
+    def set_action(self, context: Context) -> None:
         window = get_window_properties()
         if not self.outfit_armature:
             return
@@ -1110,7 +1118,7 @@ class YAOutfitProps(PropertyGroup):
         
         setattr(YAWindowProps, "animation_frame", prop)
 
-    def update_directory(self, context:Context, category:str) -> None:
+    def update_directory(self, context: Context, category: str) -> None:
         prop = context.scene.file_props
         actual_prop = f"{category}_directory"
         display_prop = f"{category}_display_directory"
@@ -1120,11 +1128,11 @@ class YAOutfitProps(PropertyGroup):
         if os.path.exists(display_directory):  
             setattr(prop, actual_prop, display_directory)
 
-    def _validate_shapes_source_enum(self, context) -> None:
+    def validate_shapes_source_enum(self, context) -> None:
         window = get_window_properties()
         window.shapes_source_enum = self.shapes_source.data.shape_keys.key_blocks[0].name if self.shapes_source else "None"
 
-    def _validate_shapes_target_enum(self, context) -> None:
+    def validate_shapes_target_enum(self, context) -> None:
         window = get_window_properties()
         window.shapes_target_enum = "None"
 
@@ -1132,26 +1140,30 @@ class YAOutfitProps(PropertyGroup):
         type= Object,
         name= "",
         description= "Shape key/driver source",
-        update=_validate_shapes_source_enum
+        update=validate_shapes_source_enum
         )  # type: ignore
     
     shapes_target: PointerProperty(
         type= Object,
         name= "",
         description= "Shape key/driver source",
-        update=_validate_shapes_target_enum
+        update=validate_shapes_target_enum
         )  # type: ignore
 
     shape_chest_base: EnumProperty(
         name= "",
         description= "Select the base size",
         items= [
-            ("Large", "Large", ""),
-            ("Medium", "Medium", ""),
-            ("Small", "Small", ""),
-            ("Masc", "Masc", ""),
+            ("LARGE", "Large", "Standard Large"),
+            ("MEDIUM", "Medium", "Standard Medium"),
+            ("SMALL", "Small", "Standard Small"),
+            ("MASC", "Masc", "Yet Another Masc"),
+            None,
+            ("Lavabod", "Omoi", "Biggest Lavatiddy"),
+            ("Teardrop", "Teardrop", "Medium Lavatiddy"),
+            ("Cupcake", "Cupcake", "Small Lavatiddy"),
         ],
-        update=chest_controller_update
+        update=_chest_controller_update
         )  # type: ignore
     
     actions: EnumProperty(

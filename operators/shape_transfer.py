@@ -2,7 +2,7 @@ import bpy
 import time
 from bpy.types       import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
 
-from ..properties         import get_outfit_properties, get_devkit_properties, get_window_properties
+from ..properties         import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
 from ..mesh.shapes        import create_co_cache, create_shape_keys
 from ..mesh.weights       import combine_v_groups
 from ..utils.objects      import get_object_from_mesh, quick_copy, safe_object_delete
@@ -18,19 +18,41 @@ def get_target_key(target: Object, key_name:str):
 
     return target_key
 
+class ControllerVisibility(Operator):
+    bl_idname = "ya.chest_controller"
+    bl_label = ""
+    bl_description = "Show the controller mesh"
+    bl_options = {"UNDO"}
+
+    def execute(self, context):
+        controller = get_devkit_properties().yam_chest_controller
+        collection = context.view_layer.layer_collection.children["Resources"].children["Controller"]
+        
+        if controller.visible_get():
+             collection.exclude = True
+        else:
+            collection.exclude = False
+            for obj in bpy.data.collections.get("Controller").objects:
+                obj.hide_set(state=True)
+
+            controller.hide_set(state=False)
+
+        return {'FINISHED'}
+    
 class ShapeKeyTransfer(Operator):
     bl_idname = "ya.transfer_shape_keys"
     bl_label = "Shape Keys"
     bl_description = "Transfers and links shape keys to your target mesh"
     bl_options = {"UNDO"}
 
-    sub_keys     :bool = False
-    deforms      :bool = True
-    vertex_pin   :str  = "None"
-    exclude_wrap :str  = "None"
-    smooth_level :str  = "None"
-    shape_source :str  = None
-    shape_target :str  = None
+    sub_keys    : bool = False
+    deforms     : bool = True
+    vertex_pin  : str  = "None"
+    exclude_wrap: str  = "None"
+    smooth_level: str  = "None"
+    shape_source: str  = None
+    shape_target: str  = None
+    shapes_type : str  = "None"
 
     @classmethod
     def poll(cls, context):
@@ -59,15 +81,15 @@ class ShapeKeyTransfer(Operator):
         self.cleanup     : list[Object] = []    
 
         if self.input_method == "Chest":
-            self.sub_keys  :bool = window.sub_shape_keys
-            self.overhang  :bool = window.adjust_overhang
-            self.chest_base:str  = props.shape_chest_base  
+            self.sub_keys  : bool = window.sub_shape_keys
+            self.overhang  : bool = window.adjust_overhang
+            self.chest_base: str  = props.shape_chest_base  
     
             self.source = self.devkit.yam_torso
             self.deform_target = self.get_shape_keys()
 
         elif self.input_method == "Legs":
-            self.leg_base:str = window.shape_leg_base
+            self.leg_base: str = window.shape_leg_base
 
             if self.leg_base == "Skull":
                 self.leg_base = "Skull Crushers"
@@ -79,16 +101,12 @@ class ShapeKeyTransfer(Operator):
             self.deform_target = self.get_shape_keys()
 
         elif self.input_method == "Seams":
-            self.seams    :set = {key for key, value in self.seam_values.items() if value}
-            self.seam_base:str = window.shape_seam_base
-
-            if self.seam_base == "YAB":
-                self.seam_base = "BASE"
-            
-            self.source = get_object_from_mesh("Body Controller")
+            self.seams    : set = {key for key, value in self.seam_values.items() if value}
+            self.seam_base: str = window.shape_seam_base
+            self.source         = self.devkit.yam_body_controller
 
         else:
-            self.shapes_type : bool   = window.shapes_type
+            self.shapes_type : str    = window.shapes_type
             self.deforms     : bool   = window.include_deforms
             self.shape_source: str    = window.shapes_source_enum
             self.shape_target: str    = window.shapes_target_enum
@@ -110,7 +128,7 @@ class ShapeKeyTransfer(Operator):
             if shr_combined:
                 combined_group = self.target.vertex_groups.get(self.shr_group)
                 self.target.vertex_groups.remove(combined_group)
-
+    
             for obj in self.cleanup:
                 if isinstance(obj, Object):
                     safe_object_delete(obj)
@@ -120,14 +138,33 @@ class ShapeKeyTransfer(Operator):
                     except:
                         pass
         
-        self.report('INFO', "Shapes transferred!")
+        self.report({'INFO'}, "Shapes transferred!")
         return {'FINISHED'}
     
+    def _shrinkwrap_exclude(self) -> bool:
+        combined = False
+
+        if self.exclude_wrap != "None" and self.vertex_pin != "None" and self.smooth_level != "None":
+            v_groups = [self.target.vertex_groups.get(self.exclude_wrap).index,
+                       self.target.vertex_groups.get(self.vertex_pin).index]
+            combined_group = combine_v_groups(self.target, v_groups)
+
+            combined = True
+            self.shr_group = combined_group.name
+
+        elif self.exclude_wrap != "None":
+            self.shr_group = self.exclude_wrap
+
+        elif self.vertex_pin != "None":
+            self.shr_group = self.vertex_pin
+        
+        return combined
+      
     def get_shape_keys(self) -> dict:
         options = {}
-        prop = get_devkit_properties()
-        leg_corrections = ["Rue/Lava", "Rue/Mini"]
-        target = self.target
+        prop    = get_devkit_properties()
+        dev_win = get_devkit_win_props()
+        target  = self.target
 
         for shape, (name, slot, shape_category, description, body, key) in prop.ALL_SHAPES.items():
             if key == "":
@@ -135,72 +172,39 @@ class ShapeKeyTransfer(Operator):
             if slot != self.input_method:
                 continue
             slot_lower = slot.lower().replace("/", " ")
-            key_lower = key.lower().replace(" ", "_")
+            key_lower = key.lower().replace("- ", "").replace("-", "").replace(" ", "_")
             
             prop_name = f"shpk_{slot_lower}_{key_lower}"
+            if hasattr(dev_win, prop_name):
+                options[key] = (getattr(dev_win, prop_name))
 
-            if hasattr(prop, prop_name):
-                options[key] = (getattr(prop, prop_name))
+        lava_shape = target.data.shape_keys and target.data.shape_keys.key_blocks.get("Lavabod")
+        buff_shape = target.data.shape_keys and target.data.shape_keys.key_blocks.get("Buff")
+        rue_shape  = target.data.shape_keys and target.data.shape_keys.key_blocks.get("Rue")
+        mini_shape = target.data.shape_keys and target.data.shape_keys.key_blocks.get("Mini")
+
+        lava_options = any(value for option, value in options.items() 
+                            if option in ("Lavabod", "-- Teardrop", "--- Cupcake"))
         
         if self.input_method == "Chest":
-            options[self.chest_base.upper()] = False
+            if self.chest_base == "Teardrop":
+                options["-- Teardrop"] = False
+            elif self.chest_base == "Cupcake":
+                options["--- Cupcake"] = False
+            else:
+                options[self.chest_base] = False
+
+            options["Rue/Buff"] = True if (options["Buff"] or buff_shape) and (options["Rue"] or rue_shape) else False
+            options["Rue/Lava"] = True if (lava_options or lava_shape) and (options["Rue"] or rue_shape) else False
 
         if self.input_method == "Legs":
             options[self.leg_base] = False
-
-            for key_name in leg_corrections:
-                rue_shape = target.data.shape_keys and target.data.shape_keys.key_blocks.get("Rue")
-                options[key_name] = True if options["Rue"] or rue_shape else False
+            
+            options["Rue/Mini"] = True if (options["Mini"] or mini_shape) and (options["Rue"] or rue_shape) else False
+            options["Rue/Lava"] = True if (lava_options or lava_shape) and (options["Rue"] or rue_shape) else False
 
         return options
     
-    def add_driver(self, target_key:ShapeKey, driver_source:ShapeKey, source:Object, target:Object) -> None:
-            target_key.driver_remove("value")
-            target_key.driver_remove("mute")
-            value = target_key.driver_add("value").driver
-            mute = target_key.driver_add("mute").driver
-
-            if self.input_method == "Chest" and target_key.name == "LARGE" and self.chest_base != "LARGE":
-                value.type = 'SCRIPTED'
-                value.expression = "size == 0"
-                value_var = value.variables.new()
-                value_var.name = "size"
-                value_var.type = 'SINGLE_PROP'
-                
-                value_var.targets[0].id_type = 'SCENE'
-                value_var.targets[0].id = bpy.context.scene
-                value_var.targets[0].data_path = "ya_devkit_props.torso_state.chest_size"
-
-            elif self.input_method == "Legs" and target_key.name == "Gen A/Watermelon Crushers" and self.leg_base != "Melon":
-                value.type = 'SCRIPTED'
-                value.expression = "size == 0"
-                value_var = value.variables.new()
-                value_var.name = "size"
-                value_var.type = 'SINGLE_PROP'
-
-                value_var.targets[0].id_type = 'SCENE'
-                value_var.targets[0].id = bpy.context.scene
-                value_var.targets[0].data_path = "ya_devkit_props.leg_state.leg_size"
-
-            else:
-                value.type = 'AVERAGE'
-                value_var = value.variables.new()
-                value_var.name = "key_value"
-                value_var.type = 'SINGLE_PROP'
-
-                value_var.targets[0].id_type = 'KEY'
-                value_var.targets[0].id = source.data.shape_keys
-                value_var.targets[0].data_path = f'key_blocks["{driver_source.name}"].value'
-
-            mute.type = 'AVERAGE'
-            mute_var = mute.variables.new()
-            mute_var.name = "key_mute"
-            mute_var.type = 'SINGLE_PROP'
-            
-            mute_var.targets[0].id_type = 'KEY'
-            mute_var.targets[0].id = source.data.shape_keys
-            mute_var.targets[0].data_path = f'key_blocks["{driver_source.name}"].mute'
-
     def transfer(self) -> None:
 
         def resolve_base_name() -> None:
@@ -241,9 +245,9 @@ class ShapeKeyTransfer(Operator):
             if target_key.name[8:11] == "_c_" or self.input_method == "Seams":
                 return
 
-            self.add_driver(target_key, driver_source, self.source, self.target)
+            self._add_driver(target_key, driver_source, self.source)
         
-        sk_transfer:list[ShapeKey] = []
+        sk_transfer: list[ShapeKey] = []
 
         if not self.target.data.shape_keys:
             self.target.shape_key_add(name="Basis", from_mix=False)
@@ -347,26 +351,24 @@ class ShapeKeyTransfer(Operator):
     
     def _chest_queue(self, shape_key_list: list[ShapeKey]) -> ShapeKeyQueue:
         shape_key_queue = []
-        chest_controller: Object = get_object_from_mesh("Chest Controller")
-        body_controller : Object = get_object_from_mesh("Body Controller")
+        chest_controller = self.devkit.yam_chest_controller
+        body_controller  = self.devkit.yam_body_controller
 
         for source_key in shape_key_list:
-            new_name      = source_key.name
             driver_source = source_key
-            deform        = True
+            lava_size     = source_key.name.endswith(("Teardrop", "Cupcake"))
+            sub_key       = source_key.name.startswith("-") and not lava_size and self.sub_keys
+            deform        = not sub_key
 
-            if source_key.name not in self.deform_target and not source_key.name.startswith("-"):
+            if lava_size:
+                key_name = source_key.name.split(" ")[1]
+            else:
+                key_name = source_key.name
+
+            if not self.deform_target.get(source_key.name, False) and not sub_key:
                 continue
 
-            if source_key.name.startswith("-") or not self.deform_target[source_key.name]:
-                if self.sub_keys and source_key.name.startswith("-"):
-                    deform = False
-                else:
-                    continue
-            if source_key.name == "CORRECTIONS:":
-                break
-
-            chest_key = chest_controller.data.shape_keys.key_blocks.get(source_key.name)
+            chest_key = chest_controller.data.shape_keys.key_blocks.get(key_name)
             body_key  = body_controller.data.shape_keys.key_blocks.get(source_key.name)
 
             if chest_key:
@@ -382,8 +384,8 @@ class ShapeKeyTransfer(Operator):
             elif not self.sub_keys:
                 continue
 
-            controller_key = controller.data.shape_keys.key_blocks.get(source_key.name)
-            target_key = get_target_key(self.target, new_name)
+            controller_key = controller.data.shape_keys.key_blocks.get(key_name)
+            target_key = get_target_key(self.target, source_key.name)
 
             temp_target = quick_copy(self.target)
             self.cleanup.append(temp_target)
@@ -395,7 +397,7 @@ class ShapeKeyTransfer(Operator):
     
     def _leg_queue(self, shape_key_list: list[ShapeKey]) -> ShapeKeyQueue:
         shape_key_queue = []
-        body_controller: Object = get_object_from_mesh("Body Controller")
+        body_controller = self.devkit.yam_body_controller
 
         for source_key in shape_key_list:
             model_state: list[ShapeKey]   = []
@@ -530,18 +532,23 @@ class ShapeKeyTransfer(Operator):
     def add_modifier(self, temp_target: Object, controller: Object, target_key: ShapeKey, source_key: ShapeKey, model_state: list[ShapeKey]) -> None:
 
         def base_model_state() -> None:
-            chest_filter = {"LARGE", "MEDIUM", "SMALL", "MASC"} 
+            key_blocks   = controller.data.shape_keys.key_blocks
+            chest_filter = {"LARGE", "MEDIUM", "SMALL", "MASC", "Lavabod"} 
+            lava_keys    = {"Lavabod" , "-- Teardrop", "--- Cupcake"}
             leg_filter   = {"Gen A/Watermelon Crushers", "Skull Crushers", "Yanilla", "Mini", "Lavabod", "Masc"} 
 
             source_key.mute = False
             source_key.value = 1
-
+            
             if self.input_method == "Chest" and target_key.name in chest_filter:
-                controller.data.shape_keys.key_blocks[self.chest_base.upper()].mute = True
+                key_blocks[self.chest_base].mute = True
+
+                if self.chest_base in ("Lavabod", "Teardrop", "Cupcake") and target_key.name not in lava_keys:
+                    key_blocks["Lavabod"].mute = True
 
             elif self.input_method == "Legs" and target_key.name in leg_filter:
                 key_name = "BASE" if self.leg_base == "Gen A/Watermelon Crushers" else self.leg_base
-                controller.data.shape_keys.key_blocks[key_name].mute = True
+                key_blocks[key_name].mute = True
             
             for key in model_state:
                 key.mute = False
@@ -552,10 +559,15 @@ class ShapeKeyTransfer(Operator):
                 key.mute = True
 
             if "Chest Controller" in controller.data.name and self.input_method == "Chest":
-                key_blocks[self.chest_base.upper()].mute = False
-                if self.chest_base.upper() != "MEDIUM":
+                key_blocks[self.chest_base].mute = False
+
+                if self.chest_base in ("Lavabod", "Teardrop", "Cupcake"):
+                    key_blocks["Lavabod"].mute = False
+
+                if self.chest_base not in ("MEDIUM", "Teardrop"):
                     key_blocks["Medium/Push-Up"].mute = True
-                if self.chest_base.upper() == "SMALL":
+
+                if self.chest_base in ("SMALL", "Cupcake", "MASC"):
                     key_blocks["Push-Up"].value = 0
                     key_blocks["Squeeze"].value = 0
 
@@ -587,13 +599,13 @@ class ShapeKeyTransfer(Operator):
         base_model_state()
         
         if self.smooth_level != "None":
-            self.deform_corrections(temp_target, controller, self.smooth_level)
+            self._deform_corrections(temp_target, controller, self.smooth_level)
 
         # Second pass of shrinkwrap with less aggressive smooth corrective
         if self.shrinkwrap:
-            self.deform_corrections(temp_target, controller, "Smooth")
+            self._deform_corrections(temp_target, controller, "Smooth")
         
-    def deform_corrections(self, target: Object, controller: Object, smooth:str) -> None:
+    def _deform_corrections(self, target: Object, controller: Object, smooth:str) -> None:
         if smooth == "Aggressive":
             factor = 1.0
             iterations = 10
@@ -620,27 +632,56 @@ class ShapeKeyTransfer(Operator):
             if self.vertex_pin != "None":
                 cor_modifier.vertex_group          = self.vertex_pin
                 cor_modifier.invert_vertex_group   = True
+    
+    def _add_driver(self, target_key: ShapeKey, driver_source: ShapeKey, source: Object) -> None:
+        target_key.driver_remove("value")
+        target_key.driver_remove("mute")
+        value = target_key.driver_add("value").driver
+        mute = target_key.driver_add("mute").driver
 
-    def _shrinkwrap_exclude(self) -> bool:
-        combined = False
+        if self.input_method == "Chest" and target_key.name == "LARGE" and self.chest_base != "LARGE":
+            value.type = 'SCRIPTED'
+            value.expression = "size == 0"
+            value_var = value.variables.new()
+            value_var.name = "size"
+            value_var.type = 'SINGLE_PROP'
+            
+            value_var.targets[0].id_type = 'SCENE'
+            value_var.targets[0].id = bpy.context.scene
+            value_var.targets[0].data_path = "ya_devkit_props.torso_state.chest_size"
 
-        if self.exclude_wrap != "None" and self.vertex_pin != "None" and self.smooth_level != "None":
-            v_groups = [self.target.vertex_groups.get(self.exclude_wrap).index,
-                       self.target.vertex_groups.get(self.vertex_pin).index]
-            combined_group = combine_v_groups(self.target, v_groups)
+        elif self.input_method == "Legs" and target_key.name == "Gen A/Watermelon Crushers" and self.leg_base != "Melon":
+            value.type = 'SCRIPTED'
+            value.expression = "size == 0"
+            value_var = value.variables.new()
+            value_var.name = "size"
+            value_var.type = 'SINGLE_PROP'
 
-            combined = True
-            self.shr_group = combined_group.name
+            value_var.targets[0].id_type = 'SCENE'
+            value_var.targets[0].id = bpy.context.scene
+            value_var.targets[0].data_path = "ya_devkit_props.leg_state.leg_size"
 
-        elif self.exclude_wrap != "None":
-            self.shr_group = self.exclude_wrap
+        else:
+            value.type = 'AVERAGE'
+            value_var = value.variables.new()
+            value_var.name = "key_value"
+            value_var.type = 'SINGLE_PROP'
 
-        elif self.vertex_pin != "None":
-            self.shr_group = self.vertex_pin
+            value_var.targets[0].id_type = 'KEY'
+            value_var.targets[0].id = source.data.shape_keys
+            value_var.targets[0].data_path = f'key_blocks["{driver_source.name}"].value'
+
+        mute.type = 'AVERAGE'
+        mute_var = mute.variables.new()
+        mute_var.name = "key_mute"
+        mute_var.type = 'SINGLE_PROP'
         
-        return combined
-        
+        mute_var.targets[0].id_type = 'KEY'
+        mute_var.targets[0].id = source.data.shape_keys
+        mute_var.targets[0].data_path = f'key_blocks["{driver_source.name}"].mute'
+
         
 CLASSES = [
+    ControllerVisibility,
     ShapeKeyTransfer
 ]

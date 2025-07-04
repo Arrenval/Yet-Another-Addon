@@ -4,7 +4,7 @@ import bpy
 from bpy.types        import Panel, UILayout, Context, Object
 
 from ..draw           import aligned_row, get_conditional_icon, operator_button
-from ...properties    import get_outfit_properties, get_devkit_properties, get_window_properties
+from ...properties    import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
 from ...preferences   import get_prefs
 from ...utils.objects import visible_meshobj, get_object_from_mesh
 
@@ -21,6 +21,7 @@ class OutfitStudio(Panel):
         self.outfit_props = get_outfit_properties()
         self.window_props = get_window_properties()
         self.devkit_props = get_devkit_properties()
+        self.devkit_win   = get_devkit_win_props()
         layout = self.layout
 
         self.options ={
@@ -207,29 +208,9 @@ class OutfitStudio(Panel):
             row = aligned_row(col, "Smoothing:", "shapes_corrections", self.window_props, "")
             row.separator()
             row.prop(self.window_props, "add_shrinkwrap", text="Shrinkwrap")
-            
-            if self.window_props.shapes_method == "Selected":
-                row = aligned_row(col, "Options:", "shapes_type", self.window_props, "")
-                row.separator()
-                row.prop(self.window_props, "include_deforms", text="Deforms")
 
-            if self.window_props.shapes_method == "Chest":
-                row = aligned_row(col, "Options:", "sub_shape_keys", self.window_props, "Sub Keys")
-                row.separator()
-                row.prop(self.window_props, "adjust_overhang", text="Overhang")
-
-                # ctrl = bpy.data.objects["Chest"].visible_get(view_layer=bpy.context.view_layer)
-                # icon = "HIDE_ON" if not ctrl else "HIDE_OFF"
-                # row.prop("yakit.apply_visibility", text="Source", icon=icon, depress=ctrl)
-                # adj_op.target = "Shape"
-                # adj_op.key = ""
-                # col.separator(type="LINE", factor=2)
-                col.separator(type="LINE", factor=2)
-
-                aligned_row(col, "Base:", "shape_chest_base", self.outfit_props, "", attr_icon='SHAPEKEY_DATA')
-            
             if self.window_props.shapes_corrections != "None" or self.window_props.add_shrinkwrap:
-                col.separator(type="LINE", factor=2)
+                col.separator()
 
             if self.window_props.shapes_corrections != "None":
                 aligned_row(col, "Pin:", "obj_vertex_groups", self.window_props, "", attr_icon='GROUP_VERTEX')
@@ -237,6 +218,34 @@ class OutfitStudio(Panel):
             if self.window_props.add_shrinkwrap:
                 aligned_row(col, "Exclude:", "exclude_vertex_groups", self.window_props, "", attr_icon='GROUP_VERTEX')
 
+            if self.window_props.shapes_method == "Selected":
+                col.separator(type="LINE", factor=2)
+
+                row = aligned_row(col, "Options:", "shapes_type", self.window_props, "")
+                row.separator()
+                row.prop(self.window_props, "include_deforms", text="Deforms")
+
+            if self.window_props.shapes_method == "Chest":
+                col.separator(type="LINE", factor=2)
+                
+                row = aligned_row(col, "Options:", "sub_shape_keys", self.window_props, "Sub Keys")
+                row.separator()
+                row.prop(self.window_props, "adjust_overhang", text="Overhang")
+
+                col.separator(type="LINE", factor=2)
+
+                visible = self.devkit_props.yam_chest_controller.visible_get()
+                row = aligned_row(col, "Base:", "shape_chest_base", self.outfit_props, "", attr_icon='SHAPEKEY_DATA')
+                row.operator("ya.chest_controller",
+                              text="", 
+                              icon="HIDE_OFF" if visible  else "HIDE_ON", 
+                              depress=visible)
+            
+            if self.window_props.shapes_method == "Legs":
+                col.separator(type="LINE", factor=2)
+
+                aligned_row(col, "Base:", "shape_leg_base", self.window_props, "", attr_icon='SHAPEKEY_DATA')
+            
             if self.window_props.shapes_method == "Chest":
                 col.separator(type="LINE", factor=2)
 
@@ -247,7 +256,10 @@ class OutfitStudio(Panel):
                         "Large":      "LARGE",    
                         "Medium":     "MEDIUM",    
                         "Small":      "SMALL", 
-                        "Masc":       "MASC", 
+                        "Omoi":       "Lavabod", 
+                        "Teardrop":   "Teardrop", 
+                        "Cupcake":    "Cupcake",
+                        "Masc":       "MASC",  
                         "Buff":       "Buff",    
                         "Rue":        "Rue",        
                     }
@@ -256,7 +268,7 @@ class OutfitStudio(Panel):
                 col.prop(keys["Push-Up"], "value", text="Push-Up Adjustment:")
                 col.prop(keys["Squeeze"], "value", text="Squeeze Adjustment:")
 
-                self.dynamic_column_buttons(2, col, self.devkit_props, labels, slot, button_type)
+                self.dynamic_column_buttons(3, col, self.devkit_win, labels, slot, button_type)
 
             if self.window_props.shapes_method == "Legs":
 
@@ -276,7 +288,7 @@ class OutfitStudio(Panel):
                         "Soft Butt":  "Soft Butt",
                     }
                 
-                self.dynamic_column_buttons(2, col, self.devkit_props, labels, slot, button_type)
+                self.dynamic_column_buttons(2, col, self.devkit_win, labels, slot, button_type)
 
             if self.window_props.shapes_method == "Seams":
 
@@ -553,7 +565,7 @@ class OutfitStudio(Panel):
                 row.operator("ya.keyframe_jump", text="", icon="NEXT_KEYFRAME").next = True
                 row.operator("ya.frame_jump", text="", icon="FRAME_NEXT").end = True
                      
-    def dynamic_column_buttons(self, columns:int, layout:UILayout, section_prop, labels, slot, button_type):
+    def dynamic_column_buttons(self, columns:int, layout:UILayout, section_prop, labels: dict[str, str], slot, button_type):
         row = layout.row(align=True)
         columns_list = [row.column(align=True) for _ in range(columns)]
 
@@ -567,7 +579,7 @@ class OutfitStudio(Panel):
                 icon = get_conditional_icon(getattr(section_prop, prop_name))
                 
                 col_index = index % columns 
-                emboss = False if (slot == "Legs" and name == self.window_props.shape_leg_base) or (slot == "Chest" and name == self.outfit_props.shape_chest_base) else True
+                emboss = False if (slot == "Legs" and name == self.window_props.shape_leg_base) or (slot == "Chest" and key == self.outfit_props.shape_chest_base) else True
                 columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon if emboss else "SHAPEKEY_DATA", emboss=emboss)
             else:
                 # print(f"{name} has no assigned property!")

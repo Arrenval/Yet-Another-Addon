@@ -106,6 +106,9 @@ class DevkitProps(PropertyGroup):
     yam_feet           : Object
     yam_mannequin      : Object
 
+    yam_chest_controller: Object
+    yam_body_controller : Object
+
     mannequin_state: MannequinState
 
 class DevkitWindowProps(PropertyGroup):
