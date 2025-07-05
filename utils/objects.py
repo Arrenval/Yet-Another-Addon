@@ -1,17 +1,30 @@
+import re
 import bpy
 
 from typing    import Literal
 from bpy.types import Object, Depsgraph
 
-from .typings import ObjIterable
 
-def visible_meshobj() -> ObjIterable:
-    """Checks all visible objects and returns them if they contain a mesh."""
+def xiv_mesh_check(obj: Object) -> bool:
+    return (re.search(r"^\d+.\d+\s", obj.name) or re.search(r"\s\d+.\d+$", obj.name))
 
-    visible_meshobj = [
-        obj for obj in bpy.context.scene.objects 
-        if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH"
-        ]
+def visible_meshobj(mesh_id=False) -> list[Object]:
+    """
+    Checks all visible objects and returns them if they contain a mesh. 
+    If looking for xiv mesh IDs it will also hide non-xiv meshes
+    """
+
+    visible_meshobj = []
+    for obj in bpy.context.scene.objects:
+        if not obj.visible_get(view_layer=bpy.context.view_layer):
+            continue
+        if not obj.type == 'MESH':
+            continue
+        if mesh_id and not xiv_mesh_check(obj):
+            obj.hide_set(state=True)
+            continue
+
+        visible_meshobj.append(obj)
 
     return sorted(visible_meshobj, key=lambda obj: obj.name)
 

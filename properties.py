@@ -1,5 +1,6 @@
 import os
 import bpy
+import platform
 
 from typing          import Iterable, TYPE_CHECKING, Literal
 from pathlib         import Path
@@ -45,7 +46,7 @@ def modpack_data() -> None:
 
 class ModpackHelper(PropertyGroup):
 
-    def check_valid_path(self):
+    def check_valid_path(self,):
         props           = get_file_properties()
         path:str        = self.game_path
         self.valid_path = path.startswith("chara") and path.endswith(tuple(props.GAME_SUFFIX))
@@ -575,14 +576,39 @@ class YAWindowProps(PropertyGroup):
         
         )  # type: ignore
 
+    def _get_formats(self, context) -> None:
+        if self.file_man_ui == 'EXPORT' and platform.system() == 'Windows':
+            return [
+            ('MDL', "MDL", "Export FBX and convert to MDL."),
+            ('FBX', "FBX", "Export FBX."),
+            ('GLTF', "GLTF", "Export GLTF"),
+            ]
+        
+        else:
+            return [
+            ('FBX', "FBX", "Export FBX."),
+            ('GLTF', "GLTF", "Export GLTF"),
+            ]
+        
     file_format: EnumProperty(
         name="",
         description="Switch file format", 
-        items= [
-            ("FBX", "FBX", "Export FBX."),
-            ("GLTF", "GLTF", "Export modelsGLTF"),
-        ]
+        items=_get_formats
         ) # type: ignore
+
+    def _check_valid_path(self, context):
+        path: str        = self.export_xiv_path
+        self.valid_xiv_path = path.startswith("chara") and path.endswith(".mdl")
+
+    export_xiv_path: StringProperty(
+                            default="Paste path here...", 
+                            name="", 
+                            description="Path to the in-game model you want to replace", 
+                            update=_check_valid_path
+                        ) # type: ignore
+    
+    valid_xiv_path: BoolProperty(default=False) # type: ignore
+    
 
     def update_ui(self, context:Context):
         for area in context.screen.areas:
@@ -639,6 +665,7 @@ class YAWindowProps(PropertyGroup):
                 ('EXISTING', "Existing", "Transfer/link all keys that already exist on the target"),
                 ('ALL', "All Keys", "Transfer/link all keys"),
             ]
+    
     def _set_shape_enums(self, context):
         props = get_outfit_properties()
 
@@ -863,6 +890,8 @@ class YAWindowProps(PropertyGroup):
         file_format     : str
         export_prefix   : str
         remove_yas      : str
+        export_xiv_path : str
+        valid_xiv_path  : bool
 
         obj_vertex_groups    : str
         exclude_vertex_groups: str

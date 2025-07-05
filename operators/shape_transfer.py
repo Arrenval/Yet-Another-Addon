@@ -1,11 +1,10 @@
 import bpy   
-import time
 from bpy.types       import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
 
 from ..properties         import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
 from ..mesh.shapes        import create_co_cache, create_shape_keys
 from ..mesh.weights       import combine_v_groups
-from ..utils.objects      import get_object_from_mesh, quick_copy, safe_object_delete
+from ..utils.objects      import quick_copy, safe_object_delete
 from ..utils.ya_exception import SurfaceDeformBindError, VertexCountError
 
 

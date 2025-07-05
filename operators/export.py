@@ -4,12 +4,13 @@ import time
 from pathlib                  import Path
 from itertools                import combinations
 from bpy.types                import Operator, Context
+from bpy.props                import StringProperty
 
-from .simple                  import check_triangulation, get_export_path, export_result
-from ...properties            import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
-from ...preferences           import get_prefs
-from ...utils.logging         import YetAnotherLogger
-from ...utils.scene_optimiser import SceneOptimiser
+from ..properties            import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ..preferences           import get_prefs
+from ..utils.export          import check_triangulation, get_export_path, export_result
+from ..utils.logging         import YetAnotherLogger
+from ..utils.scene_optimiser import SceneOptimiser
 
 
 _yab_keys : dict[str, float] = {}
@@ -221,27 +222,84 @@ def reset_model_state(body_slot: str) -> None:
     elif body_slot == "Feet":
         devkit.reset_feet()
 
-class BatchQueue(Operator):
+class YetAnotherExport(Operator):
     # Currently very messy, will refactor later
     # The combinations and queue calculation is atrocious why did past me do this
     # It works tho, somehow
 
-    bl_idname = "ya.batch_queue"
+    bl_idname = "ya.export"
     bl_label = "Export"
     bl_description = "Exports your scene based on your selections"
     bl_options = {'UNDO'}
     
+    user_input: StringProperty(name="File Name", default="", options={'HIDDEN'}) # type: ignore
+
+    mode: StringProperty(name="", default="SIMPLE", options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
+
     @classmethod
     def poll(cls, context):
         return context.mode == "OBJECT"
 
-    def execute(self, context: Context):
-        self.props        = get_file_properties()
-        self.window       = get_window_properties()
+    def invoke(self, context: Context, event):
+        self.window     = get_window_properties()
+        self.export_dir = Path(get_prefs().export_dir)
+
+        if self.window.file_format == 'MDL':
+            if not self.window.valid_xiv_path:
+                self.report({'ERROR'}, "Please input a path to your target model")
+                return {'CANCELLED'}
+            
+            if not get_prefs().consoletools_status:
+                bpy.ops.ya.consoletools("EXEC_DEFAULT")
+                if not get_prefs().consoletools_status:
+                    self.report({'ERROR'}, "Verify that ConsoleTools is ready in the add-on preferences")
+                    return {'CANCELLED'} 
+
+        if not self.export_dir.is_dir():
+            self.report({'ERROR'}, "No export directory selected.")
+            return {'CANCELLED'}
+        
+        if self.window.check_tris:
+            not_triangulated = check_triangulation()
+            if not_triangulated:
+                self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}")
+                return {'CANCELLED'}
+
+        if self.mode == "SIMPLE": 
+            bpy.context.window_manager.invoke_props_dialog(self, confirm_text="Export")
+            return {'RUNNING_MODAL'}
+        else:
+            return self.execute(context)
+        
+    def execute(self, context):
+        if self.mode == "SIMPLE":
+            return self.simple_export()
+        
+        else:
+            return self.batch_export()
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "user_input")   
+
+    def simple_export(self) -> set[str]:
+        devkit = get_devkit_properties()
+
+        if devkit:
+            devkit.collection_state.export = True
+        
+        export_result(self.export_dir / self.user_input, self.window.file_format)
+   
+        if devkit:
+            devkit.collection_state.export = False
+        
+        return {'FINISHED'}
+    
+    def batch_export(self) -> set[str]:
+        self.props      = get_file_properties()
+        
         self.ALL_SHAPES   = get_devkit_properties().ALL_SHAPES
         self.size_options = self._get_size_options()
-
-        self.export_dir   = Path(get_prefs().export_dir)
         self.body_slot    = self.window.export_body_slot
     
         self.leg_sizes = {
@@ -254,17 +312,6 @@ class BatchQueue(Operator):
         self.queue     = []
         self.leg_queue = []
 
-        if self.window.check_tris:
-            get_devkit_win_props().devkit_triangulation = True
-            not_triangulated = check_triangulation()
-            if not_triangulated:
-                self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}")
-                return {'CANCELLED'} 
-        
-        if not self.export_dir.is_dir():
-            self.report({'ERROR'}, "No directory selected for export!")
-            return {'CANCELLED'} 
-        
         if self.window.create_subfolder:
             Path.mkdir(self.export_dir / self.body_slot, exist_ok=True)
         
@@ -294,7 +341,7 @@ class BatchQueue(Operator):
             )
 
         try:
-            with SceneOptimiser(context, optimisation_level="high"):
+            with SceneOptimiser(bpy.context, optimisation_level="high"):
                 self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
                 for item in self.queue:
                     self.logger.log_progress(operation="Exporting files", clear_messages=True)
@@ -320,7 +367,7 @@ class BatchQueue(Operator):
             
         self.report({'INFO'}, "Export complete!")
         return {'FINISHED'}
-       
+    
     def _get_size_options(self) -> dict[str, bool]:
         devkit_win = get_devkit_win_props()
         options    = {}
@@ -573,5 +620,5 @@ class BatchQueue(Operator):
     
 
 CLASSES = [
-    BatchQueue
+    YetAnotherExport
 ]

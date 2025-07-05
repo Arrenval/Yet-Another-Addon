@@ -58,16 +58,16 @@ class FileManager(Panel):
         row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
 
         row = layout.row(align=True)
-        row.operator("ya.simple_export", text="Simple Export")
+        row.operator("ya.export", text="Simple Export").mode = "SIMPLE"
 
         if self.devkit_props:
-            row.operator("ya.batch_queue", text="Batch Export")
+            row.operator("ya.export", text="Batch Export").mode = "BATCH"
         
         row.separator()
 
         subrow = row.row()
         subrow.alignment = "RIGHT"
-        subrow.scale_x = 0.25
+        subrow.scale_x = 0.20
         subrow.prop(self.window_props, "file_format", text=self.window_props.file_format, expand=True)
 
         if context.space_data.shading.type in ("MATERIAL", "RENDERED"):
@@ -90,8 +90,12 @@ class FileManager(Panel):
 
         layout.separator(type="LINE")
 
+        if self.window_props.file_format == 'MDL':
+            row = aligned_row(layout, "XIV Path:", "export_xiv_path", self.window_props)
+            row.label(text="", icon=get_conditional_icon(self.window_props.valid_xiv_path))
+
         aligned_row(layout, "IVCS/YAS:", "remove_yas", self.window_props)
-        # row.prop(self.window_props, "remove_yas", text="Remove YAS")
+        
 
         layout.separator(factor=0.1)
 
