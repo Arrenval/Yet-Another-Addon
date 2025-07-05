@@ -647,29 +647,14 @@ class YAWindowProps(PropertyGroup):
         )  # type: ignore
     
     def _shapes_type_validate(self, context) -> None:
-        items = self._shapes_type_items(context)
-        values = {item[0] for item in items}
-
-        if self.shapes_type not in values:
-            self.shapes_type = 'ALL'
-
-    def _shapes_type_items(self, context) -> BlendEnum:
-        if self.include_deforms:
-            return [
-                ('EXISTING', "Existing", "Transfer/link all keys that already exist on the target"),
-                ('ALL', "All Keys", "Transfer/link all keys"),
-                ('SINGLE', "Single", "Transfers/links the selected key"),
-            ]
-        else:
-            return [
-                ('EXISTING', "Existing", "Transfer/link all keys that already exist on the target"),
-                ('ALL', "All Keys", "Transfer/link all keys"),
-            ]
+        if not self.include_deforms and self.shapes_type == 'SINGLE':
+            self.shapes_type = 'EXISTING'
     
     def _set_shape_enums(self, context):
         props = get_outfit_properties()
 
         if self.shapes_type == 'SINGLE':
+            self.include_deforms = True
             props.validate_shapes_source_enum(context)
             props.validate_shapes_target_enum(context)
 
@@ -677,7 +662,11 @@ class YAWindowProps(PropertyGroup):
         name= "",
         description= "Select which keys to transfer",
         default=0,
-        items=_shapes_type_items,
+        items=[
+                ('EXISTING', "Existing", "Transfer/link all keys that already exist on the target"),
+                ('ALL', "All Keys", "Transfer/link all keys"),
+                ('SINGLE', "Single", "Transfers/links the selected key"),
+            ],
         update=_set_shape_enums
         )  # type: ignore
     
@@ -1097,7 +1086,7 @@ class YAOutfitProps(PropertyGroup):
     
 
     def _chest_controller_update(self, context: Context) -> None:
-        key_blocks = get_object_from_mesh("Chest Controller").data.shape_keys.key_blocks
+        key_blocks = get_devkit_properties().yam_chest_controller.data.shape_keys.key_blocks
         for key in key_blocks:
             key.mute = True
 

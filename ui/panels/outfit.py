@@ -234,7 +234,17 @@ class OutfitStudio(Panel):
 
                 col.separator(type="LINE", factor=2)
 
-                visible = self.devkit_props.yam_chest_controller.visible_get()
+                chest_obj = self.devkit_props.yam_chest_controller
+                if chest_obj is None:
+                    row = col.row(align=True)
+                    row.alignment = "CENTER"
+                    row.label(text="Couldn't find controller mesh.", icon="ERROR")
+                    row = col.row(align=True)
+                    row.alignment = "CENTER"
+                    row.label(text="Please see your devkit settings menu.", icon='BLANK1')
+                    return
+
+                visible = chest_obj.visible_get()
                 row = aligned_row(col, "Base:", "shape_chest_base", self.outfit_props, "", attr_icon='SHAPEKEY_DATA')
                 row.operator("ya.chest_controller",
                               text="", 
@@ -249,8 +259,10 @@ class OutfitStudio(Panel):
             if self.window_props.shapes_method == "Chest":
                 col.separator(type="LINE", factor=2)
 
-                obj  = get_object_from_mesh("Chest Controller")
-                keys = obj.data.shape_keys.key_blocks
+                
+                
+
+                keys = chest_obj.data.shape_keys.key_blocks
                 slot = "Chest"
                 labels = {
                         "Large":      "LARGE",    

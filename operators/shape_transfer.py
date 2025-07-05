@@ -248,21 +248,27 @@ class ShapeKeyTransfer(Operator):
         
         sk_transfer: list[ShapeKey] = []
 
-        if not self.target.data.shape_keys:
-            self.target.shape_key_add(name="Basis", from_mix=False)
+        if self.shapes_type != 'EXISTING':
+            if not self.target.data.shape_keys:
+                self.target.shape_key_add(name="Basis", from_mix=False)
+            resolve_base_name()
 
-        resolve_base_name()
-        base_key   = self.target.data.shape_keys.key_blocks[0].name
+        if not self.target.data.shape_keys:
+            return
         
-        if self.shapes_type == 'ALL' or self.input_method != "Selected":
+        base_key = self.target.data.shape_keys.key_blocks[0].name
+        
+        if self.shapes_type in ('ALL', 'EXISTING') or self.input_method != "Selected":
             for key in self.source.data.shape_keys.key_blocks:
                 sk_transfer.append(key)
         else:
             source_key = self.source.data.shape_keys.key_blocks.get(self.shape_source)
             sk_transfer.append(source_key)
         
-        
         shape_key_queue = self.shape_key_queue(sk_transfer)
+
+        if not shape_key_queue:
+            return
         
         base_copy = quick_copy(self.target)
         self.cleanup.append(base_copy)
@@ -314,6 +320,7 @@ class ShapeKeyTransfer(Operator):
             driver_source = source_key
             deform        = True
 
+            
             if self.shapes_type == 'ALL':
                 target_key = self.target.data.shape_keys.key_blocks.get(new_name)
                 if not target_key:
@@ -329,7 +336,7 @@ class ShapeKeyTransfer(Operator):
                     target_key = self.target.data.shape_keys.key_blocks.get(self.shape_target)
 
             if not target_key:
-                return
+                continue
 
             if not self.deforms:
                 deform = False
@@ -557,7 +564,7 @@ class ShapeKeyTransfer(Operator):
             for key in key_blocks:
                 key.mute = True
 
-            if "Chest Controller" in controller.data.name and self.input_method == "Chest":
+            if "ChestController" in controller.data.name and self.input_method == "Chest":
                 key_blocks[self.chest_base].mute = False
 
                 if self.chest_base in ("Lavabod", "Teardrop", "Cupcake"):
@@ -570,7 +577,7 @@ class ShapeKeyTransfer(Operator):
                     key_blocks["Push-Up"].value = 0
                     key_blocks["Squeeze"].value = 0
 
-            if "Body Controller" in controller.data.name:
+            if "BodyController" in controller.data.name:
                 if self.input_method == "Legs":
                     key_name = "BASE" if self.leg_base == "Gen A/Watermelon Crushers" else self.leg_base
                     key_blocks[key_name].mute = False
@@ -578,7 +585,7 @@ class ShapeKeyTransfer(Operator):
                     key_blocks[self.seam_base].mute = False
             
             if not reset:
-                if "Chest Controller" in controller.data.name and self.overhang:
+                if "ChestController" in controller.data.name and self.overhang:
                     key_blocks["Overhang"].mute = False
 
         controller_state()
