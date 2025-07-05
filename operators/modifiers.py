@@ -5,7 +5,7 @@ from bpy.props       import StringProperty, BoolProperty, CollectionProperty
 from bpy.types       import Operator, PropertyGroup, Context, Object, Mesh, UILayout
 
 from ..ui.draw       import get_conditional_icon
-from ..properties    import get_outfit_properties, get_window_properties
+from ..properties    import get_window_properties
 from ..mesh.shapes   import create_co_cache, create_shape_keys
 from ..utils.objects import quick_copy, evaluate_obj, safe_object_delete
 
@@ -106,8 +106,8 @@ class ShapeKeyModifier(Operator):
                     ) # type: ignore
     
     @classmethod
-    def poll(cls, context):
-        return context.mode == "OBJECT"
+    def poll(cls, context: Context):
+        return context.mode == "OBJECT" and context.active_object.data.shape_keys
         
     def invoke(self, context: Context, event) -> None:
         obj = context.active_object
