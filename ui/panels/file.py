@@ -342,7 +342,7 @@ class FileManager(Panel):
 
     def draw_modpack(self, layout:UILayout):
         self.checked_folders = {}
-        option_indent:float  = 0.21
+        option_indent: float  = 0.08
 
         self.get_file_stats()
 
@@ -555,18 +555,18 @@ class FileManager(Panel):
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
     def group_container(self, layout:UILayout, group:BlendModGroup, idx:int):
-            
+            enum_width = 0.6
             text = "Create:" if group.idx == "New" else "Replace:"
             row = aligned_row(layout, text, "idx", group)
 
             subrow = row.row(align=True)
-            subrow.scale_x = 0.5
+            subrow.scale_x = enum_width
             subrow.prop(group, "page", text="")
 
             row = aligned_row(layout, "Description:", "description", group)
         
             subrow = row.row(align=True)
-            subrow.scale_x = 0.5
+            subrow.scale_x = enum_width
             subrow.prop(group, "group_type", text="")
 
             if not group.use_folder:
@@ -582,6 +582,7 @@ class FileManager(Panel):
         row.alignment = "LEFT"
         row.prop(option, "show_option", text="", icon=icon, emboss=False)
         row.label(icon="BLANK1")
+        row.label(icon="BLANK1")
     
         row = columns[1].row(align=True)
         row.alignment = "EXPAND"
@@ -593,6 +594,7 @@ class FileManager(Panel):
 
         row = columns[2].row(align=True)
         row.alignment = "RIGHT"
+        row.label(icon="BLANK1")
         row.label(icon="BLANK1")
 
         op_atr = {
@@ -678,7 +680,7 @@ class FileManager(Panel):
                 icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
                 row = layout.row(align=True)
                 row.alignment = "LEFT"
-                row.prop(container, "show_folder", text="Model Stats", icon=icon, emboss=False)
+                row.prop(container, "show_folder", text="Option Preview", icon=icon, emboss=False)
 
                 if button:
                     layout.separator(factor=2,type="LINE")
@@ -750,7 +752,7 @@ class FileManager(Panel):
 
             slot_scale = 0.6
             name_scale = 0.8
-            model_scale = 0.65
+            model_scale = 0.6
             
             if entry.type == "SHP":
                 race_scale =  0.6
