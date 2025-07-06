@@ -7,7 +7,7 @@ from pathlib        import Path
 
 from .objects       import visible_meshobj
 from .logging       import YetAnotherLogger
-from ..properties   import get_file_properties, get_window_properties
+from ..properties   import get_window_properties
 from ..preferences  import get_prefs
 from ..mesh.handler import MeshHandler
 
@@ -102,12 +102,12 @@ def update_database(db_path: str) -> None:
 def consoletools_mdl(file_path: str):
     textools      = Path(get_prefs().textools_directory)
     converter_dir = textools / "converters" / "fbx"
-    fbx_path      = str(file_path) + ".fbx"
-    mdl_path      = str(file_path) + ".mdl"
+    fbx_path      = file_path + ".fbx"
+    mdl_path      = file_path + ".mdl"
     db_path       = converter_dir / "result.db"
 
     subprocess.run(
-        [str(converter_dir / "converter.exe"), fbx_path], 
+        [converter_dir / "converter.exe", fbx_path], 
         check=True,
         cwd=converter_dir
     )
@@ -116,7 +116,7 @@ def consoletools_mdl(file_path: str):
     
     subprocess.run(
         [
-            str(textools / "ConsoleTools.exe"),  
+            textools / "ConsoleTools.exe",  
             "/wrap",
             db_path,  
             mdl_path, 
@@ -129,7 +129,6 @@ def consoletools_mdl(file_path: str):
 
 class FileExport:
     def __init__(self, file_path: Path, file_format: str, logger: YetAnotherLogger=None):
-        self.props       = get_file_properties()
         self.logger      = logger
         self.file_format = file_format
         self.file_path   = file_path
@@ -157,21 +156,15 @@ class FileExport:
                 bpy.ops.export_scene.fbx(filepath=str(self.file_path) + ".fbx", **export_settings)
                 if self.file_format == 'MDL':
                     if self.logger:
-                        self.logger.log(f"Converting to MDL...")
-                    consoletools_mdl(self.file_path)
+                        self.logger.log(f"Converting to MDL...", 2)
+                    consoletools_mdl(str(self.file_path))
         
         except Exception as e:
-            if self.logger:
-                self.logger.close(e)
-            else:
-                raise e
+            raise e
 
         finally:
             if mesh_handler:
                 mesh_handler.restore_meshes()
-
-            if self.logger:
-                self.logger.close()
         
     def _get_export_settings(self) -> dict[str, str | int | bool]:
         if self.file_format == 'GLTF':

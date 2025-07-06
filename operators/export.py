@@ -296,7 +296,7 @@ class YetAnotherExport(Operator):
         return {'FINISHED'}
     
     def batch_export(self) -> set[str]:
-        self.props      = get_file_properties()
+        self.props = get_file_properties()
         
         self.ALL_SHAPES   = get_devkit_properties().ALL_SHAPES
         self.size_options = self._get_size_options()
