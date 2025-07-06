@@ -356,7 +356,7 @@ class YetAnotherExport(Operator):
             if self.logger:
                 self.logger.close(e)
             self.report({'ERROR'}, "Exporter ran into an error, please see the log in your export folder.")
-            return {'CANCELLED'}
+            return {'FINISHED'}
         
         finally:
             if self.logger:

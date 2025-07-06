@@ -180,7 +180,8 @@ class ShapeKeyModifier(Operator):
                 self.original.modifiers.remove(modifier)
 
         except Exception as e:
-            raise e
+            self.report({"ERROR"}, f"Application failed: {e}.")
+            return {"FINISHED"}
         
         finally:
             self._cleanup()

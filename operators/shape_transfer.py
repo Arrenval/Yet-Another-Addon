@@ -121,7 +121,11 @@ class ShapeKeyTransfer(Operator):
         
         except VertexCountError:
             self.report({'ERROR'}, "Vertex count mismatch, please disable any topology altering modifiers temporarily.")
-            return {'CANCELLED'}
+            return {'FINISHED'}
+        
+        except Exception as e:
+            self.report({'ERROR'}, f"Transfer failed: {e}")
+            return {'FINISHED'}
         
         finally:
             if shr_combined:
