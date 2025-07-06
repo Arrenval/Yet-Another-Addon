@@ -117,10 +117,10 @@ class ShapeKeyTransfer(Operator):
         
         except SurfaceDeformBindError:
             self.report({'ERROR'}, "Unable to bind Surface Deform. Adding a triangulate modifier can fix this.")
-            return {'CANCELLED'}
+            return {'FINISHED'}
         
         except VertexCountError:
-            self.report({'ERROR'}, "Vertex count mismatch, please disable any topology altering modifiers temporarily.")
+            self.report({'ERROR'}, "Vertex count mismatch, please temporarily disable any topology altering modifiers.")
             return {'FINISHED'}
         
         except Exception as e:
@@ -311,7 +311,7 @@ class ShapeKeyTransfer(Operator):
             return self._leg_queue(shape_key_list)
         
         elif self.input_method == "Seams":
-            return self._leg_queue(shape_key_list)
+            return self._seam_queue(shape_key_list)
         
         else:
             return self._general_queue(shape_key_list)
