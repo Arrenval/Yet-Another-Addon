@@ -79,7 +79,7 @@ class RemoveSelectedVGroups(Operator):
         obj = context.active_object
 
         if self.preset != "MENU" and window.filter_vgroups:
-            yas_vgroups  = props.yas_vgroups
+            yas_vgroups  = props.yas_ui_vgroups
             index        = props.yas_vindex
             vertex_group = obj.vertex_groups.get(yas_vgroups[index].name)
         else: 
