@@ -57,7 +57,7 @@ def register():
         bpy.utils.register_class(cls)
 
     set_handlers()
-    bpy.types.Scene.ya_addon_ver = (0, 19, 2)
+    bpy.types.Scene.ya_addon_ver = (0, 19, 3)
     bpy.types.DATA_PT_modifiers.append(draw_modifier_options)
     bpy.types.MESH_MT_vertex_group_context_menu.append(menu_vertex_group_append)
     
