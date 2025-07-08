@@ -452,6 +452,8 @@ class YASManager(Operator):
             targets.append(get_object_from_mesh("Neck"))
             targets.append(get_object_from_mesh("Elbow"))
             targets.append(get_object_from_mesh("Wrist"))
+            targets.append(get_object_from_mesh("PiercBelly"))
+            targets.extend(get_collection_obj("Nipple Piercings", type='MESH'))
 
         if devkit.yam_hands in targets:
             targets.extend(get_collection_obj("Nails", type='MESH', sub_collections=True))
