@@ -49,6 +49,12 @@ def export_result(file_path: Path, file_format: str, logger: YetAnotherLogger=No
     export.export_template()
 
 def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
+        
+        def clean_material_name(name: str):
+            if not name.startswith("/"):
+                name = "/" + name
+            return name.strip()
+        
         visible = visible_meshobj()
         attributes = {}
         materials  = {}
@@ -66,12 +72,11 @@ def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
             for attr in obj.keys():
                 attr: str
                 if attr.startswith("atr_") and obj[attr]:
-                    obj_attr.append(attr)
+                    obj_attr.append(attr.strip())
             attributes[obj.name] = ",".join(obj_attr)
 
             if part == 0:
-                mat_name = obj.material_slots[0].name if obj.material_slots[0].name.startswith("/") else "/" + obj.material_slots[0].name
-                materials[group] = mat_name
+                materials[group] = clean_material_name(obj.material_slots[0].name)
 
         print(materials)
         return attributes, materials
