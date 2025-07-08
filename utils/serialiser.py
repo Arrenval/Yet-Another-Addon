@@ -1,8 +1,75 @@
+import struct
 import logging
 
 from bpy.types    import PropertyGroup
 
 
+def read_packed_version(packed_version: int) -> float:
+    build = packed_version & 0xFF
+    patch = (packed_version >> 8) & 0xFF
+    minor = (packed_version >> 16) & 0xFF
+    major = (packed_version >> 24) & 0xFF
+    return f"{major}.{minor}.{patch}.{build}"
+
+class BinaryReader:
+    def __init__(self, data: bytes):
+        self.data   = data
+        self.pos    = 0
+        self.length = len(data)
+    
+    def read_struct(self, format_str: str):
+        size = struct.calcsize(format_str)
+        if self.pos + size > self.length:
+            raise EOFError("End of stream")
+        
+        result = struct.unpack_from(format_str, self.data, self.pos)
+        self.pos += size
+        return result[0] if len(result) == 1 else result
+    
+    def read_uint32(self) -> int:
+        return self.read_struct('<I')  
+    
+    def read_uint16(self) -> int:
+        return self.read_struct('<H')
+    
+    def read_byte(self) -> int:
+        return self.read_struct('<B')
+    
+    def read_float(self) -> float:
+        return self.read_struct('<f')
+    
+    def read_vector(self, length: int) -> tuple[float, ...]:
+        return self.read_struct(f'<{"f" * length}')
+    
+    def read_bytes(self, count: int) -> bytes:
+        if self.pos + count > self.length:
+            raise EOFError("End of stream")
+        result = self.data[self.pos:self.pos + count]
+        self.pos += count
+        return result
+    
+    def read_string(self, length: int, encoding: str='utf-8') -> str:
+        raw_bytes = self.read_bytes(length)
+    
+        null_index = raw_bytes.find(b'\x00')
+        if null_index != -1:
+            string_bytes = raw_bytes[:null_index]
+        else:
+            string_bytes = raw_bytes
+
+        try:
+            return string_bytes.decode(encoding)
+        except UnicodeDecodeError as e:
+            raise UnicodeDecodeError(f"Couldn't decode string: {e}") 
+    
+    def slice_from(self, offset: int, length: int) -> 'BinaryReader':
+        if offset + length > self.length:
+            raise EOFError("Slice extends beyond stream")
+        return BinaryReader(self.data[offset:offset + length])
+    
+    def remaining_bytes(self) -> int:
+        return self.length - self.pos
+    
 class RNAPropertyIO:
     """
     Serialise Blender RNA based PropertyGroups and its values into a dictionary for easier manipulation and storage.
