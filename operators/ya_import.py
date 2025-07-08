@@ -1,11 +1,11 @@
 import re
 import bpy
-import time
 
-from bpy.types     import Operator, ArmatureModifier, Context
-from bpy.props     import StringProperty
-from ..properties  import get_file_properties, get_window_properties
-from ..preferences import get_prefs
+from bpy.types       import Operator, ArmatureModifier, Context
+from bpy.props       import StringProperty
+from ..properties    import get_file_properties, get_window_properties
+from ..preferences   import get_prefs
+from ..utils.objects import safe_object_delete
 
 
 class SimpleImport(Operator):
@@ -147,10 +147,12 @@ class SimpleCleanUp(Operator):
         for obj in self.selected:
             if obj.type == "MESH":
                 continue
-            bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
+            if self.props.import_armature == obj:
+                continue
+            if not self.props.import_armature and obj.type == 'ARMATURE':
+                continue
+            safe_object_delete(obj)
         
-        # bpy.ops.outliner.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
-
     def rename_import(self) -> None:
         for obj  in self.selected:
             bpy.context.view_layer.objects.active = obj
