@@ -5,7 +5,7 @@ from bpy.types       import Operator, Context, Object
 from ..properties    import get_window_properties, get_outfit_properties, get_devkit_properties
 from ..mesh.weights  import remove_vertex_groups, restore_yas_groups
 from ..utils.typings import DevkitProps
-from ..utils.objects import get_collection_obj
+from ..utils.objects import get_collection_obj, get_object_from_mesh
 
 
 class RemoveEmptyVGroups(Operator):                         
@@ -388,7 +388,10 @@ class YASManager(Operator):
         base_targets = self._get_base_targets(context, devkit)
         
         if self._dependent_target(base_targets, devkit):
-            return self._get_devkit_targets(devkit)
+            base_targets.extend(self._get_devkit_targets(devkit))
+        
+        if devkit:
+            base_targets.extend(self._add_secondary_meshes(base_targets, devkit))
         
         return base_targets
 
@@ -402,7 +405,7 @@ class YASManager(Operator):
         }
 
         if self.target == "DEVKIT" and self.mode == "GEN":
-            return [devkit.yam_legs, devkit.yam_mannequin]
+            return [devkit.yam_legs, devkit.yam_mannequin] 
         
         if self.target in devkit_targets:
             return [devkit_targets[self.target]]
@@ -443,7 +446,24 @@ class YASManager(Operator):
         
         devkit_targets = devkit_objects + data_source_objects
         return devkit_targets
-             
+    
+    def _add_secondary_meshes(self, targets: list[Object], devkit: DevkitProps):
+        if devkit.yam_torso in targets:
+            targets.append(get_object_from_mesh("Neck"))
+            targets.append(get_object_from_mesh("Elbow"))
+            targets.append(get_object_from_mesh("Wrist"))
+
+        if devkit.yam_hands in targets:
+            targets.extend(get_collection_obj("Nails", type='MESH', sub_collections=True))
+            targets.extend(get_collection_obj("Clawsies", type='MESH'))
+        
+        if devkit.yam_legs in targets:
+            targets.extend(get_collection_obj("Pubes", type='MESH'))
+
+        if devkit.yam_feet in targets:
+            targets.extend(get_collection_obj("Toenails", type='MESH'))
+            targets.extend(get_collection_obj("Toe Clawsies", type='MESH'))
+
     
 CLASSES = [
     RemoveEmptyVGroups,
