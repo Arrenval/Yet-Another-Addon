@@ -3,11 +3,11 @@ import bpy
 import bmesh
 import numpy as np
 
-from bpy.types     import Object, Depsgraph, ShapeKey
-from bmesh.types   import BMFace, BMesh
-from collections   import defaultdict
-
-from typing               import Iterable
+from bpy.types            import Object, Depsgraph, ShapeKey
+from bmesh.types          import BMFace, BMesh
+from collections          import defaultdict
+from collections.abc      import Iterable 
+             
 from .shapes              import get_shape_mix
 from .weights             import remove_vertex_groups
 from .face_order          import get_original_faces, sequential_faces
@@ -15,6 +15,7 @@ from ..properties         import get_window_properties, get_devkit_properties
 from ..utils.logging      import YetAnotherLogger
 from ..utils.objects      import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
 from ..utils.ya_exception import XIVMeshParentError
+
 
 
 def create_backfaces(obj:Object) -> None:

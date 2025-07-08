@@ -1,6 +1,7 @@
 
-from typing      import TypedDict, Iterable
-from bpy.types   import Object, PropertyGroup
+from typing          import TypedDict
+from bpy.types       import Object, PropertyGroup
+from collections.abc import Iterable
 
 
 Preset = TypedDict(
@@ -15,7 +16,6 @@ Preset = TypedDict(
     total = True
 )
 
-ObjIterable = Iterable[Object]
 BlendEnum   = list[tuple[str, str, str]]
 
 # Classes from Yet Another Devkit

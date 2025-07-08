@@ -1,11 +1,12 @@
 import bmesh
 import numpy as np
 
-from numpy         import float32, uint32
-from typing        import Iterable
-from bpy.types     import Object, VertexGroup
-from numpy.typing  import NDArray
-from ..properties  import YASGroup
+from numpy           import float32, uint32
+from bpy.types       import Object, VertexGroup
+from numpy.typing    import NDArray
+from collections.abc import Iterable
+
+from ..properties    import YASGroup
 
 
 def remove_vertex_groups(obj: Object, skeleton: Object, prefix: tuple[str, ...], store_yas=False, all_groups=False) -> None:

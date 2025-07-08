@@ -2,13 +2,13 @@ import os
 import bpy
 import platform
 
-from typing          import Iterable, TYPE_CHECKING, Literal
+from typing          import TYPE_CHECKING, Literal
 from pathlib         import Path
 from itertools       import chain
 from bpy.types       import PropertyGroup, Object, Context
 from bpy.props       import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
+from collections.abc import Iterable
 
-from .utils.objects  import get_object_from_mesh
 from .utils.typings  import BlendEnum, DevkitProps, DevkitWindowProps
 from .formats.pmp    import Modpack
 
