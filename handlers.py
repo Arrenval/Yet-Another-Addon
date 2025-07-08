@@ -2,7 +2,7 @@ import bpy
 
 from bpy.types            import Object
 from bpy.app.handlers     import persistent
-from .properties          import get_object_from_mesh, get_window_properties, get_devkit_properties, get_outfit_properties, get_devkit_win_props
+from .properties          import get_window_properties, get_devkit_properties, get_outfit_properties, get_devkit_win_props
 
 
 _active_obj = None

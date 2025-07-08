@@ -70,8 +70,10 @@ def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
             attributes[obj.name] = ",".join(obj_attr)
 
             if part == 0:
-                materials[group] = obj.material_slots[0].name
+                mat_name = obj.material_slots[0].name if obj.material_slots[0].name.startswith("/") else "/" + obj.material_slots[0].name
+                materials[group] = mat_name
 
+        print(materials)
         return attributes, materials
 
 def update_database(db_path: str) -> None:
@@ -100,6 +102,7 @@ def update_database(db_path: str) -> None:
             conn.close()
 
 def consoletools_mdl(file_path: str):
+    print("test")
     textools      = Path(get_prefs().textools_directory)
     converter_dir = textools / "converters" / "fbx"
     fbx_path      = file_path + ".fbx"
@@ -120,7 +123,9 @@ def consoletools_mdl(file_path: str):
             "/wrap",
             db_path,  
             mdl_path, 
-            get_window_properties().export_xiv_path.strip()
+            get_window_properties().export_xiv_path.strip(),
+            "/mats",
+            "/attributes"
         ],
         check=True,  
         cwd=textools  
