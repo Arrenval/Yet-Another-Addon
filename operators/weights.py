@@ -341,35 +341,7 @@ class YASManager(Operator):
                     obj.yas_groups.clear()
                     
         else:
-            if self.mode == "ALL":
-                prefix = ("iv_", "ya_")
-            else:
-                prefix = (
-                    "iv_kuritto",                   
-                    "iv_inshin_l",               
-                    "iv_inshin_r",               
-                    "iv_omanko", 
-                    "iv_koumon",                      
-                    "iv_koumon_l",                 
-                    "iv_koumon_r",
-
-                    "iv_kintama_phys_l",              
-                    "iv_kintama_phys_r",    
-                    "iv_kougan_l",
-                    "iv_kougan_r",
-                
-                    "iv_funyachin_phy_a",
-                    "iv_funyachin_phy_b",        
-                    "iv_funyachin_phy_c",        
-                    "iv_funyachin_phy_d",     
-                    "iv_ochinko_a",                 
-                    "iv_ochinko_b",              
-                    "iv_ochinko_c",              
-                    "iv_ochinko_d",                 
-                    "iv_ochinko_e",         
-                    "iv_ochinko_f",
-                )
-            
+            prefix = self.get_prefix()
             for obj in targets:
                 if devkit:
                     skeleton  = bpy.data.objects.get("Skeleton")
@@ -394,6 +366,44 @@ class YASManager(Operator):
             base_targets.extend(self._add_secondary_meshes(base_targets, devkit))
         
         return base_targets
+
+    def get_prefix(self) -> tuple[str, ...]:
+        if self.mode == "ALL":
+            prefix = ("iv_", "ya_")
+        elif self.mode == "PHYS":
+            prefix = (""
+                "ya_shiri_phys_l",  "ya_shiri_phys_r",
+                "iv_daitai_phys_l", "iv_daitai_phys_r",
+                "ya_daitai_phys_l", "ya_daitai_phys_r"
+                )
+        else:
+            prefix = (
+                "iv_kuritto",                   
+                "iv_inshin_l",               
+                "iv_inshin_r",               
+                "iv_omanko", 
+                "iv_koumon",                      
+                "iv_koumon_l",                 
+                "iv_koumon_r",
+
+                "iv_kintama_phys_l",              
+                "iv_kintama_phys_r",    
+                "iv_kougan_l",
+                "iv_kougan_r",
+            
+                "iv_funyachin_phy_a",
+                "iv_funyachin_phy_b",        
+                "iv_funyachin_phy_c",        
+                "iv_funyachin_phy_d",     
+                "iv_ochinko_a",                 
+                "iv_ochinko_b",              
+                "iv_ochinko_c",              
+                "iv_ochinko_d",                 
+                "iv_ochinko_e",         
+                "iv_ochinko_f",
+                )
+        
+        return prefix
 
     def _get_base_targets(self, context: Context, devkit: DevkitProps) -> list[Object]:
         devkit_targets = {

@@ -549,8 +549,9 @@ class YAWindowProps(PropertyGroup):
         name="",
         description="Select what vertex groups to store",
         items=[
-            ('ALL', "All Weights", "Store all YAS weights."),
-            ('GEN', "Genitalia", "Store all genitalia related weights.")
+            ('ALL', "All Weights", "Store all YAS weights"),
+            ('PHYS', "Physics", "Store all thigh/butt physics related weights"),
+            ('GEN', "Genitalia", "Store all genitalia related weights")
         ]
         ) # type: ignore
     
