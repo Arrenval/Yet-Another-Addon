@@ -190,7 +190,7 @@ class PoseApply(Operator):
         return {"FINISHED"}
     
     def reset_armature(self, context: Context, scaling:bool):
-        armature_obj = self.props.outfit_armature
+        armature_obj = get_outfit_properties().outfit_armature
         for bone in armature_obj.pose.bones:
             if scaling:
                 bone.scale = (1.0, 1.0, 1.0)
