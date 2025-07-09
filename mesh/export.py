@@ -3,14 +3,13 @@ import bpy
 import sqlite3
 import subprocess
 
-from pathlib        import Path
+from pathlib              import Path
 
-from .objects       import visible_meshobj
-from .logging       import YetAnotherLogger
-from ..properties   import get_window_properties
-from ..preferences  import get_prefs
-from ..mesh.handler import MeshHandler
-
+from .handler             import MeshHandler
+from ..properties         import get_window_properties
+from ..preferences        import get_prefs
+from ..utils.objects      import visible_meshobj
+from ..utils.logging      import YetAnotherLogger
 from ..utils.ya_exception import XIVMeshIDError
 
 
@@ -162,6 +161,7 @@ class FileExport:
                 self.logger.log_separator()
                 self.logger.log(f"Exporting {self.file_path.stem}")
                 self.logger.log_separator()
+                self.logger.last_item = None
 
             if self.file_format == 'GLTF':
                 bpy.ops.export_scene.gltf(filepath=str(self.file_path) + ".gltf", **export_settings)
