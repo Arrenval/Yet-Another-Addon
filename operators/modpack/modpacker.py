@@ -27,8 +27,6 @@ class ModelConverter(Operator):
         self.prefs                 = get_prefs()
         self.window_props          = get_window_properties()
         self.output_dir            = Path(self.prefs.modpack_output_dir)
-        self.folders: dict[Path, str]  = {}
-        self.get_folders()
 
         if not self.folders:
             self.report({'ERROR'}, "Please select an FBX directory")
@@ -48,24 +46,9 @@ class ModelConverter(Operator):
        
     def mdl_converter(self, context:Context) -> subprocess.Popen:
         blender_dir           = Path(bpy.app.binary_path).parent
-        python_dir            = str([file for file in (blender_dir).glob("*/python/bin/python*")][0])
-        script_dir            = Path(__file__).parent / "database.py"
-        props_json            = "" # self.output_dir / "MeshProperties.json"
         textools              = Path(self.prefs.textools_directory)
-        model_props           = {}
 
         to_convert: set[tuple[Path, str]] = set()
-
-        for folder, game_path in self.folders.items():
-            for file in folder.glob("*.fbx"):
-                if not file.is_file():
-                    continue
-
-                to_convert.add((file, game_path))
-
-        # if props_json.is_file():
-        #     with open(props_json, "r") as file:
-        #         model_props = json.load(file)
 
         cmd_name = "MDL.cmd"
         commands = ["@echo off", f"cd /d {textools.drive}", f"cd {textools}", "echo Please don't close this window..."]
@@ -78,19 +61,6 @@ class ModelConverter(Operator):
             commands.append(f"echo ({cmds_added + 1}/{total_files}) Converting: {file.stem}")
             source = str(file)
             dest   = str(file.parent / file.stem)
-            
-            if file.stem in model_props:
-                commands.append("echo Writing model to database...")
-                commands.append(rf"cd {textools}\converters\fbx")
-                commands.append(f'converter.exe "{source}" >nul')
-                commands.append("echo Updating model database tables...")
-                commands.append(f'"{python_dir}" "{script_dir.resolve()}" "{textools}" "{file.stem}" "{props_json}" >nul')
-                commands.append(f"cd {textools}")
-                
-                # Places all dbs in your export folder, uncomment for debugging and verifying output
-                # source = str(self.output_dir / f"{file.stem}.db")
-                # commands.append(rf'copy /y "{textools}\converters\fbx\result.db" "{source}" >nul')
-                source = str(textools / "converters" / "fbx" / "result.db")
 
             commands.append("echo Finalising .mdl...")
             commands.append(f'ConsoleTools.exe /wrap "{source}" "{dest}.mdl" "{game_path}" >nul')
@@ -106,25 +76,6 @@ class ModelConverter(Operator):
         mdl_status = subprocess.Popen([str(cmd_path)], creationflags=subprocess.CREATE_NEW_CONSOLE)
 
         return mdl_status, cmd_path
-    
-    def get_folders(self):
-        for group in self.window_props.pmp_mod_groups:
-            if not group.use_folder:
-                continue
-            
-            folder_stats, has_fbx = group.get_folder_stats()
-            if not has_fbx:
-                continue
-
-            if not group.valid_path:
-                self.report({'ERROR'}, f'Group "{group.name}": Verify that the model is an actual FFXIV path')
-                return {'CANCELLED'}
-
-            folder = group.final_folder()
-            if not folder:
-                continue
-            
-            self.folders[folder] = group.game_path
 
     def delete_cmd_file(context, cmd:Path, mdl_status: subprocess.Popen) -> None:
         if mdl_status is not None and mdl_status.poll() != 0:

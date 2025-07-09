@@ -45,13 +45,13 @@ class ModpackManager(Operator):
         if properties.delete == False:
             if properties.category in ("ENTRY", "COMBI_ENTRY"):
                 return f"""Add Entry:
-        *SHIFT click for file.
-        *ALT click for shape key.
-        *SHIFT + ALT click for attribute"""
+    *SHIFT click for file.
+    *ALT click for shape key.
+    *SHIFT + ALT click for attribute"""
             
             elif properties.category == "OPTION":
-                return f"""Add {properties.category.capitalize()}. 
-        *SHIFT click to add a correction option to a Combining group"""
+                return f"""Add {properties.category.capitalize()}: 
+    *SHIFT click to add a correction option to a Combining group"""
             
             else:
                 return f"Add {properties.category.capitalize()}"

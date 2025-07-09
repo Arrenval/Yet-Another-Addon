@@ -341,7 +341,7 @@ class FileManager(Panel):
         aligned_row(col, "Armature:", "import_armature", self.file_props)
 
     def draw_modpack(self, layout:UILayout):
-        self.checked_folders = {}
+        self.checked_folders: dict[Path, list[Path] | False] = {}
         option_indent: float  = 0.08
 
         self.get_file_stats()
@@ -480,20 +480,7 @@ class FileManager(Panel):
             row.alignment = "CENTER"
             row.label(text=f"{self.window_props.modpack_display_dir + '.pmp'} already exists!", icon="ERROR")
 
-        if platform.system() == "Windows" and any(has_fbx for folder, (contents, has_fbx) in self.checked_folders.items()):
-            layout.separator(factor=0.5,type="LINE")
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            plural  = "s" if len(self.checked_folders) > 1 else ""
-            concord = "" if len(self.checked_folders) > 1 else "s"
-            row.label(text=f"Folder{plural} contain{concord} .fbx files.", icon="INFO")
-            
-            row.operator("ya.fbx_converter", text="Convert")
-
-            layout.separator(factor=0.1,type="SPACE")
-
-        else:
-            layout.separator(factor=0.1,type="SPACE")
+        layout.separator(factor=0.1,type="SPACE")
 
     def group_header(self, layout:UILayout, group:BlendModGroup, group_idx:int):
         button = group.show_group
@@ -672,8 +659,9 @@ class FileManager(Panel):
             icon = "CHECKMARK" if container.valid_path else "X"
             row.label(icon=icon)
             self.xiv_path_category(layout, container, "GROUP", group_idx, option_idx)
+            folder = container.final_folder()
         
-            if container.get_folder_stats(model_check=True):
+            if self.checked_folders[folder]:
                 layout.separator(factor=2,type="LINE")
 
                 button = container.show_folder
@@ -683,33 +671,29 @@ class FileManager(Panel):
                 row.prop(container, "show_folder", text="Option Preview", icon=icon, emboss=False)
 
                 if button:
+                    split_factor = 0.8
                     layout.separator(factor=2,type="LINE")
                     
                     row = layout.row(align=True)
                     row.label(icon="BLANK1")
-                    split = row.split(factor=0.4)
+                    split = row.split(factor=split_factor)
                     split.label(text="Name:")
-                    split.label(text="MDL:")
-                    split.label(text="FBX:")
+                    split.label(text="Type:")
 
-                    folder = container.final_folder()
-                    folder_stats = self.checked_folders[folder][0]
-
-                    for file_name, file_type in folder_stats.items():
-                        file_name:str
-                        file_type:dict[str, bool]
-
+                    for file in self.checked_folders[folder]:
+                        if file.suffix not in self.file_props.GAME_SUFFIX:
+                            continue
                         row = layout.row(align=True)
                         row.label(icon="BLANK1")
-                        split = row.split(factor=0.4)
-                        split.label(text=file_name)
-                        split.label(text="  X" if not file_type["mdl"] or file_type["mdl"] < file_type["fbx"] else "  ✓")
-                        split.label(text="  X" if not file_type["fbx"] or file_type["mdl"] > file_type["fbx"] else "  ✓")
-                    
-                    layout.separator(factor=2,type="LINE")
-                    row = layout.row(align=True)
-                    row.alignment = "CENTER"
-                    row.label(text="Checkmarks indicate the most recent file.", icon="INFO")
+                        split = row.split(factor=split_factor)
+                        split.label(text=file.stem)
+                        split.label(text=file.suffix)
+            else:
+                layout.separator(factor=2,type="LINE")
+
+                row = layout.row(align=True)
+                row.alignment = "CENTER"
+                row.label(text="No supported game files in folder.", icon="INFO")
         
         layout.separator(factor=0.1,type="SPACE")
 
@@ -798,8 +782,7 @@ class FileManager(Panel):
         folders = [(group.final_folder(), group) for group in self.window_props.pmp_mod_groups if group.use_folder]
         for folder, group in folders:
             if folder not in self.checked_folders:
-                folder_stats, has_fbx = group.get_folder_stats()
-                self.checked_folders[folder] = (folder_stats, has_fbx)
+                self.checked_folders[folder] = group.get_folder_content()
 
     def dynamic_column_buttons(self, columns, box:UILayout, labels, category, button_type):
         if category == "Chest":

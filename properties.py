@@ -76,33 +76,19 @@ class ModpackHelper(PropertyGroup):
         else:
             return False
 
-    def get_folder_stats(self, model_check:bool=False) -> bool | dict:
-        """Checks folder contents, if model_check is True, it only checks if there are any relevant model files."""
-
-        model_suffix = [".fbx", ".mdl"]
-        folder_stats = {}
-        has_fbx      = False
-
+    def get_folder_content(self) -> list[Path] | Literal[False]:
         if self.subfolder == "None":
             folder = Path(self.folder_path)
         else:
             folder = Path(self.folder_path) / Path(self.subfolder)
 
-        if model_check:
-            return any(file.suffix in model_suffix for file in folder.glob("*") if file.is_file())
+        files = [file for file in folder.glob("*") if file.is_file()]
+
+        if not any(file.suffix in get_file_properties().GAME_SUFFIX for file in files):
+            return False
         else:
-            files = [file for file in folder.glob("*") if file.is_file()]
-
-            for file in files:
-                folder_stats.setdefault(file.stem, {"fbx": 0, "mdl": 0})
-                if file.suffix == ".fbx":
-                    has_fbx = True
-                    folder_stats[file.stem]["fbx"] = file.stat().st_mtime
-                elif file.suffix == ".mdl":
-                    folder_stats[file.stem]["mdl"] = file.stat().st_mtime
-
-            return folder_stats, has_fbx
-
+            return files
+    
     def check_gamepath_category(self) -> None:
         if self.valid_path:
             category = self.game_path.split("_")[-1].split(".")[0]
