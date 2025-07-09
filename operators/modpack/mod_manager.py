@@ -92,8 +92,8 @@ class ModpackManager(Operator):
         return self.execute(context)
     
     def draw(self, context):
-        layout = self.layout
-        layout.prop(self, "user_input")
+        col = self.layout.column(align=True)
+        col.prop(self, "user_input", expand=True, text="type")
 
     def execute(self, context:Context):
         self.prefs = get_prefs()
@@ -102,6 +102,16 @@ class ModpackManager(Operator):
 
         if self.category == "ENTRY":
             self.category = self.user_input
+        elif self.category == "COMBI_ENTRY":
+            if self.user_input.startswith("ATR"):
+                self.category = f"ATR_{self.category.split('_')[0]}"
+
+            elif self.user_input.startswith("FILE"):
+                self.category = f"FILE_{self.category.split('_')[0]}"
+
+            elif self.user_input.startswith("SHP"):
+                self.category = f"SHP_{self.category.split('_')[0]}"
+
         self.group: int
         self.option: int
         
@@ -140,6 +150,7 @@ class ModpackManager(Operator):
                     option_entries = group_options[self.option].file_entries
                 else:
                     option_entries = mod_group.corrections[self.option].file_entries
+                    print(len(option_entries))
 
                 if not self.delete:
                     option_entries.add()
@@ -161,6 +172,8 @@ class ModpackManager(Operator):
                 else:
                     manager.remove(option_entries, self.entry)
 
+        for area in context.screen.areas:
+            area.tag_redraw()
         return {'FINISHED'}
     
 class ModpackPresets(Operator):
