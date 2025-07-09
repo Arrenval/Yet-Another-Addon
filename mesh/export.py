@@ -54,6 +54,8 @@ def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
         def clean_material_name(name: str):
             if not name.startswith("/"):
                 name = "/" + name
+            if not name.endswith(".mtrl"):
+                name = name + ".mtrl"
             return name.strip()
         
         visible = visible_meshobj()
