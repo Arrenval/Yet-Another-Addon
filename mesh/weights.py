@@ -9,7 +9,7 @@ from collections.abc import Iterable
 from ..properties    import YASGroup
 
 
-def remove_vertex_groups(obj: Object, skeleton: Object, prefix: tuple[str, ...], store_yas=False, all_groups=False) -> None:
+def remove_vertex_groups(obj: Object, skeleton: Object, prefix: tuple[str, ...], store_yas=False) -> None:
         """Can remove any vertex group and add weights to parent group."""
         group_to_parent = _get_group_parent(obj, skeleton, prefix)
         source_groups   = [value for value in group_to_parent.keys()]
@@ -37,17 +37,16 @@ def remove_vertex_groups(obj: Object, skeleton: Object, prefix: tuple[str, ...],
                 v_group.add(vert_indices, unique_weights[array_idx], type='ADD')
         
         if store_yas:
-            _store_yas_groups(obj, skeleton, group_to_parent, weight_matrix, all_groups)
+            _store_yas_groups(obj, skeleton, group_to_parent, weight_matrix)
 
         for v_group in obj.vertex_groups:
             if v_group.name.startswith(prefix):
                 obj.vertex_groups.remove(v_group)
 
-def _store_yas_groups(obj: Object, skeleton: Object, group_to_parent: dict[int, int], weight_matrix: NDArray[float32], all_groups) -> None:
-    yas_groups: Iterable[YASGroup] = obj.yas_groups
+def _store_yas_groups(obj: Object, skeleton: Object, group_to_parent: dict[int, int], weight_matrix: NDArray[float32]) -> None:
+    yas_groups: Iterable[YASGroup] = obj.yas.v_groups
     
     existing_groups = [group.name for group in yas_groups]
-    current_verts = len(obj.data.vertices)
     for group in group_to_parent:
         group_name = obj.vertex_groups[group].name
         if group_name in existing_groups:
@@ -61,8 +60,6 @@ def _store_yas_groups(obj: Object, skeleton: Object, group_to_parent: dict[int, 
         new_group: YASGroup  = yas_groups.add()
         new_group.name       = group_name
         new_group.parent     = skeleton.data.bones.get(group_name).parent.name
-        new_group.old_count  = current_verts
-        new_group.all_groups = all_groups
 
         for _ in range(len(indices)):
             new_group.vertices.add()
@@ -71,7 +68,7 @@ def _store_yas_groups(obj: Object, skeleton: Object, group_to_parent: dict[int, 
         new_group.vertices.foreach_set("value", weights)
 
 def restore_yas_groups(obj: Object) -> None:
-    yas_groups: Iterable[YASGroup] = obj.yas_groups
+    yas_groups: Iterable[YASGroup] = obj.yas.v_groups
     yas_to_parent: dict[str, str] = {}
     stored_weights: dict[str, tuple[list[NDArray], NDArray]] = {}
 

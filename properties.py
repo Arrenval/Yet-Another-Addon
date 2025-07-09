@@ -448,17 +448,28 @@ class YASGroup(PropertyGroup):
     name: StringProperty(name="Vertex Group") # type: ignore
     parent: StringProperty(name="Parent Group", description="Parent of the vertex group") # type: ignore
     vertices: CollectionProperty(type=YASWeights, description="Contains all vertices with weights in this group") # type: ignore
-    old_count: IntProperty(description="The vertex count of the mesh at the time of storage") # type: ignore
-    all_groups: BoolProperty(default=False) # type: ignore
 
     if TYPE_CHECKING:
         name      : str
         parent    : str
         vertices  : Iterable[YASWeights]
+
+class YASStorage(PropertyGroup):
+    old_count : IntProperty(description="The vertex count of the mesh at the time of storage") # type: ignore
+
+    all_groups: BoolProperty(default=False) # type: ignore
+    genitalia : BoolProperty(default=False) # type: ignore
+    physics   : BoolProperty(default=False) # type: ignore
+
+    v_groups  :CollectionProperty(type=YASGroup, description="Contains all stored vertex groups") # type: ignore
+
+    if TYPE_CHECKING:
         old_count : int
         all_groups: bool
-
-
+        genitalia : bool
+        physics   : bool
+        v_groups  : Iterable[YASGroup]
+        
 class ShapeModifiers(PropertyGroup):
     name: StringProperty() # type: ignore
     icon: StringProperty() # type: ignore
@@ -478,22 +489,27 @@ class YAWindowProps(PropertyGroup):
         ]
     
     extra_options = [
-        ("overview", "category",   True,  "Enables part overview"),
-        ("shapes",   "category",   False, "Enables shape transfer menu"),
-        ("mesh",     "category",   False, "Enables mesh editing menu"),
-        ("weights",  "category",   False, "Enables weight editing menu"),
-        ("armature", "category",   False, "Enables animation playback and pose/scaling menu"),
-        ("filter",   "vgroups",    True,  "Switches between showing all vertex groups or just YAS groups"),
-        ("create",   "backfaces",  True,   "Creates backface meshes on export. Meshes need to be triangulated"),
-        ("check",    "tris",       True,   "Verify that the meshes are triangulated"),
-        ("keep",     "shapekeys",  True,   "Preserves game ready shape keys"),
-        ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),
-        ("rue",      "export",     True,   "Controls whether Rue is exported as a standalone body and variant, or only as a variant for Lava/Masc"),
-        ("body",     "names",      False,  "Always add body names on exported files or depending on how many bodies you export"),
-        ("chest",    "g_category", False,  "Changes gamepath category"),
-        ("hands",    "g_category", False,  "Changes gamepath category"),
-        ("legs",     "g_category", False,  "Changes gamepath category"),
-        ("feet",     "g_category", False,  "Changes gamepath category"),
+        ("overview", "category",    True,   "Enables part overview"),
+        ("shapes",   "category",    False,  "Enables shape transfer menu"),
+        ("mesh",     "category",    False,  "Enables mesh editing menu"),
+        ("weights",  "category",    False,  "Enables weight editing menu"),
+        ("armature", "category",    False,  "Enables animation playback and pose/scaling menu"),
+
+        ("file",     "category",    True,  "General file utilities"),
+        ("phyb",     "category",    False,  "Phyb file utilities"),
+        ("model",    "category",    False,  "Model file utilities"),
+
+        ("filter",   "vgroups",     True,   "Switches between showing all vertex groups or just YAS groups"),
+        ("create",   "backfaces",   True,   "Creates backface meshes on export. Meshes need to be triangulated"),
+        ("check",    "tris",        True,   "Verify that the meshes are triangulated"),
+        ("keep",     "shapekeys",   True,   "Preserves game ready shape keys"),
+        ("create",   "subfolder",   True,   "Creates a folder in your export directory for your exported body part"),
+        ("rue",      "export",      True,   "Controls whether Rue is exported as a standalone body and variant, or only as a variant for Lava/Masc"),
+        ("body",     "names",       False,  "Always add body names on exported files or depending on how many bodies you export"),
+        ("chest",    "g_category",  False,  "Changes gamepath category"),
+        ("hands",    "g_category",  False,  "Changes gamepath category"),
+        ("legs",     "g_category",  False,  "Changes gamepath category"),
+        ("feet",     "g_category",  False,  "Changes gamepath category"),
         ("scaling",   "armature",   False,   "Applies scaling to armature"),
         ("keep",      "modifier",   False,   "Keeps the modifier after applying. Unable to keep Data Transfers"),
         ("all",       "keys",       False,   "Transfers all shape keys from source to target"),
@@ -610,7 +626,6 @@ class YAWindowProps(PropertyGroup):
     
     valid_xiv_path: BoolProperty(default=False) # type: ignore
     
-
     def update_ui(self, context:Context):
         for area in context.screen.areas:
             area.tag_redraw()
@@ -850,6 +865,20 @@ class YAWindowProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
+    insp_file_first: StringProperty(
+        name="",
+        default="",
+        description="File to inspect", 
+        maxlen=255,
+        )  # type: ignore
+    
+    insp_file_sec: StringProperty(
+        name="",
+        default="",
+        description="File to inspect", 
+        maxlen=255,
+        )  # type: ignore
+
     @staticmethod
     def ui_buttons() -> None:
         for (name, category, description) in YAWindowProps.ui_buttons_list:
@@ -911,6 +940,9 @@ class YAWindowProps(PropertyGroup):
         weights_category : bool
         armature_category: bool
         filter_vgroups   : bool
+        file_category    : bool
+        phyb_category    : bool
+        model_category   : bool
 
         button_backfaces_expand: bool
         button_modifiers_expand: bool
@@ -1342,8 +1374,8 @@ def set_addon_properties() -> None:
     bpy.types.Scene.ya_outfit_props = PointerProperty(
         type=YAOutfitProps)
     
-    bpy.types.Object.yas_groups = CollectionProperty(
-        type=YASGroup)
+    bpy.types.Object.yas = PointerProperty(
+        type=YASStorage)
 
     YAWindowProps.ui_buttons()
     YAWindowProps.set_extra_options()
@@ -1352,7 +1384,7 @@ def remove_addon_properties() -> None:
     del bpy.types.Scene.ya_file_props
     del bpy.types.WindowManager.ya_window_props
     del bpy.types.Scene.ya_outfit_props
-    del bpy.types.Object.yas_groups 
+    del bpy.types.Object.yas
 
 
 CLASSES = [    
@@ -1366,6 +1398,7 @@ CLASSES = [
     YASUIList,
     YASWeights,
     YASGroup,
+    YASStorage,
     ShapeModifiers,
     YAWindowProps,
     YAFileProps,

@@ -325,20 +325,23 @@ class YASManager(Operator):
         props   = get_outfit_properties()
         devkit  = get_devkit_properties()
         targets = self.get_targets(context, devkit)
-        all_groups = self.mode == "ALL"
 
         if self.mode == "RESTORE":
             for obj in targets:
-                if not obj.yas_groups:
+                if not obj.yas.v_groups:
                     continue
-                if len(obj.data.vertices) != obj.yas_groups[0].old_count:
+                if len(obj.data.vertices) != obj.yas.old_count:
                     self.report({'ERROR'}, f"{obj.name}'s vertex count has changed, not possible to restore.")
                     return {'CANCELLED'}
 
                 if self.store:
                     restore_yas_groups(obj)
                 else:
-                    obj.yas_groups.clear()
+                    obj.yas.v_groups.clear()
+                
+                obj.yas.all_groups = False
+                obj.yas.genitalia  = False
+                obj.yas.physics    = False
                     
         else:
             prefix = self.get_prefix()
@@ -351,7 +354,15 @@ class YASManager(Operator):
                     self.report({'ERROR'}, f"{obj.name} is not parented to a skeleton.")
                     return {'CANCELLED'}
                 
-                remove_vertex_groups(obj, skeleton, prefix, self.store, all_groups=all_groups)
+                remove_vertex_groups(obj, skeleton, prefix, self.store)
+                obj.yas.old_count = len(obj.data.vertices)
+                if self.mode == "ALL":
+                    obj.yas.all_groups = True
+                elif self.mode == "GEN":
+                    obj.yas.genitalia  = True
+                elif self.mode == "PHYS":
+                    obj.yas.physics    = True
+
 
         props.set_yas_ui_vgroups(context)
         return {'FINISHED'}
@@ -406,19 +417,20 @@ class YASManager(Operator):
         return prefix
 
     def _get_base_targets(self, context: Context, devkit: DevkitProps) -> list[Object]:
-        devkit_targets = {
-            "TORSO": devkit.yam_torso,
-            "LEGS": devkit.yam_legs,
-            "HANDS": devkit.yam_hands,
-            "FEET": devkit.yam_feet,
-            "MANNEQUIN": devkit.yam_mannequin,
-        }
+        if devkit:
+            devkit_targets = {
+                "TORSO": devkit.yam_torso,
+                "LEGS": devkit.yam_legs,
+                "HANDS": devkit.yam_hands,
+                "FEET": devkit.yam_feet,
+                "MANNEQUIN": devkit.yam_mannequin,
+            }
 
-        if self.target == "DEVKIT" and self.mode == "GEN":
-            return [devkit.yam_legs, devkit.yam_mannequin] 
-        
-        if self.target in devkit_targets:
-            return [devkit_targets[self.target]]
+            if self.target == "DEVKIT" and self.mode == "GEN":
+                return [devkit.yam_legs, devkit.yam_mannequin] 
+            
+            if self.target in devkit_targets:
+                return [devkit_targets[self.target]]
         
         return [context.active_object] if context.active_object else []
 

@@ -471,25 +471,32 @@ class OutfitStudio(Panel):
         row.label(text="YAS Manager")
 
         if button:
+            group_bool = {
+                "ALL": obj.yas.all_groups,
+                "GEN": obj.yas.genitalia or obj.yas.all_groups,
+                "PHYS": obj.yas.physics or obj.yas.all_groups
+            }
             row = box.row(align=True)
             split = row.split(factor=0.33, align=True)
             split.prop(self.window_props, 'yas_storage', text="")
 
             icon, text = self.yas_status()
             split.label(text=text, icon=icon)
-            if obj.yas_groups:
-                op = row.operator("ya.yas_manager", text="", icon='FILE_PARENT')
-                op.mode = 'RESTORE'
-                op.target = 'ACTIVE'
-            else:
+            if not group_bool[self.window_props.yas_storage]:
                 op = row.operator("ya.yas_manager", text="", icon='FILE_TICK')
                 op.mode = self.window_props.yas_storage
                 op.target = 'ACTIVE'
+            if obj.yas.v_groups:
+                op = row.operator("ya.yas_manager", text="", icon='FILE_PARENT')
+                op.mode = 'RESTORE'
+                op.target = 'ACTIVE'         
 
     def yas_status(self) -> tuple[str, str]:
         no_weights  = "No stored weights."
         gen_weights = "Genitalia weights stored."
         all_weights = "All weights stored."
+        phy_weights = "Physics weights stored."
+        com_weights = "Physics, gentialia, weights stored."
         vertices    = "Vertex count changed."
         missing_obj = "Check your devkit settings."
 
@@ -499,17 +506,26 @@ class OutfitStudio(Panel):
             icon = 'ERROR'
             text = missing_obj
         
-        elif not obj.yas_groups:
+        elif not obj.yas.v_groups:
             icon = 'X'
             text = no_weights
         
-        elif obj.yas_groups[0].old_count != len(obj.data.vertices):
+        elif obj.yas.old_count != len(obj.data.vertices):
             icon = 'ERROR'
             text = vertices
 
         else:
             icon = 'CHECKMARK'
-            text = all_weights if any(group.all_groups for group in obj.yas_groups) else gen_weights
+            if obj.yas.all_groups:
+                text = all_weights
+            elif obj.yas.genitalia and obj.yas.physics:
+                text = com_weights
+            elif obj.yas.genitalia:
+                text = gen_weights
+            elif obj.yas.physics:
+                text = phy_weights
+            else:
+                text = "Undefined weights stored."
     
         return icon, text
            
