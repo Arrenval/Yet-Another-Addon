@@ -279,7 +279,7 @@ class ModpackPresets(Operator):
         option_data     = manager.extract(self.mod_group.mod_options)
         correction_data = manager.extract(self.mod_group.corrections)
 
-        preset_json: str = self.get_wrapper([option_data, correction_data], self.format)
+        preset_json: str = self.get_wrapper([option_data, correction_data])
         preset_bytes     = gzip.compress(preset_json.encode("utf-8"))                  
         b64_string       = base64.b64encode(preset_bytes).decode("utf-8")
         
