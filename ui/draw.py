@@ -37,3 +37,14 @@ def operator_button(layout:UILayout, operator:str, icon:str, text:str="", attrib
         op = layout.operator(operator, icon=icon, text=text)
         for attribute, value in attributes.items():
             setattr(op, attribute, value)
+
+def ui_category_buttons(layout:UILayout, section_prop, options, operator_str: str):
+    row = layout
+    for index, (slot, icon) in enumerate(options.items()):
+        button = getattr(section_prop, f"{slot.lower()}_category")
+        if index == 0:
+            row.separator(factor=0.5)
+        depress = True if button else False
+        operator = row.operator(operator_str, text="", icon=icon, depress=depress, emboss=True if depress else False)
+        operator.menu = slot.upper()
+        row.separator(factor=2)

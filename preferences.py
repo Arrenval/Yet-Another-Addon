@@ -31,6 +31,14 @@ class MenuSelect(PropertyGroup):
         else:
             bpy.utils.unregister_class(FileManager)
     
+    def register_inspector_panel(self, context) -> None:
+        from .ui.panels.inspector import FileInspector
+
+        if self.inspect_panel:
+            bpy.utils.register_class(FileInspector)
+        else:
+            bpy.utils.unregister_class(FileInspector)
+
     outfit_panel: BoolProperty(
         name="",
         description="Show Outfit Studio",
@@ -44,21 +52,13 @@ class MenuSelect(PropertyGroup):
         default=True,
         update=register_file_panel
         ) # type: ignore
-    
-    # def register_inspect_panel(self, context) -> None:
-    #     from .ui.panels.inspect import InspectPanel
 
-    #     if self.outfit_panel:
-    #         bpy.utils.register_class(InspectPanel)
-    #     else:
-    #         bpy.utils.unregister_class(InspectPanel)
-
-    # inspect_panel: BoolProperty(
-    #     name="",
-    #     description="Show Inspector",
-    #     default=False,
-    #     update=register_inspect_panel
-    #     ) # type: ignore
+    inspect_panel: BoolProperty(
+        name="",
+        description="Show Inspector",
+        default=False,
+        update=register_inspector_panel
+        ) # type: ignore
 
     def register_weights(self, context) -> None:
         from .ui.menu import menu_vertex_group_append
@@ -246,6 +246,9 @@ class YetAnotherPreference(AddonPreferences):
         button_col.prop(self.menus, "file_panel", text="File Manager", icon=get_conditional_icon(self.menus.outfit_panel))
         label_col.label(text="Panel for import/export and modpacking tools")
 
+        button_col.prop(self.menus, "inspect_panel", text="Inspector", icon=get_conditional_icon(self.menus.inspect_panel))
+        label_col.label(text="Panel with various file utilities, WIP")
+
         button_col.separator(type='SPACE')
         label_col.separator(type='SPACE')
 
@@ -356,14 +359,17 @@ class YetAnotherPreference(AddonPreferences):
 
 
 def register_menus() -> None:
-    from .ui.panels.outfit import OutfitStudio
-    from .ui.panels.file   import FileManager
-    from .ui.menu          import menu_vertex_group_append, draw_modifier_options
+    from .ui.panels.outfit    import OutfitStudio
+    from .ui.panels.file      import FileManager
+    from .ui.panels.inspector import FileInspector
+    from .ui.menu             import menu_vertex_group_append, draw_modifier_options
 
     if get_prefs().menus.outfit_panel:
         bpy.utils.register_class(OutfitStudio)
     if get_prefs().menus.file_panel:
         bpy.utils.register_class(FileManager)
+    if get_prefs().menus.inspect_panel:
+        bpy.utils.register_class(FileInspector)
     if get_prefs().menus.weight_menu:
         bpy.types.MESH_MT_vertex_group_context_menu.append(menu_vertex_group_append)
     if get_prefs().menus.mod_button:
@@ -371,14 +377,17 @@ def register_menus() -> None:
 
 
 def unregister_menus() -> None:
-    from .ui.panels.outfit import OutfitStudio
-    from .ui.panels.file   import FileManager
-    from .ui.menu          import menu_vertex_group_append, draw_modifier_options
+    from .ui.panels.outfit    import OutfitStudio
+    from .ui.panels.file      import FileManager
+    from .ui.panels.inspector import FileInspector
+    from .ui.menu             import menu_vertex_group_append, draw_modifier_options
 
     if get_prefs().menus.outfit_panel:
         bpy.utils.unregister_class(OutfitStudio)
     if get_prefs().menus.file_panel:
         bpy.utils.unregister_class(FileManager)
+    if get_prefs().menus.inspect_panel:
+        bpy.utils.unregister_class(FileInspector)
     if get_prefs().menus.weight_menu:
         bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_vertex_group_append)
     if get_prefs().menus.mod_button:

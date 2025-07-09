@@ -61,11 +61,44 @@ class PMPSelector(Operator):
             self.report({'ERROR'}, "Not a valid modpack!")
         
         return {'FINISHED'}
-  
+
+class FileSelector(Operator):
+    bl_idname = "ya.file_selector"
+    bl_label = "Select File"
+    bl_description = "Select file"
+    
+    filepath: StringProperty(options={'HIDDEN'}) # type: ignore
+    category: StringProperty(options={'HIDDEN'}) # type: ignore
+    filter_glob: bpy.props.StringProperty(
+        subtype='FILE_PATH',
+        options={'HIDDEN'}) # type: ignore
+    
+    def invoke(self, context: Context, event):
+        if self.category.startswith("INSP"):
+            self.filter_glob = "*.phyb"
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+
+        if Path(self.filepath).is_file():
+            setattr(get_window_properties(), self.attr_from_category(), self.filepath)
+            self.report({"INFO"}, "File selected!")
+        else:
+            self.report({"ERROR"}, "Not a valid file!")
+        
+        return {'FINISHED'}
+    
+    def attr_from_category(self) -> str:
+        if self.category == "INSP_ONE":
+            return "insp_file_first"
+        elif self.category == "INSP_TWO":
+            return "insp_file_sec"
+    
 class DirSelector(Operator):
     bl_idname = "ya.dir_selector"
     bl_label = "Select Folder"
-    bl_description = "Select file or directory. Hold Alt to open the folder"
+    bl_description = "Select directory. Hold Alt to open the folder"
     
     directory: StringProperty() # type: ignore
     category: StringProperty(options={'HIDDEN'}) # type: ignore
@@ -240,6 +273,7 @@ class ModpackDirSelector(Operator):
 
 CLASSES = [
     PMPSelector,
+    FileSelector,
     DirSelector,
     ModpackFileSelector,
     ModpackDirSelector,

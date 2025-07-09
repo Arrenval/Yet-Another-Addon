@@ -3,7 +3,7 @@ import bpy
    
 from bpy.types        import Panel, UILayout, Context, Object
 
-from ..draw           import aligned_row, get_conditional_icon, operator_button
+from ..draw           import aligned_row, get_conditional_icon, ui_category_buttons
 from ...properties    import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
 from ...preferences   import get_prefs
 from ...utils.objects import visible_meshobj, get_object_from_mesh
@@ -34,7 +34,7 @@ class OutfitStudio(Panel):
 
         row = layout.row()
         colui = row.column()
-        self.ui_category_buttons(colui, self.window_props, self.options)
+        ui_category_buttons(colui, self.window_props, self.options, "ya.outfit_category")
         col = row.column()
         
         if self.window_props.overview_category:
@@ -615,17 +615,7 @@ class OutfitStudio(Panel):
                 pass
         return layout  
 
-    def ui_category_buttons(self, layout:UILayout, section_prop, options):
-        row = layout
-
-        for index, (slot, icon) in enumerate(options.items()):
-            button = getattr(section_prop, f"{slot.lower()}_category")
-            if index == 0:
-                row.separator(factor=0.5)
-            depress = True if button else False
-            operator = row.operator("ya.outfit_category", text="", icon=icon, depress=depress, emboss=True if depress else False)
-            operator.menu = slot.upper()
-            row.separator(factor=2)
+    
 
 
 CLASSES = [

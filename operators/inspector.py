@@ -1,9 +1,8 @@
-import bpy
-
 from pathlib      import Path
 from bpy.types    import Operator, Context
 from bpy.props    import StringProperty
 
+from ..properties        import get_window_properties
 from ..formats.phyb.file import PhybFile
 
 
@@ -17,8 +16,8 @@ def compare_binaries(original_path: str, written_path: str, context_bytes: int=3
         with open(written_path, 'rb') as written_file:
             written_data = written_file.read()
         
-        print(f"Original file size: {len(original_data)} bytes")
-        print(f"Written file size: {len(written_data)} bytes")
+        print(f"Primary file size: {len(original_data)} bytes")
+        print(f"Secondary file size: {len(written_data)} bytes")
         
         first_difference = None
         min_length = min(len(original_data), len(written_data))
@@ -62,33 +61,47 @@ class FileInspector(Operator):
     bl_idname = "ya.file_inspector"
     bl_label = "Inspect"
     bl_options = {"UNDO", "REGISTER"}
-    bl_description = ""
+    bl_description = "Prints a binary comparison of the two files"
 
-    filepath : StringProperty(subtype="FILE_PATH") # type: ignore
-
-    def invoke(self, context: Context, event):
-        context.window_manager.fileselect_add(self,)
-
-        return {"RUNNING_MODAL"}
-    
     def execute(self, context):
-        selected_file = self.filepath
-
-        phyb = PhybFile.from_file(selected_file)
-
-        print(phyb.get_collision_names())
-
-        new_file = Path(selected_file).parent / "testphyb.phyb"
+        compare_binaries(
+            get_window_properties().insp_file_first, 
+            get_window_properties().insp_file_sec
+            )
         
-        phyb.to_file(new_file)
+        return {'FINISHED'}
+    
+class PhybAppend(Operator):
+    bl_idname = "ya.phyb_append"
+    bl_label = "Inspect"
+    bl_options = {"UNDO", "REGISTER"}
+    bl_description = """Appends simulators from secondary to primary phyb.
+Prints an error for every simulator that has undefined collision objects in the primary phyb.
+Resulting phyb is written to the same folder as the secondary phyb"""
 
-        compare_binaries(selected_file, new_file)
+    def execute(self, context):
+        self.window = get_window_properties()
+
+        if not Path(self.window.insp_file_first).suffix == ".phyb" and Path(self.window.insp_file_first).suffix == ".phyb":
+            self.window({'ERROR'}, "Please select phyb files.")
+            return {'CANCELLED'}
+            
+        base_phyb = PhybFile.from_file(self.window.insp_file_first)
+        sim_phyb  = PhybFile.from_file(self.window.insp_file_sec)
+        collision_obj = base_phyb.get_collision_names()
+
+        for idx, simulator in enumerate(sim_phyb.simulators):
+            if not simulator.get_collision_names() <= collision_obj:
+                print(f"{Path(self.window.insp_file_first).stem}: Simulator {idx} has collision object not defined in the base phyb.")
+                continue
+            base_phyb.simulators.append(simulator)
+        
+        base_phyb.to_file(str(Path(self.window.insp_file_first).parent / "AppendPhyb.phyb"))
         
         return {'FINISHED'}
     
     
-    
-
 CLASSES = [
-    FileInspector
+    FileInspector,
+    PhybAppend
 ]
