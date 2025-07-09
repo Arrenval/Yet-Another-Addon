@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "yet_another_addon_ffxiv"
-version = "0.19.3"
+version = "0.19.4"
 name = "Yet Another Addon"
 tagline = "Several tools to speed up XIV modding workflows"
 maintainer = "Aleks"
