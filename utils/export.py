@@ -11,6 +11,8 @@ from ..properties   import get_window_properties
 from ..preferences  import get_prefs
 from ..mesh.handler import MeshHandler
 
+from ..utils.ya_exception import XIVMeshIDError
+
 
 def check_triangulation() -> list[str]:
     visible = visible_meshobj()
@@ -62,12 +64,15 @@ def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
         for obj in visible:
             obj_attr = []
             name_parts = obj.name.split(" ")
-            if re.search(r"^\d+.\d+\s", obj.name):
-                group = int(name_parts[0].split(".")[0])
-                part  = int(name_parts[0].split(".")[1])
-            else:
-                group = int(name_parts[-1].split(".")[0])
-                part  = int(name_parts[-1].split(".")[1])
+            try:
+                if re.search(r"^\d+\.\d+\s", obj.name):
+                    group = int(name_parts[0].split(".")[0])
+                    part  = int(name_parts[0].split(".")[1])
+                else:
+                    group = int(name_parts[-1].split(".")[0])
+                    part  = int(name_parts[-1].split(".")[1])
+            except:
+                raise XIVMeshIDError(f"{obj.name}: Couldn't parse Mesh IDs.")
 
             for attr in obj.keys():
                 attr: str

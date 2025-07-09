@@ -28,6 +28,9 @@ class XIVMeshError(Exception):
     """Base class"""
     pass
 
+class XIVMeshIDError(XIVMeshError):
+    pass
+
 class XIVMeshParentError(XIVMeshError):
     """Raised if mesh parent is not a visible armature"""
 

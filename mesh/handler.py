@@ -246,7 +246,7 @@ class MeshHandler:
             else:
                 dupe = copy_mesh_object(obj, self.depsgraph)
 
-                if re.search(r"^\d+.\d+\s", obj.name):
+                if re.search(r"^\d+\.\d+\s", obj.name):
                     name_parts = obj.name.split(" ")
                     dupe.name = " ".join(["ExportMesh"] + name_parts[1:] + name_parts[0:1])
                 else:
