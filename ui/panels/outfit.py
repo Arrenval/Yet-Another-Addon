@@ -234,7 +234,7 @@ class OutfitStudio(Panel):
 
                 col.separator(type="LINE", factor=2)
 
-                chest_obj = self.devkit_props.yam_chest_controller
+                chest_obj = self.devkit_props.yam_shapes
                 if chest_obj is None:
                     row = col.row(align=True)
                     row.alignment = "CENTER"

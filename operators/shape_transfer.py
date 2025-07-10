@@ -8,7 +8,7 @@ from ..utils.objects      import quick_copy, safe_object_delete
 from ..utils.ya_exception import SurfaceDeformBindError, VertexCountError
 
 
-ShapeKeyQueue = list[tuple[Object, Object, ShapeKey, ShapeKey, ShapeKey, bool, list[ShapeKey]]]
+ShapeKeyQueue = list[tuple[Object, Object, ShapeKey, ShapeKey, ShapeKey, bool]]
 
 def get_target_key(target: Object, key_name:str):
     target_key = target.data.shape_keys.key_blocks.get(key_name)
@@ -24,7 +24,7 @@ class ControllerVisibility(Operator):
     bl_options = {"UNDO"}
 
     def execute(self, context):
-        controller = get_devkit_properties().yam_chest_controller
+        controller = get_devkit_properties().yam_shapes
         collection = context.view_layer.layer_collection.children["Resources"].children["Controller"]
         
         if controller.visible_get():
@@ -102,7 +102,7 @@ class ShapeKeyTransfer(Operator):
         elif self.input_method == "Seams":
             self.seams    : set = {key for key, value in self.seam_values.items() if value}
             self.seam_base: str = window.shape_seam_base
-            self.source         = self.devkit.yam_body_controller
+            self.source         = self.devkit.yam_shapes
 
         else:
             self.shapes_type : str    = window.shapes_type
@@ -124,8 +124,7 @@ class ShapeKeyTransfer(Operator):
             return {'FINISHED'}
         
         except Exception as e:
-            self.report({'ERROR'}, f"Transfer failed: {e}")
-            return {'FINISHED'}
+            raise e
         
         finally:
             if shr_combined:
@@ -279,12 +278,12 @@ class ShapeKeyTransfer(Operator):
         self.cleanup.append(base_copy.data)
         
         shapes: dict[str, Object] = {base_key: base_copy}
-        for temp_target, controller, target_key, controller_key, driver_source, deform, model_state in shape_key_queue:
+        for temp_target, controller, target_key, controller_key, driver_source, deform in shape_key_queue:
             if deform:
-                self.add_modifier(temp_target, controller, target_key, controller_key, model_state)
+                self.add_modifier(temp_target, controller, target_key, controller_key)
                 shapes[target_key.name] = temp_target
         
-        for temp_target, controller, target_key, controller_key, driver_source, deform, model_state in shape_key_queue:
+        for temp_target, controller, target_key, controller_key, driver_source, deform in shape_key_queue:
             finalise_key_relationship()
 
         co_cache = {}
@@ -355,14 +354,13 @@ class ShapeKeyTransfer(Operator):
 
             controller_key = controller.data.shape_keys.key_blocks.get(source_key.name)
             
-            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform, []))
+            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform))
 
         return shape_key_queue
     
     def _chest_queue(self, shape_key_list: list[ShapeKey]) -> ShapeKeyQueue:
         shape_key_queue = []
-        chest_controller = self.devkit.yam_chest_controller
-        body_controller  = self.devkit.yam_body_controller
+        shape_controller = self.devkit.yam_shapes
 
         for source_key in shape_key_list:
             driver_source = source_key
@@ -370,24 +368,15 @@ class ShapeKeyTransfer(Operator):
             sub_key       = source_key.name.startswith("-") and not lava_size and self.sub_keys
             deform        = not sub_key
 
-            if lava_size:
-                key_name = source_key.name.split(" ")[1]
-            else:
-                key_name = source_key.name
-
+            key_name = "Lavatop" if source_key.name == "Lavabod" else source_key.name
+            
             if not self.deform_target.get(source_key.name, False) and not sub_key:
                 continue
 
-            chest_key = chest_controller.data.shape_keys.key_blocks.get(key_name)
-            body_key  = body_controller.data.shape_keys.key_blocks.get(source_key.name)
+            body_key  = shape_controller.data.shape_keys.key_blocks.get(key_name)
 
-            if chest_key:
-                controller = quick_copy(chest_controller)
-                self.cleanup.append(controller)
-                self.cleanup.append(controller.data)
-
-            elif body_key:
-                controller = quick_copy(body_controller)
+            if body_key:
+                controller = quick_copy(shape_controller)
                 self.cleanup.append(controller)
                 self.cleanup.append(controller.data)
 
@@ -401,16 +390,15 @@ class ShapeKeyTransfer(Operator):
             self.cleanup.append(temp_target)
             self.cleanup.append(temp_target.data)
 
-            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform, []))
+            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform))
             
         return shape_key_queue
     
     def _leg_queue(self, shape_key_list: list[ShapeKey]) -> ShapeKeyQueue:
         shape_key_queue = []
-        body_controller = self.devkit.yam_body_controller
+        shape_controller = self.devkit.yam_shapes
 
         for source_key in shape_key_list:
-            model_state: list[ShapeKey]   = []
             new_name      = source_key.name
             driver_source = source_key
             deform        = True
@@ -420,11 +408,16 @@ class ShapeKeyTransfer(Operator):
             if not self.deform_target[source_key.name]:
                 continue
             
-            key_name = "BASE" if source_key.name == "Gen A/Watermelon Crushers" else source_key.name
-            body_key = body_controller.data.shape_keys.key_blocks.get(key_name)
+            if source_key.name == "Gen A/Watermelon Crushers":
+                key_name = "LARGE"
+            elif source_key.name == "Rue/Lava":
+                key_name = "Rue/Lava Legs"
+            else:
+                key_name = source_key.name
+            body_key = shape_controller.data.shape_keys.key_blocks.get(key_name)
             
             if body_key:
-                controller = quick_copy(body_controller)
+                controller = quick_copy(shape_controller)
                 self.cleanup.append(controller)
                 self.cleanup.append(controller.data)
 
@@ -432,27 +425,15 @@ class ShapeKeyTransfer(Operator):
             else:
                 continue
 
-            rue_key  = controller.data.shape_keys.key_blocks.get("Rue")
-            lava_key = controller.data.shape_keys.key_blocks.get("Lavabod")
-
             if source_key.name == "Soft Butt":
                 new_name = "shpx_yam_softbutt"
 
             elif source_key.name == "Alt Hips":
-                driver_source = self.source.data.shape_keys.key_blocks.get("Hip Dips (for YAB)")
+                driver_source  = self.source.data.shape_keys.key_blocks.get("Hip Dips (for YAB)")
+                controller_key = controller.data.shape_keys.key_blocks.get("Hip Dips (for YAB)")
                 new_name = "shpx_yab_hip"
 
-                shape_key_queue.extend(self._hip_keys(controller, rue_key, controller_key, deform))
-                
-            elif source_key.name == "Rue/Lava":
-                if not self.target.data.shape_keys.key_blocks.get("Lavabod"):
-                    continue
-                model_state.append(lava_key)
-
-            elif source_key.name == "Rue/Mini":
-                if not self.target.data.shape_keys.key_blocks.get("Mini"):
-                    continue
-                model_state.append(rue_key)
+                shape_key_queue.extend(self._hip_keys(shape_controller, deform))
         
             target_key = get_target_key(self.target, new_name)
 
@@ -460,25 +441,34 @@ class ShapeKeyTransfer(Operator):
             self.cleanup.append(temp_target)
             self.cleanup.append(temp_target.data)
 
-            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform, model_state))
+            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform))
             
         return shape_key_queue
 
-    def _hip_keys(self, controller: Object, rue_key: ShapeKey, controller_key: ShapeKey, deform) -> ShapeKeyQueue:
+    def _hip_keys(self, shape_controller: Object, deform) -> ShapeKeyQueue:
         hip_keys = []
     
         if self.deform_target["Rue"] or self.target.data.shape_keys.key_blocks.get("Rue"):
             rue_hip_driver = self.source.data.shape_keys.key_blocks.get("Less Hip Dips (for Rue)")
+            controller = quick_copy(shape_controller)
+            self.cleanup.append(controller)
+            self.cleanup.append(controller.data)
+
+            controller_key = controller.data.shape_keys.key_blocks.get("Less Hip Dips (for Rue)")
 
             target_key  = get_target_key(self.target, "shpx_rue_hip")
             temp_target = quick_copy(self.target)
             self.cleanup.append(temp_target)
             self.cleanup.append(temp_target.data)
 
-            hip_keys.append((temp_target, controller, target_key, controller_key, rue_hip_driver, deform, [rue_key]))
+            hip_keys.append((temp_target, controller, target_key, controller_key, rue_hip_driver, deform))
 
         if self.deform_target["Soft Butt"] or self.target.data.shape_keys.key_blocks.get("shpx_softbutt"):
             target_key = get_target_key(self.target, "shpx_yab_c_hipsoft")
+            controller = quick_copy(shape_controller)
+            self.cleanup.append(controller)
+            self.cleanup.append(controller.data)
+
             correction_key = controller.data.shape_keys.key_blocks.get("shpx_yab_c_hipsoft")
             correction_driver_source = self.source.data.shape_keys.key_blocks.get("shpx_yab_c_hipsoft")
             
@@ -486,18 +476,21 @@ class ShapeKeyTransfer(Operator):
             self.cleanup.append(temp_target)
             self.cleanup.append(temp_target.data)
 
-            hip_keys.append((temp_target, controller, target_key, correction_key, correction_driver_source, deform, [rue_key]))
+            hip_keys.append((temp_target, controller, target_key, correction_key, correction_driver_source, deform))
 
             if self.deform_target["Rue"] or self.target.data.shape_keys.key_blocks.get("Rue"):
                 target_key = get_target_key(self.target, "shpx_rue_c_hipsoft")
+                controller = quick_copy(shape_controller)
+                self.cleanup.append(controller)
+                self.cleanup.append(controller.data)
                 correction_key = controller.data.shape_keys.key_blocks.get("shpx_rue_c_hipsoft")
                 correction_driver_source = self.source.data.shape_keys.key_blocks.get("shpx_rue_c_hipsoft")
 
                 temp_target = quick_copy(self.target)
                 self.cleanup.append(temp_target)
                 self.cleanup.append(temp_target.data)
-                hip_keys.append((temp_target, controller, target_key, correction_key, correction_driver_source, deform, [rue_key]))
-        
+                hip_keys.append((temp_target, controller, target_key, correction_key, correction_driver_source, deform))
+    
         return hip_keys
 
     def _seam_queue(self, shape_key_list: list[ShapeKey]) -> ShapeKeyQueue:
@@ -505,7 +498,6 @@ class ShapeKeyTransfer(Operator):
 
         for source_key in shape_key_list:
             # Model state is a list of keys that should be turned on before enabling the surface deform
-            model_state   = []
             new_name      = source_key.name
             driver_source = source_key
             deform        = True
@@ -520,8 +512,6 @@ class ShapeKeyTransfer(Operator):
                 continue
 
             buff = self.target.data.shape_keys.key_blocks.get("Buff")
-            if buff and source_key.name == "shpx_wa_yabs":
-                model_state.append(buff)
 
             target_key = get_target_key(self.target, new_name)
 
@@ -535,11 +525,11 @@ class ShapeKeyTransfer(Operator):
 
             controller_key = controller.data.shape_keys.key_blocks.get(source_key.name)
 
-            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform, []))
+            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform))
             
         return shape_key_queue
     
-    def add_modifier(self, temp_target: Object, controller: Object, target_key: ShapeKey, source_key: ShapeKey, model_state: list[ShapeKey]) -> None:
+    def add_modifier(self, temp_target: Object, controller: Object, target_key: ShapeKey, source_key: ShapeKey) -> None:
 
         def base_model_state() -> None:
             key_blocks   = controller.data.shape_keys.key_blocks
@@ -551,28 +541,27 @@ class ShapeKeyTransfer(Operator):
             source_key.value = 1
             
             if self.input_method == "Chest" and target_key.name in chest_filter:
-                key_blocks[self.chest_base].mute = True
+                key_name = "Lavatop" if self.chest_base == "Lavabod" else self.chest_base 
+                key_blocks[key_name].mute = True
 
                 if self.chest_base in ("Lavabod", "Teardrop", "Cupcake") and target_key.name not in lava_keys:
-                    key_blocks["Lavabod"].mute = True
+                    key_blocks["Lavatop"].mute = True
 
             elif self.input_method == "Legs" and target_key.name in leg_filter:
-                key_name = "BASE" if self.leg_base == "Gen A/Watermelon Crushers" else self.leg_base
+                key_name = "LARGE" if self.leg_base == "Gen A/Watermelon Crushers" else self.leg_base
                 key_blocks[key_name].mute = True
-            
-            for key in model_state:
-                key.mute = False
 
         def controller_state(reset=False) -> None:
             key_blocks = controller.data.shape_keys.key_blocks
             for key in key_blocks:
                 key.mute = True
 
-            if "ChestController" in controller.data.name and self.input_method == "Chest":
-                key_blocks[self.chest_base].mute = False
+            if "ShapeController" in controller.data.name and self.input_method == "Chest":
+                key_name = "Lavatop" if self.chest_base == "Lavabod" else self.chest_base
+                key_blocks[key_name].mute = False
 
                 if self.chest_base in ("Lavabod", "Teardrop", "Cupcake"):
-                    key_blocks["Lavabod"].mute = False
+                    key_blocks["Lavatop"].mute = False
 
                 if self.chest_base not in ("MEDIUM", "Teardrop"):
                     key_blocks["Medium/Push-Up"].mute = True
@@ -581,15 +570,15 @@ class ShapeKeyTransfer(Operator):
                     key_blocks["Push-Up"].value = 0
                     key_blocks["Squeeze"].value = 0
 
-            if "BodyController" in controller.data.name:
+            if "ShapeController" in controller.data.name:
                 if self.input_method == "Legs":
-                    key_name = "BASE" if self.leg_base == "Gen A/Watermelon Crushers" else self.leg_base
+                    key_name = "LARGE" if self.leg_base == "Gen A/Watermelon Crushers" else self.leg_base
                     key_blocks[key_name].mute = False
                 if self.input_method == "Seams":
                     key_blocks[self.seam_base].mute = False
             
-            if not reset:
-                if "ChestController" in controller.data.name and self.overhang:
+            if not reset and self.input_method == "Chest":
+                if "ShapeController" in controller.data.name and self.overhang:
                     key_blocks["Overhang"].mute = False
 
         controller_state()

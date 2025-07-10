@@ -95,19 +95,17 @@ class DevkitProps(PropertyGroup):
     shape_mq_legs_bool : bool
     shape_mq_other_bool: bool
     
-    collection_state   : CollectionState
-    torso_state        : TorsoState
-    leg_state          : LegState
-    hand_state         : HandState
-    feet_state         : FeetState
-    yam_torso          : Object
-    yam_legs           : Object
-    yam_hands          : Object
-    yam_feet           : Object
-    yam_mannequin      : Object
-
-    yam_chest_controller: Object
-    yam_body_controller : Object
+    collection_state: CollectionState
+    torso_state     : TorsoState
+    leg_state       : LegState
+    hand_state      : HandState
+    feet_state      : FeetState
+    yam_torso       : Object
+    yam_legs        : Object
+    yam_hands       : Object
+    yam_feet        : Object
+    yam_mannequin   : Object
+    yam_shapes      : Object
 
     mannequin_state: MannequinState
 

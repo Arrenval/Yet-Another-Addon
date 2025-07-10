@@ -696,7 +696,7 @@ class YAWindowProps(PropertyGroup):
         name= "",
         description= "Select the base size, only affects waist seam",
         items= [
-            ("BASE", "YAB", ""),
+            ("LARGE", "YAB", ""),
             ("Lavabod", "Lavabod", ""),
             ("Yanilla", "Yanilla", ""),
             ("Masc", "Masc", ""),
@@ -1105,13 +1105,21 @@ class YAOutfitProps(PropertyGroup):
     
 
     def _chest_controller_update(self, context: Context) -> None:
-        key_blocks = get_devkit_properties().yam_chest_controller.data.shape_keys.key_blocks
+        key_blocks = get_devkit_properties().yam_shape_controller.data.shape_keys.key_blocks
         for key in key_blocks:
             key.mute = True
 
-        key_blocks[self.shape_chest_base].mute = False
+        if self.shape_chest_base == "Lavabod":
+            key_name = "Lavatop"
+        elif self.shape_chest_base == "Teardrop":
+            key_name = "-- " + self.shape_chest_base
+        elif self.shape_chest_base == "Cupcake":
+            key_name = "--- " + self.shape_chest_base
+        else:
+            key_name = self.shape_chest_base
+        key_blocks[key_name].mute = False
         if self.shape_chest_base in ("Teardrop", "Cupcake"):
-            key_blocks["Lavabod"].mute = False
+            key_blocks["Lavatop"].mute = False
 
     def scene_actions(self, context) -> BlendEnum: 
         armature_actions = [("None", "None", ""), None]
