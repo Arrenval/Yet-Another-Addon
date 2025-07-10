@@ -273,6 +273,13 @@ class ShapeKeyTransfer(Operator):
         if not shape_key_queue:
             return
         
+        # for temp_target, controller, target_key, controller_key, driver_source, deform in shape_key_queue:
+        #     print(f"Temp: {temp_target.name}")
+        #     print(f"Controller: {controller.name}")
+        #     print(f"Target Key: {target_key.name}")
+        #     print(f"Controller Key: {controller_key.name}")
+        #     print(f"Deform: {deform}")
+        
         base_copy = quick_copy(self.target)
         self.cleanup.append(base_copy)
         self.cleanup.append(base_copy.data)
@@ -301,6 +308,8 @@ class ShapeKeyTransfer(Operator):
         create_co_cache(co_cache, shapes, self.target, base_key, vert_count, depsgraph)
 
         create_shape_keys(co_cache, shapes, self.target, base_key, vert_count, depsgraph)
+
+        self.target.data.update()
         
     def shape_key_queue(self, shape_key_list: list[ShapeKey]) -> ShapeKeyQueue:
         if self.input_method == "Chest":
@@ -361,7 +370,7 @@ class ShapeKeyTransfer(Operator):
     def _chest_queue(self, shape_key_list: list[ShapeKey]) -> ShapeKeyQueue:
         shape_key_queue = []
         shape_controller = self.devkit.yam_shapes
-
+        
         for source_key in shape_key_list:
             driver_source = source_key
             lava_size     = source_key.name.endswith(("Teardrop", "Cupcake"))
@@ -389,6 +398,7 @@ class ShapeKeyTransfer(Operator):
             temp_target = quick_copy(self.target)
             self.cleanup.append(temp_target)
             self.cleanup.append(temp_target.data)
+
 
             shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform))
             
@@ -552,11 +562,12 @@ class ShapeKeyTransfer(Operator):
                 key_blocks[key_name].mute = True
 
         def controller_state(reset=False) -> None:
+            main_shapes = get_devkit_properties().yam_shapes.data
             key_blocks = controller.data.shape_keys.key_blocks
             for key in key_blocks:
                 key.mute = True
 
-            if "ShapeController" in controller.data.name and self.input_method == "Chest":
+            if main_shapes.name in controller.data.name and self.input_method == "Chest":
                 key_name = "Lavatop" if self.chest_base == "Lavabod" else self.chest_base
                 key_blocks[key_name].mute = False
 
@@ -570,7 +581,7 @@ class ShapeKeyTransfer(Operator):
                     key_blocks["Push-Up"].value = 0
                     key_blocks["Squeeze"].value = 0
 
-            if "ShapeController" in controller.data.name:
+            if main_shapes.name in controller.data.name:
                 if self.input_method == "Legs":
                     key_name = "LARGE" if self.leg_base == "Gen A/Watermelon Crushers" else self.leg_base
                     key_blocks[key_name].mute = False
@@ -578,7 +589,7 @@ class ShapeKeyTransfer(Operator):
                     key_blocks[self.seam_base].mute = False
             
             if not reset and self.input_method == "Chest":
-                if "ShapeController" in controller.data.name and self.overhang:
+                if main_shapes.name in controller.data.name and self.overhang:
                     key_blocks["Overhang"].mute = False
 
         controller_state()

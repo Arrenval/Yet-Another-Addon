@@ -85,3 +85,4 @@ def create_shape_keys(co_cache: dict[str, NDArray[float32]], shapes: dict[str, O
         offset = shape_co - co_cache[base_key]
         mix_coords = co_cache[rel_key.name] + offset
         new_shape.data.foreach_set("co", mix_coords)
+    target.data.update()

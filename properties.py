@@ -1105,7 +1105,7 @@ class YAOutfitProps(PropertyGroup):
     
 
     def _chest_controller_update(self, context: Context) -> None:
-        key_blocks = get_devkit_properties().yam_shape_controller.data.shape_keys.key_blocks
+        key_blocks = get_devkit_properties().yam_shapes.data.shape_keys.key_blocks
         for key in key_blocks:
             key.mute = True
 
