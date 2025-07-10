@@ -12,8 +12,11 @@ You'll find most of the features under the "XIV Kit" tab in the 3D Viewport.
 ## Installing
 For automatic updates, you should install this as a Blender Extension by adding this URL to Blender's extension repositories:
 - https://raw.githubusercontent.com/Arrenval/Yet-Another-Addon/main/repo.json
+<img width="653" height="295" alt="Install Addon" src="https://github.com/user-attachments/assets/db631db6-552f-4bf5-8bbd-0ae0c10c4ba2" />
+
 
 Installing this as an addon and later updating to an extension will incur a loss of user preferences, and vice versa.
+
 
 ## Licensing
 Modules based around Penumbra and XIV interop are standalone, exist for compatibility and do not interface directly with the Blender Python API. They inherit their respective source's licenses. See **Acknowledgements** for details.
@@ -22,4 +25,4 @@ The remaining code within this tool is made for the Blender API and follows its 
 or assets that are behind a permanent paywall. 
 
 ## Acknowledgements
-* The `penumbra` module is based around Penumbra's [Modpack schemas](https://github.com/xivdev/Penumbra/tree/master/schemas) by Ottermandias and Ny.
+* The `pmp` module is based around Penumbra's [Modpack schemas](https://github.com/xivdev/Penumbra/tree/master/schemas) by Ottermandias and Ny.
