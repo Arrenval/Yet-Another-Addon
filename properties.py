@@ -1368,7 +1368,7 @@ def set_addon_properties() -> None:
     bpy.types.Scene.ya_outfit_props = PointerProperty(
         type=YAOutfitProps)
     
-    bpy.types.Object.yas = PointerProperty(
+    bpy.types.Object.yas = PointerProperty(name="YAS Weight Storage",
         type=YASStorage)
 
     YAWindowProps.ui_buttons()
