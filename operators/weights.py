@@ -301,8 +301,21 @@ class YASManager(Operator):
     *CTRL click to delete without storing''' 
 
     def invoke(self, context, event):
+        if self.target == 'DEVKIT':
+            return self.execute(context)
+        
+        devkit         = get_devkit_properties()
+        devkit_targets = {
+                "TORSO": devkit.yam_torso,
+                "LEGS":  devkit.yam_legs,
+                "HANDS": devkit.yam_hands,
+                "FEET":  devkit.yam_feet,
+                "MANNEQUIN": devkit.yam_mannequin,
+            }
+        
         self.store = not event.ctrl
-        dependent  = self._dependent_target([context.active_object], get_devkit_properties())
+        target     = devkit_targets[self.target] if self.target != 'ACTIVE' else context.active_object
+        dependent  = self._dependent_target([target], get_devkit_properties())
         delete_dep = self.target != "DEVKIT" and dependent and not self.store
 
         if (self.target == "ACTIVE" or delete_dep) and dependent:
@@ -355,13 +368,14 @@ class YASManager(Operator):
                     return {'CANCELLED'}
                 
                 remove_vertex_groups(obj, skeleton, prefix, self.store)
-                obj.yas.old_count = len(obj.data.vertices)
-                if self.mode == "ALL":
-                    obj.yas.all_groups = True
-                elif self.mode == "GEN":
-                    obj.yas.genitalia  = True
-                elif self.mode == "PHYS":
-                    obj.yas.physics    = True
+                if obj.yas.v_groups:
+                    obj.yas.old_count = len(obj.data.vertices)
+                    if self.mode == "ALL":
+                        obj.yas.all_groups = True
+                    elif self.mode == "GEN":
+                        obj.yas.genitalia  = True
+                    elif self.mode == "PHYS":
+                        obj.yas.physics    = True
 
 
         props.set_yas_ui_vgroups(context)
@@ -369,12 +383,12 @@ class YASManager(Operator):
     
     def get_targets(self, context: Context, devkit: DevkitProps) -> list[Object]:
         base_targets = self._get_base_targets(context, devkit)
-        
-        if self._dependent_target(base_targets, devkit):
+
+        if self._dependent_target(base_targets, devkit) or self.target == 'DEVKIT':
             base_targets.extend(self._get_devkit_targets(devkit))
         
         if devkit:
-            base_targets.extend(self._add_secondary_meshes(base_targets, devkit))
+            self._add_secondary_meshes(base_targets, devkit)
         
         return base_targets
 
@@ -420,9 +434,9 @@ class YASManager(Operator):
         if devkit:
             devkit_targets = {
                 "TORSO": devkit.yam_torso,
-                "LEGS": devkit.yam_legs,
+                "LEGS":  devkit.yam_legs,
                 "HANDS": devkit.yam_hands,
-                "FEET": devkit.yam_feet,
+                "FEET":  devkit.yam_feet,
                 "MANNEQUIN": devkit.yam_mannequin,
             }
 
@@ -439,11 +453,10 @@ class YASManager(Operator):
             return False
         
         if self.target == "DEVKIT":
-            return self.mode != "GEN"
+            return self.mode not in ("GEN", "PHYS")
         
         if self.mode == "RESTORE":
-            all_groups = any(group.all_groups for group in base_targets[0].yas_groups)
-            if not all_groups:
+            if not base_targets[0].yas.all_groups:
                 return False
         
         if self.mode in ("ALL", "RESTORE"):

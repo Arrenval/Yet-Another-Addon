@@ -480,14 +480,15 @@ class OutfitStudio(Panel):
             split = row.split(factor=0.33, align=True)
             split.prop(self.window_props, 'yas_storage', text="")
 
+            details = split.row(align=True)
             icon, text = self.yas_status()
-            split.label(text=text, icon=icon)
+            details.label(text=text, icon=icon)
             if not group_bool[self.window_props.yas_storage]:
-                op = row.operator("ya.yas_manager", text="", icon='FILE_TICK')
+                op = details.operator("ya.yas_manager", text="", icon='FILE_TICK')
                 op.mode = self.window_props.yas_storage
                 op.target = 'ACTIVE'
             if obj.yas.v_groups:
-                op = row.operator("ya.yas_manager", text="", icon='FILE_PARENT')
+                op = details.operator("ya.yas_manager", text="", icon='FILE_PARENT')
                 op.mode = 'RESTORE'
                 op.target = 'ACTIVE'         
 
