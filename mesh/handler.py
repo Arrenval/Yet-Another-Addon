@@ -117,7 +117,7 @@ class MeshHandler:
 
     """
 
-    def __init__(self, logger: YetAnotherLogger=None, depsgraph: Depsgraph=None):
+    def __init__(self, logger: YetAnotherLogger=None, depsgraph: Depsgraph=None, batch=False):
         props                            = get_window_properties()
         self.depsgraph : Depsgraph       = depsgraph
         self.shapekeys : bool            = props.keep_shapekeys
@@ -125,6 +125,8 @@ class MeshHandler:
         self.is_tris   : bool            = props.check_tris
         self.yas_vag   : bool            = True
         self.remove_yas: str             = props.remove_yas
+        self.batch     : bool            = batch
+        self.torso     : bool            = self.batch and "Chest" in get_window_properties().export_body_slot
         self.reset     : list[Object]    = []
         self.delete    : list[Object]    = []
         self.tri_method: tuple[str, str] = ("BEAUTY", "BEAUTY")
@@ -178,11 +180,11 @@ class MeshHandler:
                 continue 
             rue_key  = obj.data.shape_keys.key_blocks.get("Rue")
             buff_key = obj.data.shape_keys.key_blocks.get("Buff")
-            if rue_key and rue_key.mute == False and rue_key.value == 1.0:
+            if not self.rue and (rue_key and rue_key.mute == False and rue_key.value == 1.0):
                 self.rue = True 
-            if buff_key and buff_key.mute == False and buff_key.value == 1.0 :
+            if not self.buff and (buff_key and buff_key.mute == False and buff_key.value == 1.0):
                 self.buff = True
-            if obj.data.name == "Torso":
+            if not self.torso and obj == get_devkit_properties().yam_torso:
                 self.torso = True
 
     def sort_shape_keys(self, obj: Object) -> list[ShapeKey]:

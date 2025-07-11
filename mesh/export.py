@@ -45,8 +45,8 @@ def get_export_path(directory: Path, file_name: str, subfolder: bool, body_slot:
 
     return export_path
 
-def export_result(file_path: Path, file_format: str, logger: YetAnotherLogger=None):
-    export = FileExport(file_path, file_format, logger)
+def export_result(file_path: Path, file_format: str, logger: YetAnotherLogger=None, batch=False):
+    export = FileExport(file_path, file_format, logger=logger, batch=batch)
     export.export_template()
 
 def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
@@ -142,10 +142,11 @@ def consoletools_mdl(file_path: str):
         
 
 class FileExport:
-    def __init__(self, file_path: Path, file_format: str, logger: YetAnotherLogger=None):
+    def __init__(self, file_path: Path, file_format: str, logger: YetAnotherLogger=None, batch=False):
         self.logger      = logger
         self.file_format = file_format
         self.file_path   = file_path
+        self.batch       = batch
  
     def export_template(self):
         export_settings = self._get_export_settings()
@@ -154,7 +155,7 @@ class FileExport:
             visible_meshobj(mesh_id=True)
     
         try:
-            mesh_handler = MeshHandler(logger=self.logger)
+            mesh_handler = MeshHandler(logger=self.logger, batch=self.batch)
 
             mesh_handler.prepare_meshes()
             mesh_handler.process_meshes()

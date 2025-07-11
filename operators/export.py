@@ -616,7 +616,7 @@ class YetAnotherExport(Operator):
     def _export_item(self, file_name: str):
         bpy.context.evaluated_depsgraph_get()
         file_path = get_export_path(self.export_dir, file_name, self.window.create_subfolder, self.body_slot)
-        export_result(file_path, self.window.file_format, self.logger)
+        export_result(file_path, self.window.file_format, logger=self.logger, batch=True)
     
 
 CLASSES = [
