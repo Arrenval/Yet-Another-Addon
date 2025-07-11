@@ -64,8 +64,8 @@ def safe_object_delete(obj: Object) -> None:
 
         if obj.animation_data:
             obj.animation_data_clear()
-            
-        if obj.data and obj.data.shape_keys:
+        
+        if obj.type == 'MESH' and obj.data and obj.data.shape_keys:
             if obj.data.shape_keys.animation_data:
                 obj.data.shape_keys.animation_data_clear()
         
