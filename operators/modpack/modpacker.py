@@ -333,7 +333,7 @@ class ModPackager(Operator):
         file_folder = Path(self.blend_group.folder_path) if self.blend_group.subfolder == "None" else Path(self.blend_group.folder_path) / Path(self.blend_group.subfolder)
         files = [file for file in file_folder.glob(f"*{file_format}") if file.is_file()]
 
-        if file_format == ".mdl" and self.prefs.ya_sort:
+        if file_format == ".mdl" and self.blend_group.ya_sort:
             files = self.yet_another_sort(files)
 
         option_idx = 0

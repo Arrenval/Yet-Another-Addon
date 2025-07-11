@@ -168,12 +168,6 @@ class YetAnotherPreference(AddonPreferences):
         maxlen=255,
         )  # type: ignore
     
-    ya_sort: BoolProperty(
-        name="Yet Another Sort",
-        description="When enabled the modpacker sorts model YAB sizes according to my regular packing format",
-        default=True,
-        ) # type: ignore
-    
     auto_cleanup: BoolProperty(
         name="Auto Cleanup",
         description="Cleans up imported files automatically with your current settings",
@@ -209,7 +203,6 @@ class YetAnotherPreference(AddonPreferences):
         modpack_output_dir        : str
         export_display_dir        : str
         export_dir                : str
-        ya_sort                   : bool
 
         auto_cleanup   : bool
         remove_nonmesh : bool
@@ -264,10 +257,9 @@ class YetAnotherPreference(AddonPreferences):
         self.draw_presets(preset_box, context)
 
     def draw_modpack(self, layout: UILayout, context: Context):
-        options = [
-            (self, "ya_sort", get_conditional_icon(self.ya_sort), 
-            "Yet Another Sort", "Sorts model sizes according to Yet Another Standard."),
-        ]
+        # options = [
+        #     (None, "", "", "", ""),
+        # ]
 
         row = layout.row(align=True)
         row.alignment = "CENTER"
@@ -286,9 +278,9 @@ class YetAnotherPreference(AddonPreferences):
         row = aligned_row(layout, "Mod Output:", "modpack_output_dir", self)
         row.operator("ya.modpack_dir_selector", text="", icon="FILE_FOLDER").category = "OUTPUT_PMP"
 
-        layout.separator(type="LINE")
+        # layout.separator(type="LINE")
 
-        self.option_rows(layout, options)
+        # self.option_rows(layout, options)
         
         layout.separator(type="SPACE")
   
@@ -374,7 +366,6 @@ def register_menus() -> None:
         bpy.types.MESH_MT_vertex_group_context_menu.append(menu_vertex_group_append)
     if get_prefs().menus.mod_button:
         bpy.types.DATA_PT_modifiers.append(draw_modifier_options)
-
 
 def unregister_menus() -> None:
     from .ui.panels.outfit    import OutfitStudio

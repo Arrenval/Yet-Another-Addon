@@ -354,6 +354,11 @@ class BlendModGroup(ModpackHelper):
         if self.group_type == "Combining":
             self.use_folder = False
 
+    ya_sort         : BoolProperty(
+                            name="Yet Another Sort",
+                            description="When enabled, the group sorts model sizes according to YAB's regular size sorting",
+                            default=True,
+                            ) # type: ignore
     def get_combinations(self):
         if self.group_type == "Combining":
             total_options = [option.name for option in self.mod_options[:8]]
@@ -385,7 +390,7 @@ class BlendModGroup(ModpackHelper):
         shared_game_path: bool
         name_set        : bool
         subfolder       : str
-
+        ya_sort         : bool
 
 class LoadedModpackGroup(PropertyGroup):
     group_value      : StringProperty() # type: ignore

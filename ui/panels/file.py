@@ -638,7 +638,10 @@ class FileManager(Panel):
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
     def folder_container(self, layout:UILayout, container:BlendModGroup, group_idx:int, option_idx:int):
-        layout.separator(factor=0.1,type="SPACE")
+        row = layout.row(align=True)
+        row.alignment = 'RIGHT'
+        row.prop(container, "ya_sort", text="", icon='SORTSIZE')
+        layout.separator(factor=0.5,type="LINE")
 
         path = str(Path(*Path(container.folder_path).parts[-3:])) if Path(container.folder_path).is_dir else container.folder_path
         row = aligned_row(layout, "Folder:", path)
