@@ -188,7 +188,7 @@ class ModpackDirSelector(Operator):
             case "GROUP":
                 self.container = self.props.pmp_mod_groups[self.group]
                 self.folder    = self.container.folder_path
-                attribute      = "file_path"
+                attribute      = "folder_path"
 
             case "OUTPUT_PMP":
                 self.folder    = self.prefs.modpack_output_dir
@@ -207,6 +207,7 @@ class ModpackDirSelector(Operator):
                 self.prefs.property_unset("modpack_output_display_dir")
             else:
                 self.container.property_unset(attribute)
+                self.container.subfolder = "None"
             return {'FINISHED'}
         
         elif event.alt and event.type == "LEFTMOUSE" and self.folder.is_dir():

@@ -264,7 +264,7 @@ class BlendModGroup(ModpackHelper):
     name            : StringProperty(default="New Group", name="", description="Name of the group", update=lambda self, context: self.set_name()) # type: ignore
     description     : StringProperty(default="", name="", description="Write something silly") # type: ignore
     game_path       : StringProperty(default="Paste path here...", name="", description="Path to the in-game file you want to replace", update=lambda self, context: self.check_valid_path()) # type: ignore
-    folder_path     : StringProperty(default="Select a folder...", name="" , description="Folder with files top pack/convert", ) # type: ignore
+    folder_path     : StringProperty(default="Select a folder...", name="" , description="Folder with files to pack", ) # type: ignore
     priority        : IntProperty(default=0, name="Priority", description="Decides which group takes precedence in the modpack if files conflict. Higher number wins") # type: ignore
 
     mod_options     : CollectionProperty(type=BlendModOption) # type: ignore
