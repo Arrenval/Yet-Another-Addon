@@ -54,12 +54,13 @@ def _store_yas_groups(obj: Object, skeleton: Object, group_to_parent: dict[int, 
 
         indices = np.flatnonzero(weight_matrix[:, group])
         weights = weight_matrix[:, group][indices]
-        if len(indices) == 0:
-            continue
 
         new_group: YASGroup  = yas_groups.add()
         new_group.name       = group_name
         new_group.parent     = skeleton.data.bones.get(group_name).parent.name
+
+        if len(indices) == 0:
+            continue
 
         for _ in range(len(indices)):
             new_group.vertices.add()
@@ -75,6 +76,8 @@ def restore_yas_groups(obj: Object) -> None:
     for v_group in yas_groups:
         verts =  len(v_group.vertices)
         yas_to_parent[v_group.name] = v_group.parent
+        if not verts:
+            continue
 
         indices = np.zeros(verts, dtype=uint32)
         weights = np.zeros(verts, dtype=float32)
@@ -95,6 +98,9 @@ def restore_yas_groups(obj: Object) -> None:
             yas_group = obj.vertex_groups.get(yas_name)
         else: 
             yas_group = obj.vertex_groups.new(name=yas_name)
+
+        if yas_name not in stored_weights:
+            continue
 
         weights = stored_weights[yas_name]
         for array_idx, vert_indices in enumerate(weights[0]):
