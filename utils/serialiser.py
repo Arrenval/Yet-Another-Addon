@@ -106,16 +106,37 @@ class RNAPropertyIO:
             new_item = prop_group.add()
             self.restore_property_group(entry, new_item)
     
-    def remove(self, prop_group: PropertyGroup, index_to_remove: int):
+    def remove(self, prop_group: PropertyGroup, idx_to_remove: int) -> bool:
         """Remove item at specified index and restores PropertyGroup without it, keeping the original order"""
-        if index_to_remove < 0 or index_to_remove >= len(prop_group):
+        if idx_to_remove < 0 or idx_to_remove >= len(prop_group):
             return False
         
         temp_items = []
         for index, item in enumerate(prop_group):
-            if index != index_to_remove:
+            if index != idx_to_remove:
                 temp_items.append(self.extract_property_group(item))
         
+        prop_group.clear()
+        for item_data in temp_items:
+            new_item = prop_group.add()
+            self.restore_property_group(item_data, new_item)
+        
+        return True
+
+    def sort(self, prop_group: PropertyGroup, current_idx: int, up=True) -> None:
+        if (current_idx == 0 and up) or (current_idx == len(prop_group) - 1 and not up):
+            return False
+        
+        temp_items = []
+        for item in prop_group:
+            temp_items.append(self.extract_property_group(item))
+
+        factor = -1 if up else +1
+
+        temp_copy = temp_items[current_idx + factor]
+        temp_items[current_idx + factor] = temp_items[current_idx]
+        temp_items[current_idx] = temp_copy
+
         prop_group.clear()
         for item_data in temp_items:
             new_item = prop_group.add()

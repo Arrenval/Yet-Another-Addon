@@ -512,7 +512,26 @@ class FileManager(Panel):
         
         operator_button(row, "ya.preset_manager", icon="FILE_TICK", attributes=op_atr)
 
+        if group_idx != 0:
+            op_atr = {
+                "category": "GROUP",
+                "direction": "UP",
+                "group": group_idx,
+                }
+
+            operator_button(row, "ya.move_property", icon='TRIA_UP', attributes=op_atr)
+
         row.prop(group, "name", text="")
+        
+        if group_idx != len(self.window_props.pmp_mod_groups) - 1:
+            op_atr = {
+                "category": "GROUP",
+                "direction": "DOWN",
+                "group": group_idx,
+                }
+
+            operator_button(row, "ya.move_property", icon='TRIA_DOWN', attributes=op_atr)
+
         subrow = row.row(align=True)
         subrow.scale_x = 0.4
         subrow.prop(group, "priority", text="")
@@ -570,11 +589,34 @@ class FileManager(Panel):
         row.alignment = "LEFT"
         row.prop(option, "show_option", text="", icon=icon, emboss=False)
         row.label(icon="BLANK1")
-        row.label(icon="BLANK1")
+        if option_idx == 0:
+            row.label(icon="BLANK1")
     
         row = columns[1].row(align=True)
         row.alignment = "EXPAND"
+
+        if option_idx != 0:
+            op_atr = {
+                "category": "OPTION",
+                "direction": "UP",
+                "group":  group_idx,
+                "option": option_idx,
+                }
+
+            operator_button(row, "ya.move_property", icon='TRIA_UP', attributes=op_atr)
+
         row.row(align=True).prop(option, "name", text="", icon="OPTIONS")
+        
+        if group_idx != len(group.mod_options) - 1:
+            op_atr = {
+                "category": "OPTION",
+                "direction": "DOWN",
+                "group":  group_idx,
+                "option": option_idx,
+                }
+
+            operator_button(row, "ya.move_property", icon='TRIA_DOWN', attributes=op_atr)
+        
         if group.group_type != "Combining":
             subrow = row.row(align=True)
             subrow.scale_x = 0.4
@@ -779,14 +821,38 @@ class FileManager(Panel):
 
             if button:
                 sim_box.separator(factor=2,type="LINE")
-                for file in container.group_files:
-                    row = sim_box.row(align=True)
-                    row.label(icon='BLANK1')
+                for idx, file in enumerate(container.group_files):
+                    row   = sim_box.row(align=True)
                     split = row.split(factor=0.25, align=True)
-                    split.prop(file, 'category', text="")
+                    move  = split.row(align=True)
+                    move.prop(file, 'category', text="")
 
                     details = split.row(align=True)
                     details.label(text=Path(file.path).stem)
+
+                    if idx == 0:
+                        details.label(text="", icon='BLANK1')
+                    else:
+                        op_atr = {
+                            "category": "SIM",
+                            "direction": "UP",
+                            "group": group_idx,
+                            "option": idx,
+                            }
+
+                        operator_button(details, "ya.move_property", icon='TRIA_UP', attributes=op_atr)
+
+                    if idx != len(container.group_files) - 1:
+                        op_atr = {
+                            "category": "SIM",
+                            "direction": "DOWN",
+                            "group": group_idx,
+                            "option": idx,
+                            }
+
+                        operator_button(details, "ya.move_property", icon='TRIA_DOWN', attributes=op_atr)
+                    else:
+                        details.label(text="", icon='BLANK1')
 
         sim_box.separator(factor=0.1,type="SPACE")
         

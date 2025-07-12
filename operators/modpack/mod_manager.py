@@ -25,13 +25,43 @@ class RefreshFolder(Operator):
         get_window_properties().pmp_mod_groups[self.group].get_files(context)
         return {'FINISHED'}
 
+class MovePropertyItem(Operator):
+    bl_idname = "ya.move_property"
+    bl_label = ""
+    bl_description = "Move the selected item up/down in the list"
+    bl_options = {"UNDO"}
+
+    category : StringProperty(options={"SKIP_SAVE"}) # type: ignore
+    direction: StringProperty(options={"SKIP_SAVE"}) # type: ignore
+
+    group : IntProperty(default=0, options={"SKIP_SAVE"}) # type: ignore
+    option: IntProperty(default=0, options={"SKIP_SAVE"}) # type: ignore
+
+    def execute(self, context):
+        mod_groups = get_window_properties().pmp_mod_groups
+        group: BlendModGroup = mod_groups[self.group]
+
+        if self.category == "GROUP":
+            manager = RNAPropertyIO()
+            manager.sort(mod_groups, self.group, self.direction == "UP")
+
+        elif self.category == "OPTION":
+            manager = RNAPropertyIO()
+            manager.sort(group.mod_options, self.option, self.direction == "UP")
+
+        elif self.category == "SIM":
+            manager = RNAPropertyIO()
+            manager.sort(group.group_files, self.option, self.direction == "UP")
+
+        return {'FINISHED'}
+
 class ModpackManager(Operator):
     bl_idname = "ya.modpack_manager"
     bl_label = ""
     bl_description = ""
     bl_options = {"UNDO"}
 
-    category: StringProperty() # type: ignore
+    category: StringProperty(options={"SKIP_SAVE"}) # type: ignore
 
     delete  : BoolProperty(default=False, options={"SKIP_SAVE"}) # type: ignore
 
@@ -342,6 +372,7 @@ class ModpackPresets(Operator):
 
 CLASSES = [
     RefreshFolder,
+    MovePropertyItem,
     ModpackManager,
     ModpackPresets,
 

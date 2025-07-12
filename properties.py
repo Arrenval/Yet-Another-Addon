@@ -275,7 +275,7 @@ class BasePhyb(ModpackHelper):
                     ) # type: ignore
     
     valid_path: BoolProperty(default=False) # type: ignore
-    
+
     if TYPE_CHECKING:
         file_path : str
         game_path : str
@@ -284,15 +284,15 @@ class BasePhyb(ModpackHelper):
 class GroupFile(PropertyGroup):
     path    : StringProperty(default="", name="", description="") # type: ignore
     category:  EnumProperty(
-                    name="",
+                    name="Category",
                     description="Only simulators with unique categories will be added to the same base",
                     default="ALL",
                     items=[
                         ('ALL', "All", "Will be combined with all categories"),
-                        ('BOOB', "Breasts", "Will be combined with all categories"),
-                        ('BUTT', "Butt", "Will be combined with all categories"),
-                        ('BELLY', "Belly", "Will be combined with all categories"),
-                        ('THIGHS', "Thighs", "Will be combined with all categories"),
+                        ('BOOB', "Breasts", "Will not be combined with other simulators of this category"),
+                        ('BUTT', "Butt", "Will not be combined with other simulators of this category"),
+                        ('BELLY', "Belly", "Will not be combined with other simulators of this category"),
+                        ('THIGHS', "Thighs", "Will not be combined with other simulators of this category"),
                     ]
                 ) # type: ignore
     
