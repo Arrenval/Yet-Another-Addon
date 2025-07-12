@@ -18,7 +18,7 @@ class CopyToModpacker(Operator):
         self.group:int
         self.option:int
         prefs = get_prefs()
-        props = get_file_properties()
+        props = get_window_properties()
         export_dir = Path(prefs.export_dir)
         mod_groups: list[BlendModGroup] = props.pmp_mod_groups
 
@@ -30,7 +30,7 @@ class CopyToModpacker(Operator):
             case "OUTPUT_PMP":
                 prefs.modpack_output_dir = str(export_dir)
                 prefs.modpack_output_display_dir = str(Path(*export_dir.parts[-3:]))
-            case "GROUP":
+            case "GROUP" | "SIM":
                 mod_group.folder_path = str(export_dir)
             case "OPTION":
                 group_options[self.option].folder_path = str(export_dir)

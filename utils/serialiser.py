@@ -38,8 +38,8 @@ class BinaryReader:
     def read_float(self) -> float:
         return self.read_struct('<f')
     
-    def read_vector(self, length: int) -> tuple[float, ...]:
-        return self.read_struct(f'<{"f" * length}')
+    def read_vector(self, length: int, format_str: str ='f') -> tuple[float, ...]:
+        return self.read_struct(f'<{format_str * length}')
     
     def read_bytes(self, count: int) -> bytes:
         if self.pos + count > self.length:
@@ -131,10 +131,8 @@ class RNAPropertyIO:
         if not hasattr(prop_group, "bl_rna") and not hasattr(prop_group.bl_rna, "properties"):
             return None
         
-        result = {}
-        
+        result     = {}
         properties = prop_group.bl_rna.properties
-        
         for prop_name in properties.keys():
             if prop_name == "rna_type":
                 continue
@@ -214,7 +212,7 @@ class RNAPropertyIO:
             if pointer_data is None:
                 return None
             
-            # We only extract the pointer if its an PropertyGroup we can handle
+            # We only extract the pointer if it's a PropertyGroup we can handle
             if isinstance(pointer_data, PropertyGroup):
                 return self.extract_property_group(pointer_data)
             

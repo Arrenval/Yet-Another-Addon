@@ -6,11 +6,24 @@ from typing              import Any
 from bpy.types           import Operator, Context
 from bpy.props           import StringProperty, EnumProperty, BoolProperty, IntProperty
 from ...ui.draw          import aligned_row, get_conditional_icon
-from ...properties       import BlendModOption, BlendModGroup, get_file_properties, get_window_properties
+from ...properties       import BlendModOption, BlendModGroup, get_window_properties
 from ...preferences      import get_prefs
 from ...utils.typings    import Preset
 from ...utils.serialiser import RNAPropertyIO
 
+
+class RefreshFolder(Operator):
+    bl_idname = "ya.refresh_folder"
+    bl_label = ""
+    bl_description = "Refreshes the folder preview"
+    bl_options = {"UNDO"}
+
+    group : IntProperty(default=0, options={"SKIP_SAVE"}) # type: ignore
+
+    def execute(self, context:Context):
+        self.group: int
+        get_window_properties().pmp_mod_groups[self.group].get_files(context)
+        return {'FINISHED'}
 
 class ModpackManager(Operator):
     bl_idname = "ya.modpack_manager"
@@ -62,13 +75,13 @@ class ModpackManager(Operator):
         else:
             return f"Hold CTRL to remove {properties.category.capitalize()}"
         
-    def invoke(self, context:Context, event):
+    def invoke(self, context: Context, event):
         if not event.ctrl and self.delete:
             return {'FINISHED'}
                 
         self.prefs = get_prefs()
         self.props = get_window_properties()
-        self.mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
+        self.mod_groups = self.props.pmp_mod_groups
 
         if self.category in ("ENTRY", "COMBI_ENTRY"):
             if event.shift and event.alt:
@@ -95,10 +108,10 @@ class ModpackManager(Operator):
         col = self.layout.column(align=True)
         col.prop(self, "user_input", expand=True, text="type")
 
-    def execute(self, context:Context):
+    def execute(self, context: Context):
         self.prefs = get_prefs()
         self.props = get_window_properties()
-        self.mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
+        self.mod_groups = self.props.pmp_mod_groups
 
         if self.category == "ENTRY":
             self.category = self.user_input
@@ -143,6 +156,12 @@ class ModpackManager(Operator):
                     new_correction.group_idx = self.group
                 else:
                     manager.remove(mod_group.corrections, self.option)
+
+            case "PHYB":
+                if not self.delete:
+                    mod_group.base_phybs.add()
+                else:
+                    manager.remove(mod_group.base_phybs, self.option)
 
             case "FILE_ENTRY" | "FILE_COMBI":
                 
@@ -322,6 +341,8 @@ class ModpackPresets(Operator):
 
 
 CLASSES = [
+    RefreshFolder,
     ModpackManager,
-    ModpackPresets
+    ModpackPresets,
+
 ]

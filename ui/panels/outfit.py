@@ -309,7 +309,7 @@ class OutfitStudio(Panel):
                 row = col.row(align=True)
                 icon = get_conditional_icon(self.window_props.seam_waist)
                 row.prop(self.window_props, "seam_waist", text="Waist", icon=icon)
-                icon = get_conditional_icon(self.window_props.seam_waist)
+                icon = get_conditional_icon(self.window_props.seam_wrist)
                 row.prop(self.window_props, "seam_wrist", text="Wrist", icon=icon)
                 icon = get_conditional_icon(self.window_props.seam_ankle)
                 row.prop(self.window_props, "seam_ankle", text="Ankle", icon=icon)

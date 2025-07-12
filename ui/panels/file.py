@@ -52,7 +52,7 @@ class FileManager(Panel):
         if button == "MODPACK":
             self.draw_modpack(layout)
 
-    def draw_export(self, context:Context, layout:UILayout):
+    def draw_export(self, context:Context, layout: UILayout):
         row = layout.row(align=True)
         row.prop(self.prefs, "export_display_dir", text="")
         row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
@@ -286,7 +286,7 @@ class FileManager(Panel):
             text = "Remove" if self.window_props.create_subfolder else "Keep"
             aligned_row(col, "Subfolder:", "create_subfolder", self.window_props, prop_str=text, attr_icon=icon)
 
-    def draw_import(self, layout:UILayout):
+    def draw_import(self, layout: UILayout):
         layout = self.layout
         row = layout.row(align=True)
 
@@ -340,11 +340,8 @@ class FileManager(Panel):
 
         aligned_row(col, "Armature:", "import_armature", self.file_props)
 
-    def draw_modpack(self, layout:UILayout):
-        self.checked_folders: dict[Path, list[Path] | False] = {}
-        option_indent: float  = 0.08
-
-        self.get_file_stats()
+    def draw_modpack(self, layout: UILayout):
+        option_indent = 0.08
 
         row = aligned_row(layout, "Output:", "modpack_output_display_dir", self.prefs)
         row.operator("ya.modpack_dir_selector", icon="FILE_FOLDER", text="").category = "OUTPUT_PMP" 
@@ -397,14 +394,14 @@ class FileManager(Panel):
 
             self.group_header(box, group, group_idx)
 
-            if not button:
-                continue
-
             box.separator(factor=0.5,type="LINE")
 
             self.group_container(box, group, group_idx)
 
-            if group.use_folder and group.group_type != "Combining":
+            if not button:
+                continue
+
+            if (group.use_folder and group.group_type != "Combining") or group.group_type == "Phyb":
                 box.separator(factor=0.1,type="SPACE")
     
                 row = layout.row(align=True)
@@ -412,7 +409,11 @@ class FileManager(Panel):
 
                 columns = [split.column() for _ in range(1, 3)]
                 box = columns[1].box()
-                self.folder_container(box, group, group_idx, 0)
+
+                if group.group_type == "Phyb":
+                    self.phyb_group(box, group, group_idx, columns[1])
+                else:
+                    self.folder_container(box, group, group_idx, 0)
 
                 layout.separator(factor=0.1,type="SPACE")
                 continue
@@ -461,7 +462,7 @@ class FileManager(Panel):
 
                     self.entry_container(columns[1], correction, group_idx, correction_idx)
 
-    def status_info(self, layout:UILayout):
+    def status_info(self, layout: UILayout):
         if self.window_props.modpack_replace and Path(self.window_props.modpack_dir).is_file():
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
@@ -482,7 +483,7 @@ class FileManager(Panel):
 
         layout.separator(factor=0.1,type="SPACE")
 
-    def group_header(self, layout:UILayout, group:BlendModGroup, group_idx:int):
+    def group_header(self, layout: UILayout, group:BlendModGroup, group_idx:int):
         button = group.show_group
 
         row = layout.row(align=True)
@@ -519,10 +520,10 @@ class FileManager(Panel):
         row = columns[2].row(align=True)
         row.alignment = "RIGHT"
         row.label(icon="BLANK1")
-
+        
         row.prop(group, "use_folder", text="", icon="NEWFOLDER", emboss=True)
         
-        if group.use_folder and group.group_type != "Combining":
+        if group.use_folder or group.group_type == "Phyb":
             row.label(icon="ADD", text="")
         else:
             op_atr = {
@@ -541,7 +542,7 @@ class FileManager(Panel):
         
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
-    def group_container(self, layout:UILayout, group:BlendModGroup, idx:int):
+    def group_container(self, layout: UILayout, group:BlendModGroup, idx:int):
             enum_width = 0.6
             text = "Create:" if group.idx == "New" else "Replace:"
             row = aligned_row(layout, text, "idx", group)
@@ -559,7 +560,7 @@ class FileManager(Panel):
             if not group.use_folder:
                 layout.separator(factor=0.1, type="SPACE")
 
-    def option_header(self, layout:UILayout, group:BlendModGroup, option:BlendModOption, group_idx:int, option_idx:int):
+    def option_header(self, layout: UILayout, group:BlendModGroup, option:BlendModOption, group_idx:int, option_idx:int):
         row = layout.box().row(align=True)
         columns = [row.column() for _ in range(1, 4)]
 
@@ -601,7 +602,7 @@ class FileManager(Panel):
             
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
     
-    def correction_header(self, layout:UILayout, group:BlendModGroup, option:CorrectionEntry, group_idx:int, option_idx:int):
+    def correction_header(self, layout: UILayout, group:BlendModGroup, option:CorrectionEntry, group_idx:int, option_idx:int):
         row = layout.box().row(align=True)
         columns = [row.column() for _ in range(1, 4)]
 
@@ -637,12 +638,7 @@ class FileManager(Panel):
             
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
-    def folder_container(self, layout:UILayout, container:BlendModGroup, group_idx:int, option_idx:int):
-        row = layout.row(align=True)
-        row.alignment = 'RIGHT'
-        row.prop(container, "ya_sort", text="", icon='SORTSIZE')
-        layout.separator(factor=0.5,type="LINE")
-
+    def folder_container(self, layout: UILayout, container:BlendModGroup, group_idx:int, option_idx:int):
         path = str(Path(*Path(container.folder_path).parts[-3:])) if Path(container.folder_path).is_dir else container.folder_path
         row = aligned_row(layout, "Folder:", path)
 
@@ -657,54 +653,148 @@ class FileManager(Panel):
             row = aligned_row(layout, "Subfolder:", "subfolder", prop=container, factor=0.5)
             row.label(icon="FOLDER_REDIRECT")
 
-        if container.use_folder:
-            row = aligned_row(layout, "XIV Path:", "game_path", container)
-            icon = "CHECKMARK" if container.valid_path else "X"
-            row.label(icon=icon)
-            self.xiv_path_category(layout, container, "GROUP", group_idx, option_idx)
-            folder = container.final_folder()
-        
-            if self.checked_folders[folder]:
+        row = aligned_row(layout, "XIV Path:", "game_path", container)
+        icon = "CHECKMARK" if container.valid_path else "X"
+        row.label(icon=icon)
+        self.xiv_path_category(layout, container, "GROUP", group_idx, option_idx)
+
+        if not container.group_files:
+            layout.separator(factor=2,type="LINE")
+
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="No supported game files in folder.", icon="INFO")
+            
+        else:
+            layout.separator(factor=2,type="LINE")
+
+            row = layout.row(align=True)
+            button = container.show_folder
+            icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+            row = layout.row(align=True)
+            row.prop(container, "show_folder", text="", icon=icon, emboss=False)
+            row.label(text="Options Preview")
+
+            button_row = row.row(align=True)
+            button_row.prop(container, "ya_sort", text="", icon='SORTSIZE')
+            button_row.operator("ya.refresh_folder", text="", icon='FILE_REFRESH')
+
+            if button:
+                split_factor = 0.8
                 layout.separator(factor=2,type="LINE")
-
-                button = container.show_folder
-                icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+                
                 row = layout.row(align=True)
-                row.alignment = "LEFT"
-                row.prop(container, "show_folder", text="Option Preview", icon=icon, emboss=False)
+                row.label(icon="BLANK1")
+                split = row.split(factor=split_factor)
+                split.label(text="Name:")
+                split.label(text="Type:")
 
-                if button:
-                    split_factor = 0.8
-                    layout.separator(factor=2,type="LINE")
-                    
+                for file in container.group_files:
+                    file = Path(file.path)
                     row = layout.row(align=True)
                     row.label(icon="BLANK1")
                     split = row.split(factor=split_factor)
-                    split.label(text="Name:")
-                    split.label(text="Type:")
-
-                    for file in self.checked_folders[folder]:
-                        if file.suffix not in self.file_props.GAME_SUFFIX:
-                            continue
-                        row = layout.row(align=True)
-                        row.label(icon="BLANK1")
-                        split = row.split(factor=split_factor)
-                        split.label(text=file.stem)
-                        split.label(text=file.suffix)
-            else:
-                layout.separator(factor=2,type="LINE")
-
-                row = layout.row(align=True)
-                row.alignment = "CENTER"
-                row.label(text="No supported game files in folder.", icon="INFO")
+                    split.label(text=file.stem)
+                    split.label(text=file.suffix)
         
         layout.separator(factor=0.1,type="SPACE")
 
-    def entry_container(self, layout:UILayout, container:BlendModOption | CorrectionEntry, group_idx:int, option_idx:int):
-         
+    def phyb_group(self, layout: UILayout, container: BlendModGroup, group_idx: int, column: UILayout):
+        row = layout.row(align=True)
+        op  = row.operator("ya.modpack_manager", icon="ADD", text="Add Base Phyb")
+        op.category = "PHYB"
+        op.group    = group_idx
+
+        op_atr = {
+            "category": "PHYB",
+            "group": group_idx,
+            }
+
+        operator_button(row, "ya.modpack_dir_selector", icon="FILE_FOLDER", attributes=op_atr)
+        
+        if not container.base_phybs:
+            return
+
+        phyb_col = layout.column(align=True)
+        for phyb_idx, phyb in enumerate(container.base_phybs):
+
+            phyb_col.separator(factor=1.5,type="LINE")
+
+            row = aligned_row(phyb_col, "Phyb:", Path(phyb.file_path).stem)
+            op_atr = {
+                "category": "PHYB",
+                "group":  group_idx,
+                "option": phyb_idx,
+                }
+
+            operator_button(row, "ya.modpack_file_selector", icon="FILE_FOLDER", attributes=op_atr)
+
+            row = aligned_row(phyb_col, "XIV Path:", "game_path", phyb)
+            icon = "CHECKMARK" if phyb.valid_path else "X"
+            row.label(icon=icon)
+
+        column.separator(factor=0.2)
+
+        sim_box = column.box()
+        sim_box.separator(factor=0.1,type="SPACE")
+
+        row = aligned_row(sim_box, "Base Sim:", Path(container.sim_append).stem)
+        op_atr = {
+                "category": "SIM",
+                "group":  group_idx,
+                }
+
+        operator_button(row, "ya.modpack_file_selector", icon="FILE_FOLDER", attributes=op_atr)
+
+        sim_box.separator(factor=1.5,type="LINE")
+
+        path = str(Path(*Path(container.folder_path).parts[-3:])) if Path(container.folder_path).is_dir else container.folder_path
+        row = aligned_row(sim_box, "Sim Folder:", path)
+
+        op_atr = {
+            "category": "SIM",
+            "group": group_idx,
+            }
+
+        operator_button(row, "ya.modpack_dir_selector", icon="FILE_FOLDER", attributes=op_atr)
+
+        if not container.group_files:
+            sim_box.separator(factor=2,type="LINE")
+
+            row = sim_box.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="No phybs in folder.", icon="INFO")
+            
+        else:
+            sim_box.separator(factor=2,type="LINE")
+
+            button = container.show_folder
+            icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
+            row = sim_box.row(align=True)
+            row.prop(container, "show_folder", text="", icon=icon, emboss=False)
+            row.label(text="Simulators")
+
+            subrow = row.row(align=True)
+            subrow.operator("ya.refresh_folder", text="", icon='FILE_REFRESH')
+
+            if button:
+                sim_box.separator(factor=2,type="LINE")
+                for file in container.group_files:
+                    row = sim_box.row(align=True)
+                    row.label(icon='BLANK1')
+                    split = row.split(factor=0.25, align=True)
+                    split.prop(file, 'category', text="")
+
+                    details = split.row(align=True)
+                    details.label(text=Path(file.path).stem)
+
+        sim_box.separator(factor=0.1,type="SPACE")
+        
+    def entry_container(self, layout: UILayout, container:BlendModOption | CorrectionEntry, group_idx:int, option_idx:int):
+        file_col = layout.column(align=True)
         for file_idx, file in enumerate(container.file_entries):
             category = "FILE_ENTRY" if isinstance(container, BlendModOption) else "FILE_COMBI"
-            row = aligned_row(layout, "File:", Path(file.file_path).name)
+            row = aligned_row(file_col, "File:", Path(file.file_path).name)
 
             op_atr = {
                 "category": category,
@@ -715,12 +805,12 @@ class FileManager(Panel):
     
             operator_button(row, "ya.modpack_file_selector", icon="FILE_FOLDER", attributes=op_atr)
             
-            row = aligned_row(layout, "XIV Path:", "game_path", file)
+            row = aligned_row(file_col, "XIV Path:", "game_path", file)
             icon = "CHECKMARK" if file.valid_path else "X"
             row.label(icon=icon)
-            self.xiv_path_category(layout, file, category, group_idx, option_idx, file_idx)
+            self.xiv_path_category(file_col, file, category, group_idx, option_idx, file_idx)
 
-            layout.separator(factor=1.5,type="LINE")
+            file_col.separator(factor=1.5,type="LINE")
 
         for entry_idx, entry in enumerate(container.meta_entries):
 
@@ -781,12 +871,6 @@ class FileManager(Panel):
 
             layout.separator(factor=1.5,type="LINE")
     
-    def get_file_stats(self):
-        folders = [(group.final_folder(), group) for group in self.window_props.pmp_mod_groups if group.use_folder]
-        for folder, group in folders:
-            if folder not in self.checked_folders:
-                self.checked_folders[folder] = group.get_folder_content()
-
     def dynamic_column_buttons(self, columns, box:UILayout, labels, category, button_type):
         if category == "Chest":
             yab = self.devkit_win.export_yab_chest_bool
@@ -827,7 +911,7 @@ class FileManager(Panel):
                 columns_list[col_index].label(text=name, icon="PANEL_CLOSE")
         return box  
 
-    def dropdown_header(self, layout:UILayout, button, section_prop, prop_str=str, label=str, alignment="LEFT", extra_icon=""):
+    def dropdown_header(self, layout: UILayout, button, section_prop, prop_str=str, label=str, alignment="LEFT", extra_icon=""):
         row = layout.row(align=True)
         split = row.split(factor=1)
         box = split.box()
@@ -845,14 +929,14 @@ class FileManager(Panel):
         
         return box
 
-    def operator_button(layout:UILayout, operator:str, icon:str, text:str="", attributes:dict={}):
+    def operator_button(layout: UILayout, operator:str, icon:str, text:str="", attributes:dict={}):
         """Operator as a simple button."""
 
         op = layout.operator(operator, icon=icon, text=text)
         for attribute, value in attributes.items():
             setattr(op, attribute, value)
     
-    def xiv_path_category(self, layout:UILayout, container:BlendModOption | ModFileEntry, category:str, group_idx:int, option_idx:int=0, entry_idx:int=0, factor:float=0.25):
+    def xiv_path_category(self, layout: UILayout, container:BlendModOption | ModFileEntry, category:str, group_idx:int, option_idx:int=0, entry_idx:int=0, factor:float=0.25):
         if container.valid_path and container.game_path.endswith(".mdl"):
             body_slots = {
                 "Chest": "top",

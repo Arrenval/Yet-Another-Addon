@@ -12,7 +12,7 @@ from datetime              import datetime
 from bpy.types             import Operator, Context, UILayout
 from bpy.props             import StringProperty, IntProperty
 
-from ...properties         import get_window_properties, modpack_data, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
+from ...properties         import get_window_properties, modpack_data, yet_another_sort, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
 from ...preferences        import get_prefs
 from ...formats.pmp        import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
 from ...utils.ya_exception import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError
@@ -330,11 +330,11 @@ class ModPackager(Operator):
         file_format         = Path(game_path).suffix
         corrected_game_path = game_path.replace("/", "\\")
         
-        file_folder = Path(self.blend_group.folder_path) if self.blend_group.subfolder == "None" else Path(self.blend_group.folder_path) / Path(self.blend_group.subfolder)
+        file_folder = self.blend_group.final_folder()
         files = [file for file in file_folder.glob(f"*{file_format}") if file.is_file()]
 
         if file_format == ".mdl" and self.blend_group.ya_sort:
-            files = self.yet_another_sort(files)
+            files = yet_another_sort(files)
 
         option_idx = 0
         if self.blend_group.group_type == "Single":
@@ -394,67 +394,6 @@ class ModPackager(Operator):
                     raise ModpackFileError(f'Group "{self.blend_group.name}": {file.name} type does not match in-game file. Expected an {game_path.suffix}.')
                 if not container.valid_path:
                     raise ModpackGamePathError(f'Group "{self.blend_group.name}": XIV path is not valid.')
-
-    def yet_another_sort(self, items:list[Path]) -> list[Path]:
-        '''It's stupid but it works.'''
-        ranking: dict[Path, int] = {}
-        final_sort: list[Path] = []
-        
-        for item in items:
-            ranking[item] = 0
-            if "Small" in item.stem:
-                ranking[item] += 2
-            if "Cupcake" in item.stem:
-                ranking[item] += 2
-            if "Medium" in item.stem:
-                ranking[item] += 3
-            if "Teardrop" in item.stem:
-                ranking[item] += 3
-            if "Sayonara" in item.stem:
-                ranking[item] += 4
-            if "Tsukareta" in item.stem:
-                ranking[item] += 5
-            if "Tsukareta+" in item.stem:
-                ranking[item] += 1
-            if "Mini" in item.stem:
-                ranking[item] += 8
-            if "Large" in item.stem:
-                ranking[item] += 9
-            if "Omoi" in item.stem:
-                ranking[item] += 10
-            if "Sugoi" in item.stem:
-                ranking[item] += 1
-            if "Uranus" in item.stem:
-                ranking[item] += 12
-            if "Skull" in item.stem:
-                ranking[item] += 1
-            if "Yanilla" in item.stem:
-                ranking[item] += 2
-            if "Lava" in item.stem:
-                ranking[item] += 3
-            if "Buff" in item.stem:
-                ranking[item] += 20
-            if "Rue" in item.stem:
-                ranking[item] += 42
-            if "Lava" in item.stem:
-                ranking[item] += 420
-            if "Masc" in item.stem:
-                ranking[item] += 1337
-            if "Yiggle" in item.stem:
-                ranking[item] += 69*420
-            if "Long" in item.stem:
-                ranking[item] += 1
-            if "Ballerina" in item.stem:
-                ranking[item] += 2
-            if "Stabbies" in item.stem:
-                ranking[item] += 3
-
-        sorted_rank = sorted(ranking.items(), key=lambda x: x[1])
-        
-        for tuples in sorted_rank:
-            final_sort.append(tuples[0])
-
-        return final_sort
 
     def rolling_backup(self) -> None:
         folder_bak = self.output_dir / "BACKUP"

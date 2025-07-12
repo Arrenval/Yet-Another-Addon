@@ -44,12 +44,73 @@ def modpack_data() -> None:
         except:
             blend_group.idx = "New"
 
+def yet_another_sort(files:list[Path]) -> list[Path]:
+    '''It's stupid but it works.'''
+    ranking   : dict[Path, int] = {}
+    final_sort: list[Path]      = []
+    
+    for file in files:
+        ranking[file] = 0
+        if "Small" in file.stem:
+            ranking[file] += 2
+        if "Cupcake" in file.stem:
+            ranking[file] += 2
+        if "Medium" in file.stem:
+            ranking[file] += 3
+        if "Teardrop" in file.stem:
+            ranking[file] += 3
+        if "Sayonara" in file.stem:
+            ranking[file] += 4
+        if "Tsukareta" in file.stem:
+            ranking[file] += 5
+        if "Tsukareta+" in file.stem:
+            ranking[file] += 1
+        if "Mini" in file.stem:
+            ranking[file] += 8
+        if "Large" in file.stem:
+            ranking[file] += 9
+        if "Omoi" in file.stem:
+            ranking[file] += 10
+        if "Sugoi" in file.stem:
+            ranking[file] += 1
+        if "Uranus" in file.stem:
+            ranking[file] += 12
+        if "Skull" in file.stem:
+            ranking[file] += 1
+        if "Yanilla" in file.stem:
+            ranking[file] += 2
+        if "Lava" in file.stem:
+            ranking[file] += 3
+        if "Buff" in file.stem:
+            ranking[file] += 20
+        if "Rue" in file.stem:
+            ranking[file] += 42
+        if "Lava" in file.stem:
+            ranking[file] += 420
+        if "Masc" in file.stem:
+            ranking[file] += 1337
+        if "Yiggle" in file.stem:
+            ranking[file] += 69*420
+        if "Long" in file.stem:
+            ranking[file] += 1
+        if "Ballerina" in file.stem:
+            ranking[file] += 2
+        if "Stabbies" in file.stem:
+            ranking[file] += 3
+
+    sorted_rank = sorted(ranking.items(), key=lambda x: x[1])
+    
+    for tuples in sorted_rank:
+        final_sort.append(tuples[0])
+
+    return final_sort
+
+
 class ModpackHelper(PropertyGroup):
 
-    def check_valid_path(self,):
-        props           = get_file_properties()
-        path:str        = self.game_path
-        self.valid_path = path.startswith("chara") and path.endswith(tuple(props.GAME_SUFFIX))
+    def check_valid_path(self):
+        path: str       = self.game_path
+        self.valid_path = path.startswith("chara") and path.endswith(tuple(get_file_properties().GAME_SUFFIX))
 
     def get_subfolder(self) -> BlendEnum:
         group_folder = Path(self.folder_path)
@@ -65,36 +126,12 @@ class ModpackHelper(PropertyGroup):
         else:
             return [("None", "None", "")]
 
-    def final_folder(self) -> Path | Literal[False]:
-        if self.subfolder != "None":
-            folder = Path(self.folder_path) / Path(self.subfolder)
-        else:
-            folder = Path(self.folder_path)
-
-        if str(folder).strip() != "" and folder.is_dir():
-            return folder
-        else:
-            return False
-
-    def get_folder_content(self) -> list[Path] | Literal[False]:
-        if self.subfolder == "None":
-            folder = Path(self.folder_path)
-        else:
-            folder = Path(self.folder_path) / Path(self.subfolder)
-
-        files = [file for file in folder.glob("*") if file.is_file()]
-
-        if not any(file.suffix in get_file_properties().GAME_SUFFIX for file in files):
-            return False
-        else:
-            return files
-    
     def check_gamepath_category(self) -> None:
         if self.valid_path:
             category = self.game_path.split("_")[-1].split(".")[0]
             return category
         
-class ModMetaEntry(ModpackHelper):
+class ModMetaEntry(PropertyGroup):
     type          : StringProperty(default="", name="", description="Manipulation type") # type: ignore
     manip_ref     : StringProperty(default="", name="", description="Manipulation reference") # type: ignore
 
@@ -181,20 +218,8 @@ class ModFileEntry(ModpackHelper):
         valid_path: bool
 
 class CorrectionEntry(ModpackHelper):
-    group_idx   : IntProperty(default=0) # type: ignore
-    meta_entries: CollectionProperty(type=ModMetaEntry) # type: ignore
-    file_entries: CollectionProperty(type=ModFileEntry) # type: ignore
-    
-    names: EnumProperty(
-        name= "",
-         default=0,
-        description= "When these two groups are in the same combination, you can specify another entry to add",
-        items= lambda self, context: self.get_possible_corrections(context)
-        )  # type: ignore
-    
-    show_option     : BoolProperty(default=True, name="", description="Show the contents of the option") # type: ignore
-    
-    def get_possible_corrections(self, context:Context):
+
+    def get_possible_corrections(self, context: Context):
         props                = get_window_properties()
         group: BlendModGroup = props.pmp_mod_groups[self.group_idx]
         total_options        = [option.name for option in group.mod_options[:8]]
@@ -210,6 +235,19 @@ class CorrectionEntry(ModpackHelper):
             if 3 > len(combo) > 1 or "None" in combo
             ]
     
+    group_idx   : IntProperty(default=0) # type: ignore
+    meta_entries: CollectionProperty(type=ModMetaEntry) # type: ignore
+    file_entries: CollectionProperty(type=ModFileEntry) # type: ignore
+    
+    names: EnumProperty(
+        name= "",
+         default=0,
+        description= "When these two groups are in the same combination, you can specify another entry to add",
+        items=get_possible_corrections
+        )  # type: ignore
+    
+    show_option     : BoolProperty(default=True, name="", description="Show the contents of the option") # type: ignore
+    
     if TYPE_CHECKING:
         group_idx   : int
         file_entries: Iterable[ModFileEntry]
@@ -217,6 +255,51 @@ class CorrectionEntry(ModpackHelper):
         names       : str
         show_option : bool 
 
+class BasePhyb(ModpackHelper):
+
+    def check_valid_path(self, context):
+        path: str       = self.game_path
+        self.valid_path = path.startswith("chara") and path.endswith(".phyb")
+
+    file_path : StringProperty(
+                    default="Select a phyb...", 
+                    name="" , 
+                    description="File to be used as base"
+                    ) # type: ignore
+    
+    game_path : StringProperty(
+                    default="Paste path here...", 
+                    name="", 
+                    description="Path to the in-game file you want to replace", 
+                    update=check_valid_path
+                    ) # type: ignore
+    
+    valid_path: BoolProperty(default=False) # type: ignore
+    
+    if TYPE_CHECKING:
+        file_path : str
+        game_path : str
+        valid_path: bool
+
+class GroupFile(PropertyGroup):
+    path    : StringProperty(default="", name="", description="") # type: ignore
+    category:  EnumProperty(
+                    name="",
+                    description="Only simulators with unique categories will be added to the same base",
+                    default="ALL",
+                    items=[
+                        ('ALL', "All", "Will be combined with all categories"),
+                        ('BOOB', "Breasts", "Will be combined with all categories"),
+                        ('BUTT', "Butt", "Will be combined with all categories"),
+                        ('BELLY', "Belly", "Will be combined with all categories"),
+                        ('THIGHS', "Thighs", "Will be combined with all categories"),
+                    ]
+                ) # type: ignore
+    
+    if TYPE_CHECKING:
+        path    : str
+        category: str
+    
 class BlendModOption(ModpackHelper):
     name       : StringProperty(default="", name="",) # type: ignore
     description: StringProperty(default="", name="", description="Write something sillier") # type: ignore
@@ -236,56 +319,43 @@ class BlendModOption(ModpackHelper):
         show_option : bool
     
 class BlendModGroup(ModpackHelper):
-    idx             : EnumProperty(
-                        name= "",
-                        default=1,
-                        update=lambda self, context: self.set_group_values(),
-                        description= "Select an option to replace",
-                        items= lambda self, context: self.get_modpack_groups(context)
-                        )   # type: ignore   
-    page            : EnumProperty(
-                        name= "",
-                        default=0,
-                        description= "Select a page for your group",
-                        items= lambda self, context: self.get_groups_page(context)
-                        )   # type: ignore 
-    group_type      : EnumProperty(
-                        name= "",
-                        default="Single",
-                        description= "Single, Multi or Combining",
-                        update=lambda self, context: self.group_type_change(),
-                        items= [
-                            ("Single", "Single", "Exclusive options in a group"),
-                            ("Multi", "Multi ", "Multiple selectable options in a group"),
-                            ("Combining", "Combi ", "Combine multiple selectable groups")
-                        ]
-                        )   # type: ignore
+
+    def final_folder(self) -> Path | Literal[False]:
+        if self.subfolder != "None" and self.group_type in ("Single", "Multi"):
+            folder = Path(self.folder_path) / Path(self.subfolder)
+        else:
+            folder = Path(self.folder_path)
+
+        if str(folder).strip() != "" and folder.is_dir():
+            return folder
+        else:
+            return False
     
-    name            : StringProperty(default="New Group", name="", description="Name of the group", update=lambda self, context: self.set_name()) # type: ignore
-    description     : StringProperty(default="", name="", description="Write something silly") # type: ignore
-    game_path       : StringProperty(default="Paste path here...", name="", description="Path to the in-game file you want to replace", update=lambda self, context: self.check_valid_path()) # type: ignore
-    folder_path     : StringProperty(default="Select a folder...", name="" , description="Folder with files to pack", ) # type: ignore
-    priority        : IntProperty(default=0, name="Priority", description="Decides which group takes precedence in the modpack if files conflict. Higher number wins") # type: ignore
+    def get_files(self, context):
+        folder = Path(self.folder_path)
+        suffix = get_file_properties().GAME_SUFFIX if self.group_type != "Phyb" else ".phyb"
+        if self.group_type == "Phyb":
+            existing = {file.path: file.category for file in self.group_files}
+            files    = [file for file in folder.glob("*") if file.is_file() and file.suffix in suffix]
 
-    mod_options     : CollectionProperty(type=BlendModOption) # type: ignore
-    corrections     : CollectionProperty(type=CorrectionEntry) # type: ignore
+            self.group_files.clear()
+            for file in files[:8]:
+                file_path = str(file)
 
-    show_folder     : BoolProperty(default=False, name="", description="Show the contents of the target folder") # type: ignore
-    show_group      : BoolProperty(default=True, name="", description="Show the contents of the group") # type: ignore
+                new_file = self.group_files.add()
+                new_file.path = file_path
+                new_file.category  = existing[file_path] if file_path in existing else 'ALL'
+        else:
+            files = [file for file in folder.glob("*") if file.is_file() and file.suffix in suffix]
+            if self.ya_sort:
+                files = yet_another_sort(files)
 
-    use_folder      : BoolProperty(default=True, name="", description="Creates an option for each file in the folder", update=lambda self, context: self.use_folder_change()) # type: ignore
-    valid_path      : BoolProperty(default=False) # type: ignore
-    shared_game_path: BoolProperty(default=False) # type: ignore
-    name_set        : BoolProperty(default=False) # type: ignore
+            self.group_files.clear()
+            for file in files:
+                new_file = self.group_files.add()
+                new_file.path = str(file)
 
-    subfolder  : EnumProperty(
-        name= "",
-        default=0,
-        description= "Alternate folder for model files",
-        items= lambda self, context: self.get_subfolder()
-        )  # type: ignore
-
-    def set_group_values(self):
+    def _set_group_values(self, context):
         props   = get_file_properties()
         window  = get_window_properties()
         replace = window.modpack_replace
@@ -311,28 +381,7 @@ class BlendModGroup(ModpackHelper):
             self.property_unset("page")
             self.description = ""
 
-    def set_name(self):
-        props = get_file_properties()
-        self.name: str
-        scene_groups: list[LoadedModpackGroup] = props.loaded_pmp_groups
-
-        existing_names = [group.group_name.lower() for group in scene_groups]
-
-        if self.name.lower() in chain(("", "new group"), existing_names) or not self.name.strip():
-            self.name_set = False
-        else:
-            self.name_set = True
-
-    def get_groups_page(self, context:Context) -> BlendEnum:
-        props = get_file_properties()
-        pages = set([option.group_page for option in props.loaded_pmp_groups])
-
-        if len(pages) >= 1:
-            return [(str(page), f"Pg: {page:<3}", "") for page in pages]
-        else:
-            return [("0", f"Pg: 0", "")]
-        
-    def get_modpack_groups(self, context:Context) -> BlendEnum:
+    def _get_modpack_groups(self, context: Context) -> BlendEnum:
         props   = get_file_properties()
         modpack = props.loaded_pmp_groups
         groups  = [("", "New:", ""), ("New", "New Group", "")]
@@ -346,21 +395,109 @@ class BlendModGroup(ModpackHelper):
    
         return groups
 
-    def use_folder_change(self):
-        if self.use_folder == True:
-            self.group_type = "Single"
+    def _get_groups_page(self, context: Context) -> BlendEnum:
+        props = get_file_properties()
+        pages = set([option.group_page for option in props.loaded_pmp_groups])
 
-    def group_type_change(self):
-        if self.group_type == "Combining":
+        if len(pages) >= 1:
+            return [(str(page), f"Pg: {page:<3}", "") for page in pages]
+        else:
+            return [("0", f"Pg: 0", "")]
+    
+    def _group_type_change(self, context):
+        if self.group_type in ("Combining", "Phyb") and self.use_folder:
             self.use_folder = False
+        if self.use_folder or self.group_type == "Phyb":
+            self.get_files(context)
 
+    def _set_name(self, context):
+        props = get_file_properties()
+        self.name: str
+        scene_groups: list[LoadedModpackGroup] = props.loaded_pmp_groups
+
+        existing_names = [group.group_name.lower() for group in scene_groups]
+
+        if self.name.lower() in chain(("", "new group"), existing_names) or not self.name.strip():
+            self.name_set = False
+        else:
+            self.name_set = True
+
+    def _use_folder_change(self, context):
+        if self.use_folder and self.group_type in ("Combining", "Phyb"):
+            self.group_type = "Single"
+        if self.use_folder:
+            self.get_files(context)
+    
+    idx             : EnumProperty(
+                        name= "",
+                        default=1,
+                        update=_set_group_values,
+                        description= "Select an option to replace",
+                        items=_get_modpack_groups
+                        )   # type: ignore 
+      
+    page            : EnumProperty(
+                        name= "",
+                        default=0,
+                        description= "Select a page for your group",
+                        items=_get_groups_page
+                        )   # type: ignore 
+    
+    group_type      : EnumProperty(
+                        name= "",
+                        default="Single",
+                        description= "Single, Multi, Combining or Phyb",
+                        update=_group_type_change,
+                        items= [
+                            ("Single", "Single", "Exclusive options in a group"),
+                            ("Multi", "Multi ", "Multiple selectable options in a group"),
+                            ("Combining", "Combi ", "Combine multiple selectable groups"),
+                            ("Phyb", "Phyb ", "Specialised combining group for phyb combinations")
+                        ]
+                        )   # type: ignore
+    
+    name            : StringProperty(default="New Group", name="", description="Name of the group", update=_set_name) # type: ignore
+    description     : StringProperty(default="", name="", description="Write something silly") # type: ignore
+    game_path       : StringProperty(default="Paste path here...", name="", description="Path to the in-game file you want to replace", update=lambda self, context: self.check_valid_path()) # type: ignore
+    folder_path     : StringProperty(default="Select a folder...", name="" , description="Folder with files to pack/append", update=get_files) # type: ignore
+    priority        : IntProperty(default=0, name="Priority", description="Decides which group takes precedence in the modpack if files conflict. Higher number wins") # type: ignore
+
+    group_files     : CollectionProperty(type=GroupFile) # type: ignore
+    mod_options     : CollectionProperty(type=BlendModOption) # type: ignore
+    corrections     : CollectionProperty(type=CorrectionEntry) # type: ignore
+    base_phybs      : CollectionProperty(type=BasePhyb) # type: ignore
+    sim_append      : StringProperty(
+                            default="(Optional) Select a phyb...", 
+                            name="Optional" , 
+                            description="Simulator to append to all phybs"
+                        ) # type: ignore
+
+    show_folder     : BoolProperty(default=False, name="", description="Show the contents of the target folder", update=get_files) # type: ignore
+    show_group      : BoolProperty(default=True, name="", description="Show the contents of the group") # type: ignore
+
+    use_folder      : BoolProperty(default=True, name="", description="Creates an option for each file in the folder", update=_use_folder_change) # type: ignore
+    valid_path      : BoolProperty(default=False) # type: ignore
+    shared_game_path: BoolProperty(default=False) # type: ignore
+    name_set        : BoolProperty(default=False) # type: ignore
     ya_sort         : BoolProperty(
                             name="Yet Another Sort",
                             description="When enabled, the group sorts model sizes according to YAB's regular size sorting",
                             default=True,
-                            ) # type: ignore
+                            update=get_files
+                        ) # type: ignore
+
+    subfolder       : EnumProperty(
+                            name= "",
+                            default=0,
+                            description= "Alternate folder for model files",
+                            items= lambda self, context: self.get_subfolder()
+                        )  # type: ignore
+       
     def get_combinations(self):
-        if self.group_type == "Combining":
+        if self.group_type != "Combining":
+            return [[option.name] for option in self.mod_options]
+        
+        else:
             total_options = [option.name for option in self.mod_options[:8]]
             combinations = [[]]
         
@@ -368,10 +505,7 @@ class BlendModGroup(ModpackHelper):
                 combinations.extend([combo + [option] for combo in combinations])
 
             return combinations
-        else:
-            return [[option.name] for option in self.mod_options]
     
-
     if TYPE_CHECKING:
         idx             : str
         page            : str
@@ -383,6 +517,9 @@ class BlendModGroup(ModpackHelper):
         priority        : int
         mod_options     : Iterable[BlendModOption]
         corrections     : Iterable[CorrectionEntry]
+        base_phybs      : Iterable[BasePhyb]
+        group_files     : Iterable[GroupFile]
+        sim_append      : str
         show_folder     : bool
         show_group      : bool
         use_folder      : bool
@@ -407,6 +544,7 @@ class LoadedModpackGroup(PropertyGroup):
         group_priority   : int
 
 class YASUIList(PropertyGroup):
+
     def update_lock_weight(self, context:Context) -> None:
         obj = context.active_object
         if obj.type == "MESH":
@@ -415,7 +553,6 @@ class YASUIList(PropertyGroup):
                 group.lock_weight = self.lock_weight
 
     name       : StringProperty() # type: ignore
-
     lock_weight: BoolProperty(
         name="",
         default=False,
@@ -1391,6 +1528,8 @@ CLASSES = [
     ModMetaEntry,
     ModFileEntry,
     CorrectionEntry,
+    BasePhyb,
+    GroupFile,
     BlendModOption,
     BlendModGroup,
     LoadedModpackGroup,

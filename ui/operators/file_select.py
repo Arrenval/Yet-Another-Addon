@@ -158,10 +158,13 @@ class ModpackFileSelector(Operator):
 
         mod_group: BlendModGroup = props.pmp_mod_groups[self.group]
 
+        if self.category == "PHYB":
+            return self.manage_phybs(context, event, mod_group, self.option)
+        
         if self.category.endswith("COMBI"):
-            group_options:list[BlendModOption] = mod_group.corrections
+            group_options: list[BlendModOption] = mod_group.corrections
         else:
-            group_options:list[BlendModOption] = mod_group.mod_options
+            group_options: list[BlendModOption] = mod_group.mod_options
 
         
         self.container = group_options[self.option].file_entries[self.entry]
@@ -169,19 +172,36 @@ class ModpackFileSelector(Operator):
         self.filter_glob = "*.mdl;*.phyb;*.tex"
 
         if event.ctrl and event.type == "LEFTMOUSE":
-            bpy.ops.ya.modpack_manager(
-            'EXEC_DEFAULT',
-            delete=True,
-            category=self.category,
-            group=self.group,
-            option=self.option,
-            entry=self.entry)
+            self._remove_entry()
+            return {"FINISHED"}
 
         else:
             context.window_manager.fileselect_add(self,)
 
         return {"RUNNING_MODAL"}
     
+    def manage_phybs(self, context: Context, event, mod_group: BlendModGroup, option: int) -> set[str]:
+        self.container   = mod_group.base_phybs[option]
+        self.filter_glob = "*.phyb"
+
+        if event.ctrl and event.type == "LEFTMOUSE":
+            self._remove_entry()
+            return {"FINISHED"}
+        else:
+            context.window_manager.fileselect_add(self)
+
+        return {"RUNNING_MODAL"}
+    
+    def _remove_entry(self):
+        bpy.ops.ya.modpack_manager(
+                'EXEC_DEFAULT',
+                delete=True,
+                category=self.category,
+                group=self.group,
+                option=self.option,
+                entry=self.entry
+            )
+
     def execute(self, context):
         selected_file = Path(self.filepath) 
 
@@ -196,15 +216,22 @@ class ModpackFileSelector(Operator):
 class ModpackDirSelector(Operator):
     bl_idname = "ya.modpack_dir_selector"
     bl_label = "Select folder"
-    bl_description = """Options:
+    bl_description = ""
+
+    @classmethod
+    def description(cls, context, properties):
+        if properties.category == "PHYB":
+            return "Get base phybs from folder"
+        else:
+            return """Options:
     *SHIFT click to copy directory from file export.
     *CTRL click to remove folder. 
     *ALT click to open the folder"""
-    
+        
     directory: StringProperty(subtype="DIR_PATH") # type: ignore
 
     category: StringProperty(options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
-    group : IntProperty(default=0, options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
+    group   : IntProperty(default=0, options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
 
     filter_glob: bpy.props.StringProperty(
         options={'HIDDEN'}) # type: ignore
@@ -212,13 +239,13 @@ class ModpackDirSelector(Operator):
     def invoke(self, context: Context, event):
         self.group:int
         self.option:int
-        self.container:BlendModGroup | BlendModOption | ModFileEntry
+        self.container: BlendModGroup | BlendModOption | ModFileEntry
 
         self.prefs = get_prefs()
         self.props = get_window_properties()
         
         match self.category:
-            case "GROUP":
+            case "GROUP" | "SIM":
                 self.container = self.props.pmp_mod_groups[self.group]
                 self.folder    = self.container.folder_path
                 attribute      = "folder_path"
@@ -226,9 +253,10 @@ class ModpackDirSelector(Operator):
             case "OUTPUT_PMP":
                 self.folder    = self.prefs.modpack_output_dir
                 attribute      = "modpack_output_dir"
-
-        self.filter_glob = "DIR_PATH"
-
+            case "PHYB":
+                context.window_manager.fileselect_add(self)
+                return {"RUNNING_MODAL"}
+                
         if self.folder.strip() == "":
             context.window_manager.fileselect_add(self)
             return {"RUNNING_MODAL"}
@@ -256,19 +284,32 @@ class ModpackDirSelector(Operator):
         return {"RUNNING_MODAL"}
     
     def execute(self, context):
-        selected_file = Path(self.directory)  
+        selected_dir = Path(self.directory)  
 
-        if selected_file.is_dir():
+        if selected_dir.is_dir():
             if self.category == "OUTPUT_PMP":
-                self.prefs.modpack_output_display_dir = str(Path(*selected_file.parts[-3:]))
-                self.prefs.modpack_output_dir = str(selected_file)
+                self.prefs.modpack_output_display_dir = str(Path(*selected_dir.parts[-3:]))
+                self.prefs.modpack_output_dir = str(selected_dir)
+            elif self.category == "PHYB":
+                self.phybs_from_folder(selected_dir)
             else:
-                self.container.folder_path = str(selected_file)
-            self.report({"INFO"}, f"Directory selected: {selected_file}")
+                self.container.folder_path = str(selected_dir)
+            self.report({"INFO"}, f"Directory selected: {selected_dir}")
         else:
-            self.report({"ERROR"}, "Not a valid path!")
+            self.report({"ERROR"}, "Not a valid directory!")
         
         return {'FINISHED'}
+    
+    def phybs_from_folder(self, folder: Path) -> None:
+        group: BlendModGroup = get_window_properties().pmp_mod_groups[self.group]
+        files = [file for file in folder.glob("*") if file.is_file() and file.suffix in ".phyb"]
+        
+        group.base_phybs.clear()
+        for file in files:
+            new_phyb = group.base_phybs.add()
+            new_phyb.file_path = str(file)
+
+
 
 
 CLASSES = [
