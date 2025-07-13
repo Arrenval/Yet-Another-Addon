@@ -1,7 +1,9 @@
 import os
+import re
 import bpy
 import platform
 
+from enum            import Enum
 from typing          import TYPE_CHECKING, Literal
 from pathlib         import Path
 from itertools       import chain
@@ -12,6 +14,26 @@ from collections.abc import Iterable
 from .utils.typings  import BlendEnum, DevkitProps, DevkitWindowProps
 from .formats.pmp    import Modpack
 
+
+class RacialCodes(Enum):
+    Middie_M = '0101'
+    Middie_F = '0201'
+    High_M   = '0301'
+    High_F   = '0401'
+    Elezen_M = '0501'
+    Elezen_F = '0601'
+    Miqo_M   = '0701'
+    Miqo_F   = '0801'
+    Roe_M    = '0901'
+    Roe_F    = '1001'
+    Lala_M   = '1101'
+    Lala_F   = '1201'
+    Aura_M   = '1301'
+    Aura_F   = '1401'
+    Hroth_M  = '1501'
+    Hroth_F  = '1601'
+    Viera_M  = '1701'
+    Viera_F  = '1801'
 
 def modpack_data() -> None:
     window = get_window_properties()
@@ -105,6 +127,17 @@ def yet_another_sort(files:list[Path]) -> list[Path]:
 
     return final_sort
 
+def get_racial_enum(optional=True) -> BlendEnum:
+    items = [('', "Unspecified:", ""), ('0', "None", ""), ('', "MALE:", "")] if optional else [('', "MALE:", "")]
+    items.extend([(race.value , race.name.replace("_", " "), "") for race in RacialCodes if race.name.endswith('_M')])
+    items.append(('', "FEMALE:", ""))
+    items.extend([(race.value , race.name.replace("_", " "), "") for race in RacialCodes if race.name.endswith('_F')])
+    return items
+
+def get_racial_name(race_code: str) -> str:
+    code_to_name = {race.value: race.name.replace("_", " ") for race in RacialCodes}
+    return code_to_name[race_code]
+
 
 class ModpackHelper(PropertyGroup):
 
@@ -160,28 +193,9 @@ class ModMetaEntry(PropertyGroup):
             ) # type: ignore
     race_condition     : EnumProperty(
         name= "",
-         default="0",
+        default=1,
         description= "Select a gender/race condition",
-        items= [
-            ("0", "None", ""),
-            ("101", "101", ""),
-            ("201", "201", ""),
-            ("301", "301", ""),
-            ("401", "401", ""),
-            ("501", "501", ""),
-            ("601", "601", ""),
-            ("701", "701", ""),
-            ("801", "801", ""),
-            ("901", "901", ""),
-            ("1001", "1001", ""),
-            ("1101", "1101", ""),
-            ("1201", "1201", ""),
-            ("1301", "1301", ""),
-            ("1401", "1401", ""),
-            ("1501", "1501", ""),
-            ("1601", "1601", ""),
-            ("1701", "1701", ""),
-            ("1801", "1801", ""),]
+        items=lambda self, context: get_racial_enum()
             ) # type: ignore
     connector_condition: EnumProperty(
         name= "",
@@ -261,19 +275,64 @@ class BasePhyb(ModpackHelper):
         path: str       = self.game_path
         self.valid_path = path.startswith("chara") and path.endswith(".phyb")
 
-    file_path : StringProperty(
+        file_name = Path(self.game_path).stem
+        if not file_name.startswith("phy_") or not self.valid_path:
+            self.race = '0'
+            return
+        
+        try:
+            race_code = file_name[5:9]
+            category  = file_name[9]
+        except:
+            self.race = '0'
+            return
+        
+        if category in ('h', 'b'):
+            self.race = race_code
+        else:
+            self.race = '0'
+
+    def _assign_phyb_path(self, context):
+        file_name = Path(self.file_path).stem
+        if not file_name.startswith("phy_"):
+            return
+        try:
+            item_type = file_name[4]
+            race_code = file_name[5:9]
+            category  = file_name[9]
+            slot      = file_name[10:14]
+        except:
+            return
+        
+        category_str   = {'h': "hair", 'b': "base", 'w': "weapon"}
+        self.game_path = f"chara/human/{item_type}{race_code}/skeleton/{category_str[category]}/{category}{slot}/phy_{item_type}{race_code}{category}{slot}.phyb"
+
+        if category in ('h', 'b'):
+            self.race = race_code
+        else:
+            self.race = '0'
+
+    file_path: StringProperty(
                     default="Select a phyb...", 
                     name="" , 
-                    description="File to be used as base"
+                    description="File to be used as base",
+                    update=_assign_phyb_path
                     ) # type: ignore
     
-    game_path : StringProperty(
+    game_path: StringProperty(
                     default="Paste path here...", 
                     name="", 
                     description="Path to the in-game file you want to replace", 
                     update=check_valid_path
                     ) # type: ignore
     
+    race: EnumProperty(
+        name= "",
+        default=1,
+        description= "",
+        items=lambda self, context: get_racial_enum()
+            ) # type: ignore
+
     valid_path: BoolProperty(default=False) # type: ignore
 
     if TYPE_CHECKING:
@@ -493,18 +552,27 @@ class BlendModGroup(ModpackHelper):
                             items= lambda self, context: self.get_subfolder()
                         )  # type: ignore
        
-    def get_combinations(self):
-        if self.group_type != "Combining":
-            return [[option.name] for option in self.mod_options]
-        
-        else:
-            total_options = [option.name for option in self.mod_options[:8]]
+    def get_combinations(self) -> list[list[str]]:
+
+        def calc_combinations(total_options: list) -> list[list]:
             combinations = [[]]
         
             for option in total_options:
                 combinations.extend([combo + [option] for combo in combinations])
-
+            
             return combinations
+        
+        if self.group_type == "Combining":
+            total_options = [option.name for option in self.mod_options[:8]]
+            return calc_combinations(total_options)
+            
+        elif self.group_type == "Phyb":
+            total_options = [Path(phyb.path).stem for phyb in self.group_files[:8]]
+            return calc_combinations(total_options)
+        
+        else:
+            return [[option.name] for option in self.mod_options]
+            
     
     if TYPE_CHECKING:
         idx             : str

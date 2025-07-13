@@ -14,6 +14,10 @@ class ModpackFileError(ModpackError):
     """Either the file does not exist or is not a supported file format"""
     pass
 
+class ModpackPhybCollisionError(ModpackError):
+    """New simulator uses collision object not defined in base phybs"""
+    pass
+
 class ModpackGamePathError(ModpackError):
     """XIV game path is not valid"""
     pass

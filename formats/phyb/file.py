@@ -1,4 +1,5 @@
 import io
+import copy
 import struct
 import itertools
 
@@ -193,3 +194,7 @@ class PhybFile:
     def to_file(self, file_path: str) -> None:
         with open(file_path, 'wb') as phyb:
             phyb.write(self.to_bytes())
+    
+    def copy(self) -> 'PhybFile':
+        return copy.deepcopy(self)
+

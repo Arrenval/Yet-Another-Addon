@@ -1,21 +1,21 @@
 import bpy
 import copy
-import json
 import shutil
 import tempfile
 import subprocess
 
 from pathlib               import Path
+from datetime              import datetime
 from itertools             import chain
 from functools             import partial, singledispatchmethod
-from datetime              import datetime
 from bpy.types             import Operator, Context, UILayout
 from bpy.props             import StringProperty, IntProperty
 
 from ...properties         import get_window_properties, modpack_data, yet_another_sort, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
 from ...preferences        import get_prefs
 from ...formats.pmp        import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
-from ...utils.ya_exception import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError
+from ...formats.phyb.file  import PhybFile
+from ...utils.ya_exception import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError, ModpackPhybCollisionError
     
 
 class ModelConverter(Operator):
@@ -102,15 +102,12 @@ class ModPackager(Operator):
         self.props = get_window_properties()
         self.prefs = get_prefs()
 
-        time  = datetime.now().strftime("%H%M%S")
-        
         self.pmp_source       = Path(self.props.modpack_dir)
         self.pmp_name  : str  = self.props.modpack_display_dir
         self.author    : str  = self.props.modpack_author
         self.version   : str  = self.props.modpack_version
         
         self.output_dir: Path = Path(self.prefs.modpack_output_dir)
-        self.temp_dir  : Path = self.output_dir / f"temp_pmp_{time}"
         self.update    : bool = self.props.modpack_replace
         
         if not self.prefs.is_property_set("modpack_output_dir") or not self.output_dir.is_dir():
@@ -132,11 +129,17 @@ class ModPackager(Operator):
         if self.category == "SINGLE":
             self.blender_groups = [self.blender_groups[self.group]]
 
+        self.temp_dir: list[Path] = []
         try:
-            return self.create_modpack(context)
+            self.create_modpack(context)
         except (ModpackError) as e:
             self.report({"ERROR"}, f"Failed to create modpack. {e}")
             return {'CANCELLED'}
+        finally:
+            for dir in self.temp_dir:
+                shutil.rmtree(dir, ignore_errors=True)
+
+        return {'FINISHED'}
 
     def create_modpack(self, context:Context) -> int | None:
         if self.update:
@@ -153,7 +156,6 @@ class ModPackager(Operator):
             self.blend_group = blend_group
             self.validate_container(blend_group)
 
-            # Modpack instance is passed on and manipulated in this function chain
             self.create_group(pmp)
 
         with tempfile.TemporaryDirectory(prefix=f"modpack_{self.pmp_name}_", ignore_cleanup_errors=True) as temp_dir:
@@ -171,8 +173,6 @@ class ModPackager(Operator):
             modpack_data()
 
         setattr(self.props, "modpack_replace", True)
-
-        self.report({"INFO"}, f"{self.pmp_name} created succesfully!")
 
         pmp_name = self.pmp_name
         groups   = self.blender_groups
@@ -194,9 +194,8 @@ class ModPackager(Operator):
                 layout.label(text=f"Removed {len(duplicates)} duplicate file{plural}.")
 
         context.window_manager.popup_menu(draw_popup, title=f"{pmp_name}.pmp created succesfully!", icon='CHECKMARK')
-        return {"FINISHED"}
-   
-    def create_group(self, pmp: Modpack):
+
+    def create_group(self, pmp: Modpack) -> None:
         if self.blend_group.idx == "New":
                 new_group = True
                 mod_group = ModGroup()
@@ -208,14 +207,17 @@ class ModPackager(Operator):
 
         mod_group.Name     = self.blend_group.name
         mod_group.Priority = self.blend_group.priority
-        mod_group.Type     = self.blend_group.group_type
+        mod_group.Type     = self.blend_group.group_type if self.blend_group.group_type != 'Phyb' else "Combining"
         mod_group.Options  = []
 
-        if self.blend_group.use_folder:
+        if self.blend_group.group_type == "Phyb":
+            self.create_phyb_group(mod_group)
+
+        elif self.blend_group.use_folder:
             self.options_from_folder(mod_group, old_group=old_group)
 
         else:
-            self.resolve_option_structure(mod_group, old_group)
+            self.resolve_option_structure(mod_group, old_group=old_group)
                 
         if int(self.blend_group.page) != mod_group.Page or new_group:
             pmp.update_group_page(int(self.blend_group.page), mod_group, new_group)
@@ -224,7 +226,7 @@ class ModPackager(Operator):
         else:
             pmp.groups[int(self.blend_group.idx)] = mod_group
 
-    def resolve_option_structure(self, mod_group: ModGroup, old_group: ModGroup):
+    def resolve_option_structure(self, mod_group: ModGroup, old_group: ModGroup=None) -> None:
         combining_group = self.blend_group.group_type == "Combining"
         combinations    = self.blend_group.get_combinations()
         container_list  = [GroupContainer() for combo in combinations] if combining_group else []
@@ -236,7 +238,7 @@ class ModPackager(Operator):
             new_option = self.create_option(option)
 
             if old_group is not None and not option.description.strip():
-                self.try_keep_description(option, container_list[idx], old_group, idx)
+                self.try_keep_description(option, container_list[option_idx], old_group, option_idx)
 
             if combining_group:
                 mod_group.Options.append(new_option)
@@ -267,68 +269,10 @@ class ModPackager(Operator):
         else:
             mod_group.Options = container_list
 
-    def create_option(self, option:BlendModOption) -> GroupOption:
-        new_option               = GroupOption()
-        new_option.Name          = option.name
-        new_option.Description   = option.description
-
-        new_option.Priority = option.priority if self.blend_group.group_type == "Multi" else None
-
-        return new_option
-    
-    def try_keep_description(self, option:BlendModOption, new_option:GroupOption, old_group: ModGroup, option_idx:int):
-        # Checks to see if the Options at the same indices match via name.
-        if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == option.name:
-            new_option.Description = old_group.Options[option_idx].Description
-
-    @singledispatchmethod
-    def update_container(self, 
-                         entry: ModMetaEntry | ModFileEntry, 
-                         new_option : GroupOption | GroupContainer,
-                         ): ...
-                       
-    @update_container.register
-    def file_entry(self, entry: ModFileEntry, new_option: GroupOption | GroupContainer):
-        file                = Path(entry.file_path)
-        corrected_game_path = entry.game_path.replace("/", "\\")
-        
-        if file in self.checked_files:
-            relative_path = self.checked_files[file]
-        else:
-            relative_path = f"{sanitise_path(self.blend_group.name)}\\{sanitise_path(self.option_name)}\\{corrected_game_path}"
-            self.checked_files[file] = relative_path
-        
-        new_option.Files[entry.game_path] = relative_path
-
-    @update_container.register
-    def meta_entry(self, entry: ModMetaEntry, new_option: GroupOption | GroupContainer):
-        new_manip = ManipulationType()
-        new_entry = ManipulationEntry()
-
-        new_entry.Entry               = entry.enable
-        new_entry.Slot                = entry.slot
-        new_entry.Id                  = None if entry.model_id == -1 else entry.model_id
-        new_entry.GenderRaceCondition = int(entry.race_condition)
-
-        if entry.type == "SHP":
-            new_manip.Type = "Shp"
-
-            new_entry.Shape = entry.manip_ref
-            new_entry.ConnectorCondition  = entry.connector_condition
-
-        if entry.type == "ATR":
-            new_manip.Type = "Atr"
-
-            new_entry.Attribute = entry.manip_ref
-            
-        new_manip.Manipulation = new_entry
-        new_option.Manipulations.append(new_manip)
-
-    def options_from_folder(self, mod_group:ModGroup, old_group:ModGroup=None):
+    def options_from_folder(self, mod_group:ModGroup, old_group:ModGroup=None) -> None:
         ''' Takes a folder and sorts files into mod options'''
-        game_path:str       = self.blend_group.game_path
+        game_path: str       = self.blend_group.game_path
         file_format         = Path(game_path).suffix
-        corrected_game_path = game_path.replace("/", "\\")
         
         file_folder = self.blend_group.final_folder()
         files = [file for file in file_folder.glob(f"*{file_format}") if file.is_file()]
@@ -357,15 +301,136 @@ class ModPackager(Operator):
                 if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == file.stem:
                     new_option.Description = old_group.Options[option_idx].Description
 
-            if file in self.checked_files:
-                relative_path = self.checked_files[file]
-            else:
-                relative_path = f"{sanitise_path(self.blend_group.name)}\\{sanitise_path(file.stem)}\\{corrected_game_path}"
-                self.checked_files[file] = relative_path
-            
+            relative_path = self._get_relative_path(file, file.stem, game_path)
             new_option.Files[self.blend_group.game_path] = relative_path
             mod_group.Options.append(new_option)
             option_idx = 1
+
+    def create_phyb_group(self, mod_group: ModGroup) -> None:
+
+        def duplicate_sim_category(options: list[str]) -> bool:
+            categories = [new_phybs[option][1] for option in options if new_phybs[option][1] != 'ALL']
+            return len(categories) != len(set(categories))
+        
+        temp_dir = Path(tempfile.mkdtemp())
+        self.temp_dir.append(temp_dir)
+
+        base_phybs, new_phybs = self._get_phybs(mod_group)
+
+        combinations   = self.blend_group.get_combinations()
+        container_list = [GroupContainer() for combo in combinations]
+
+        for idx, options in enumerate(combinations):
+            if idx == 0:
+                continue
+            if duplicate_sim_category(options):
+                continue
+            
+            option_name = " + ".join(options)
+            option_dir  = temp_dir / option_name
+            Path.mkdir(option_dir)
+
+            phyb_copies = {game_path: phyb.copy() for game_path, phyb in base_phybs.items()}
+            new_sims    = [sim for option in options for sim in new_phybs[option][0].simulators]
+
+            for game_path, phyb in phyb_copies.items():
+                phyb.simulators.extend(new_sims)
+                file_path = option_dir / Path(game_path).name
+                phyb.to_file(str(file_path))
+                container_list[idx].Files[game_path] = self._get_relative_path(file_path, option_name, game_path)
+        
+        mod_group.Containers = container_list
+
+    def _get_phybs(self, mod_group: ModGroup) -> tuple[dict[str, PhybFile], dict[str, tuple[PhybFile, str]]]:
+        base_phybs: dict[str, PhybFile]             = {}
+        new_phybs : dict[str, tuple[PhybFile, str]] = {}
+
+        base_sim = PhybFile.from_file(self.blend_group.sim_append) if Path(self.blend_group.sim_append).is_file() else None
+        base_collisions = set()
+        for phyb in self.blend_group.base_phybs:
+            base_phyb = PhybFile.from_file(phyb.file_path)
+            if base_sim:
+                base_phyb.simulators.extend(base_sim.simulators)
+
+            base_phybs[phyb.game_path] = base_phyb
+            base_collisions.update(base_phyb.get_collision_names())
+
+        undefined_collisions = set()
+        for phyb in self.blend_group.group_files:
+            sim_phyb               = PhybFile.from_file(phyb.path)
+            option_name            = Path(phyb.path).stem
+            new_phybs[option_name] = (sim_phyb, phyb.category)
+            mod_group.Options.append(GroupOption(Name=option_name))
+            for collision_obj in sim_phyb.get_collision_names():
+                if collision_obj in base_collisions:
+                    continue
+                undefined_collisions.add(collision_obj)
+        
+        if undefined_collisions:
+            raise ModpackPhybCollisionError(f"Collision Objects not defined in all base phybs: {', '.join(undefined_collisions)}.")
+        
+        return base_phybs, new_phybs
+        
+    def create_option(self, option: BlendModOption) -> GroupOption:
+        new_option               = GroupOption()
+        new_option.Name          = option.name
+        new_option.Description   = option.description
+
+        new_option.Priority = option.priority if self.blend_group.group_type == "Multi" else None
+
+        return new_option
+    
+    def try_keep_description(self, option :BlendModOption, new_option: GroupOption, old_group: ModGroup, option_idx: int) -> None:
+        # Checks to see if the Options at the same indices match via name.
+        if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == option.name:
+            new_option.Description = old_group.Options[option_idx].Description
+
+    @singledispatchmethod
+    def update_container(self, 
+                         entry: ModMetaEntry | ModFileEntry, 
+                         new_option : GroupOption | GroupContainer,
+                         ): ...
+                       
+    @update_container.register
+    def file_entry(self, entry: ModFileEntry, new_option: GroupOption | GroupContainer) -> None:
+        file                = Path(entry.file_path)
+
+        new_option.Files[entry.game_path] = self._get_relative_path(file, self.option_name, entry.game_path)
+
+    @update_container.register
+    def meta_entry(self, entry: ModMetaEntry, new_option: GroupOption | GroupContainer) -> None:
+        new_manip = ManipulationType()
+        new_entry = ManipulationEntry()
+
+        new_entry.Entry               = entry.enable
+        new_entry.Slot                = entry.slot
+        new_entry.Id                  = None if entry.model_id == -1 else entry.model_id
+        new_entry.GenderRaceCondition = int(entry.race_condition)
+
+        if entry.type == "SHP":
+            new_manip.Type = "Shp"
+
+            new_entry.Shape = entry.manip_ref
+            new_entry.ConnectorCondition  = entry.connector_condition
+
+        if entry.type == "ATR":
+            new_manip.Type = "Atr"
+
+            new_entry.Attribute = entry.manip_ref
+            
+        new_manip.Manipulation = new_entry
+        new_option.Manipulations.append(new_manip)
+
+    def _get_relative_path(self, file: Path, option_name: str, game_path: str) -> str:
+        corrected_game_path = game_path.replace("/", "\\")
+
+        if file in self.checked_files:
+            relative_path = self.checked_files[file]
+        else:
+            relative_path = f"{sanitise_path(self.blend_group.name)}\\{sanitise_path(option_name)}\\{corrected_game_path}"
+            self.checked_files[file] = relative_path
+
+        return relative_path
 
     def validate_container(self, container):
         match container:

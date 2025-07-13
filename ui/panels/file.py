@@ -1,10 +1,8 @@
-import platform
-
 from pathlib        import Path   
 from bpy.types      import Panel, UILayout, Context
 
 from ..draw         import aligned_row, get_conditional_icon, operator_button
-from ...properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ...properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props, get_racial_name
 from ...preferences import get_prefs
 
 
@@ -425,6 +423,8 @@ class FileManager(Panel):
                 split = row.split(factor=option_indent)
 
                 columns = [split.column() for _ in range(1, 3)]
+
+                self.option_header(columns[1], group, option, group_idx, option_idx)
                                                          
                 if group.group_type == "Combining" and option_idx == 8:
                     row = columns[1].row(align=True)
@@ -434,8 +434,6 @@ class FileManager(Panel):
                     row.alignment = "CENTER"
                     row.label(icon="BLANK1", text="Options below will be discarded.")
                     columns[1].separator(factor=2,type="LINE")
-
-                self.option_header(columns[1], group, option, group_idx, option_idx)
 
                 if option.show_option:
                     row = aligned_row(columns[1], "Description:", "description", option)
@@ -453,7 +451,7 @@ class FileManager(Panel):
 
                 columns = [split.column() for _ in range(1, 3)]
 
-                self.correction_header(columns[1], group, correction, group_idx, correction_idx)
+                self.correction_header(columns[1], correction, group_idx, correction_idx)
 
                 if correction.show_option:
                     aligned_row(columns[1], "Options:", "names", correction)
@@ -494,7 +492,8 @@ class FileManager(Panel):
         row.alignment = "LEFT"
         row.prop(group, "show_group", text="", icon=icon, emboss=False)
         row.label(icon="BLANK1")
-        row.label(icon="BLANK1")
+        if group_idx == 0:
+            row.label(icon="BLANK1")
     
         row = columns[1].row(align=True)
         row.alignment = "EXPAND"
@@ -562,18 +561,19 @@ class FileManager(Panel):
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
     def group_container(self, layout: UILayout, group:BlendModGroup, idx:int):
-            enum_width = 0.6
             text = "Create:" if group.idx == "New" else "Replace:"
             row = aligned_row(layout, text, "idx", group)
 
             subrow = row.row(align=True)
-            subrow.scale_x = enum_width
+            subrow.alignment = 'RIGHT'
+            subrow.scale_x = 1.12
             subrow.prop(group, "page", text="")
 
             row = aligned_row(layout, "Description:", "description", group)
         
             subrow = row.row(align=True)
-            subrow.scale_x = enum_width
+            subrow.alignment = 'RIGHT'
+            subrow.scale_x = 1
             subrow.prop(group, "group_type", text="")
 
             if not group.use_folder:
@@ -644,7 +644,7 @@ class FileManager(Panel):
             
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
     
-    def correction_header(self, layout: UILayout, group:BlendModGroup, option:CorrectionEntry, group_idx:int, option_idx:int):
+    def correction_header(self, layout: UILayout, option:CorrectionEntry, group_idx:int, option_idx:int):
         row = layout.box().row(align=True)
         columns = [row.column() for _ in range(1, 4)]
 
@@ -771,7 +771,12 @@ class FileManager(Panel):
 
             operator_button(row, "ya.modpack_file_selector", icon="FILE_FOLDER", attributes=op_atr)
 
-            row = aligned_row(phyb_col, "XIV Path:", "game_path", phyb)
+            row = aligned_row(
+                        phyb_col, 
+                        "XIV Path:" if phyb.race == '0' else f"{get_racial_name(phyb.race).split(' ')[0]}:", 
+                        "game_path", 
+                        phyb
+                    )
             icon = "CHECKMARK" if phyb.valid_path else "X"
             row.label(icon=icon)
 
