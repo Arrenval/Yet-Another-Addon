@@ -6,11 +6,15 @@ import shutil
 import hashlib
 import logging
 
-from typing      import List, Dict
+from typing      import List
 from zipfile     import ZipFile, ZIP_DEFLATED
 from pathlib     import Path
 from collections import defaultdict
-from dataclasses import dataclass, asdict, field, fields
+from dataclasses import dataclass, field
+
+from .helper     import PMPJson
+from .groups     import ModGroup
+from .container  import GroupOption, DefaultMod
 
 
 def sanitise_path(path:str) -> str:
@@ -24,182 +28,7 @@ def sanitise_path(path:str) -> str:
             path = path[0:-1]
             
         return path
-
-class PMPJson:
-
-    @classmethod
-    def from_dict(cls, input:dict):
-        field_names = {field.name for field in fields(cls)}
-        
-        filtered_input = {}
-
-        for key, value in input.items():
-            if key in field_names:
-                filtered_input[key] = value
-            else:
-                print(f"Unknown field: {key} in {cls.__name__}")
-        
-        return cls(**filtered_input)
-
-    def update_from_dict(self, input: dict):
-        field_names = {field.name for field in fields(self)}
-        
-        for key, value in input.items():
-            if key in field_names:
-                setattr(self, key, value)
-            else:
-                print(f"Unknown field: {key} in {self.__class__.__name__}")
-
-    def remove_none(self, obj):
-        if isinstance(obj, dict):
-            return {key: self.remove_none(value) for key, value in obj.items() if value is not None}
-        
-        elif isinstance(obj, list):
-            return [self.remove_none(index) for index in obj if index is not None]
-        
-        return obj
-
-    def to_json(self):
-        return json.dumps(self.remove_none(asdict(self)), indent=4)
-    
-    def write_json(self, output_dir:Path, file_name):
-        with open(os.path.join(output_dir, file_name + ".json"), "w") as file:
-                file.write(self.to_json())
-
-@dataclass
-class ManipulationEntry(PMPJson):
-    '''Contains fields for all penumbra manipulations, several are shared between types.
-    See https://github.com/xivdev/Penumbra/tree/master/schemas for schemas.'''
-    Entry                  : int | float | dict | bool | None = None
-        
-    #Shared    
-    Gender                 : str |       None = None
-    Race                   : str |       None = None
-    SetId                  : str |       None = None
-    Slot                   : str |       None = None
-    Id                     : int |       None = None
-    Attribute              : str |       None = None
-    Type                   : str |       None = None
-    Index                  : int |       None = None
-             
-    #Atr          
-    GenderRaceCondition    : int |       None = None
-         
-    #Enums (Used by several manipulations)         
-    EquipSlot              : str |       None = None
-    HumanSlot              : str |       None = None
-    ModelRace              : str |       None = None
-    ObjectType             : str |       None = None
-    BodySlot               : str |       None = None
-    SubRace                : str |       None = None
-    ShapeConnectorCondition: str |       None = None
-    U8                     : str | int | None = None
-    U16                    : str | int | None = None
-     
-    #GlobalEqp     
-    Condition              : str | None = None
-     
-    # ImcIdentifier        
-    PrimaryId              : int | None = None
-    SecondaryId            : int | None = None
-    Variant                : int | None = None
-     
-     
-    # ImcEntry                
-    MaterialId             : int | None = None
-    DecalId                : int | None = None
-    VfxId                  : int | None = None
-    MaterialAnimationId    : int | None = None
-    AttributeMask          : int | None = None
-    SoundId                : int | None = None
- 
-    #Shp    
-    Shape                  : str | None = None
-    ConnectorCondition     : str | None = None
-   
-@dataclass
-class ManipulationType(PMPJson):
-    Type        : str = ""
-    Manipulation: ManipulationEntry = None
-    
-    def __post_init__(self):
-        if self.Manipulation is not None:
-            self.Manipulation = ManipulationEntry.from_dict(self.Manipulation)
-
-@dataclass
-class GroupContainer(PMPJson):
-    '''Contains all entries for combining options.'''
-    Files          : Dict[str, str]         | None = field(default_factory=dict)
-    FileSwaps      : Dict[str, str]         | None = None 
-    Manipulations  : List[ManipulationType] | None = field(default_factory=list)
-
-    def __post_init__(self):
-        if self.Manipulations is not None:
-            self.Manipulations = [ManipulationType.from_dict(manip) for manip in self.Manipulations]
-
-@dataclass
-class GroupOption(PMPJson):
-    '''Contains all entries for Penumbra single, multi, combining and imc options.'''
-    Name           : str        = ""    
-    Description    : str | None = None
-    Priority       : int | None = None
-    Image          : str | None = None
-  
-    Files          : Dict[str, str]         | None = None
-    FileSwaps      : Dict[str, str]         | None = None
-    Manipulations  : List[ManipulationType] | None = None
-    AttributeMask  : int                    | None = None
-    IsDisableSubMod: bool                   | None = None
-   
-    def __post_init__(self):
-        if self.Manipulations is not None:
-            self.Manipulations = [ManipulationType.from_dict(manip) for manip in self.Manipulations]
-           
-@dataclass
-class ModGroup(PMPJson):
-    '''Contains all entries for Penumbra single, multi, combining and imc groups.'''
-
-    Version        : int                           = 0
-    Name           : str                           = ""
-    Description    : str                           = ""
-    Image          : str                           = ""
-    Page           : int                           = 0
-    Priority       : int                           = 0
-    Type           : str                    | None = None
-    DefaultSettings: int                           = 0
-
-    Options        : List[GroupOption]      | None = None
-    Manipulations  : List[ManipulationType] | None = None
-    Containers     : List[GroupContainer]   | None = None
-
-    AllVariants    : bool                   | None = None
-    OnlyAttributes : bool                   | None = None
-    Identifier     : ManipulationEntry      | None = None
-    DefaultEntry   : ManipulationEntry      | None = None
-    
-    def __post_init__(self):
-        if self.Options is not None:
-            self.Options         = [GroupOption.from_dict(option) for option in self.Options]
-
-            if self.Containers  is not None:
-                self.Containers  = [GroupContainer.from_dict(container) for container in self.Containers]
-
-        elif self.Manipulations is not None:
-            self.Manipulations   = [ManipulationType.from_dict(manip) for manip in self.Manipulations]
-            self.Identifier      = ManipulationEntry.from_dict(self.Identifier)
-            self.DefaultEntry    = ManipulationEntry.from_dict(self.DefaultEntry)     
-
-@dataclass
-class DefaultMod(PMPJson):
-    Version      :int  = 0
-    Files        :Dict[str, str] = field(default_factory=dict)
-    FileSwaps    :Dict[str, str] = field(default_factory=dict)
-    Manipulations:List[ManipulationType] = field(default_factory=dict)
-
-    def __post_init__(self):
-        if self.Manipulations is not None:
-            self.Manipulations = [ManipulationType.from_dict(manip) for manip in self.Manipulations]
-
+          
 @dataclass
 class ModMeta(PMPJson):
     FileVersion: int  = 3
@@ -214,15 +43,13 @@ class ModMeta(PMPJson):
     DefaultPreferredItems: list[int] | None = None
     RequiredFeatures     : list[str] | None = None
 
-@dataclass
 class Modpack:
 
-    meta   : ModMeta        = field(default_factory=ModMeta)
-    groups : List[ModGroup] = field(default_factory=list)
-    default: DefaultMod     = field(default_factory=DefaultMod)
-
-    def __post_init__(self):
-        self.logger = logging.getLogger(f"{self.__class__.__name__}")
+    def __init__(self):
+        self.meta                   = ModMeta()
+        self.default                = DefaultMod()
+        self.groups: List[ModGroup] = []
+        self.logger                 = logging.getLogger(f"{self.__class__.__name__}")
 
     @classmethod
     def from_archive(cls, archive:Path):
@@ -302,7 +129,7 @@ class Modpack:
                 if file_path.is_file() and file_path not in file_references:
                     orphans.add(file_path)
                     file_path.unlink(missing_ok=True)
-                    modpack.logger.info(f"Deleting file with missing reference: {file_path.name}")
+                    modpack.logger.info(f"Deleting file with missing reference: {file_path.relative_to(folder)}")
 
         return orphans
     
@@ -515,10 +342,4 @@ class Modpack:
 
         update_group.Page = page
         self.groups.insert(index, update_group)
-
-    
-    
-    
-     
-
-    
+ 

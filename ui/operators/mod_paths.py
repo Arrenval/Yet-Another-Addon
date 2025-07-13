@@ -1,7 +1,7 @@
 from pathlib             import Path
 from bpy.types           import Operator, Context
 from bpy.props           import StringProperty, IntProperty
-from ...properties       import BlendModOption, BlendModGroup, CorrectionEntry, get_file_properties, get_window_properties
+from ...properties       import BlendModOption, BlendModGroup, CorrectionEntry, get_window_properties
 from ...preferences      import get_prefs
  
 

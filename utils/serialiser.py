@@ -239,11 +239,4 @@ class RNAPropertyIO:
             
             else:
                 return None  
-
-
-
-
-
-    
-    
-    
+  

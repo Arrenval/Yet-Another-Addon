@@ -1,6 +1,6 @@
-from pathlib      import Path
-from bpy.types    import Operator, Context
-from bpy.props    import StringProperty
+from pathlib             import Path
+from bpy.types           import Operator, Context
+from bpy.props           import StringProperty
 
 from ..properties        import get_window_properties
 from ..formats.phyb.file import PhybFile

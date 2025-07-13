@@ -1,4 +1,5 @@
-import bpy   
+import bpy 
+  
 from bpy.types       import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
 
 from ..properties         import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props

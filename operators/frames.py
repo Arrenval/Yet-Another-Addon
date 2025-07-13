@@ -1,8 +1,8 @@
 import bpy
 
-from bpy.types          import Operator
-from bpy.props          import BoolProperty
-from ..properties       import get_window_properties
+from bpy.types    import Operator
+from bpy.props    import BoolProperty
+from ..properties import get_window_properties
 
 
 class FrameJump(Operator):

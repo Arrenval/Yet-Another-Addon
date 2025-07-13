@@ -1,5 +1,4 @@
 import bpy
-import copy
 import shutil
 import tempfile
 import subprocess
@@ -13,8 +12,8 @@ from bpy.props             import StringProperty, IntProperty
 
 from ...properties         import get_window_properties, modpack_data, yet_another_sort, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
 from ...preferences        import get_prefs
-from ...formats.pmp        import Modpack, ModGroup, GroupOption, GroupContainer, ManipulationType, ManipulationEntry, sanitise_path
-from ...formats.phyb.file  import PhybFile
+from ...formats.pmp        import *
+from ...formats.phyb       import PhybFile
 from ...utils.ya_exception import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError, ModpackPhybCollisionError
     
 
@@ -197,13 +196,13 @@ class ModPackager(Operator):
 
     def create_group(self, pmp: Modpack) -> None:
         if self.blend_group.idx == "New":
-                new_group = True
-                mod_group = ModGroup()
-                old_group = None
+            new_group = True
+            mod_group = ModGroup()
+            old_group = None
         else:
             new_group = False
             mod_group = pmp.groups[int(self.blend_group.idx)]
-            old_group = copy.deepcopy(mod_group)
+            old_group = mod_group.copy()
 
         mod_group.Name     = self.blend_group.name
         mod_group.Priority = self.blend_group.priority
@@ -221,58 +220,58 @@ class ModPackager(Operator):
                 
         if int(self.blend_group.page) != mod_group.Page or new_group:
             pmp.update_group_page(int(self.blend_group.page), mod_group, new_group)
-        elif new_group:
-            pmp.groups.append(mod_group)
         else:
             pmp.groups[int(self.blend_group.idx)] = mod_group
 
     def resolve_option_structure(self, mod_group: ModGroup, old_group: ModGroup=None) -> None:
-        combining_group = self.blend_group.group_type == "Combining"
+        combining_group = mod_group.Type == "Combining"
         combinations    = self.blend_group.get_combinations()
         container_list  = [GroupContainer() for combo in combinations] if combining_group else []
+        container       = mod_group.Options if combining_group else container_list
+        old_group       = None if combining_group else old_group
 
         for option_idx, option in enumerate(self.blend_group.mod_options):
             self.option_name = option.name
             self.validate_container(option)
 
-            new_option = self.create_option(option)
+            new_option = self.create_option(option, mod_group)
 
-            if old_group is not None and not option.description.strip():
-                self.try_keep_description(option, container_list[option_idx], old_group, option_idx)
+            if old_group and not option.description.strip():
+                self.try_keep_description(option.name, container_list[option_idx], old_group, option_idx)
 
-            if combining_group:
-                mod_group.Options.append(new_option)
-            else:
-                container_list.append(new_option)
-        
+            container.append(new_option)
+
             container_indices  = [
                 idx for idx, combo in enumerate(combinations) 
                 if option.name in combo
-                ]
+            ]
 
             for idx in container_indices:
                 for entry in chain(option.file_entries, option.meta_entries):
                     self.update_container(entry, container_list[idx])
 
-        if combining_group:
-            for correction in self.blend_group.corrections:
-
-                correction_indices = [
+        if not combining_group:
+            mod_group.Options = container_list
+            return
+            
+        for correction in self.blend_group.corrections:
+            correction_indices = [
                 idx for idx, combo in enumerate(combinations) 
                 if set(correction.names.split("_")) <= set(combo)
-                ]
-                for idx in correction_indices:
-                    for entry in chain(correction.file_entries, correction.meta_entries):
-                        self.update_container(entry, container_list[idx])
+            ]
 
-            mod_group.Containers = container_list
-        else:
-            mod_group.Options = container_list
+            for idx in correction_indices:
+                for entry in chain(correction.file_entries, correction.meta_entries):
+                    self.update_container(entry, container_list[idx])
+
+        mod_group.Containers = container_list
+
+            
 
     def options_from_folder(self, mod_group:ModGroup, old_group:ModGroup=None) -> None:
         ''' Takes a folder and sorts files into mod options'''
-        game_path: str       = self.blend_group.game_path
-        file_format         = Path(game_path).suffix
+        game_path   = self.blend_group.game_path
+        file_format = Path(game_path).suffix
         
         file_folder = self.blend_group.final_folder()
         files = [file for file in file_folder.glob(f"*{file_format}") if file.is_file()]
@@ -282,27 +281,25 @@ class ModPackager(Operator):
 
         option_idx = 0
         if self.blend_group.group_type == "Single":
-            new_option              = GroupOption()
-            new_option.Name         = "None"
-            new_option.Description  = ""
-            new_option.Priority     = 0 
-            new_option.Files        = {}
+            new_option             = GroupOption()
+            new_option.Name        = "None"
+            new_option.Description = ""
+            new_option.Priority    = 0 
+            new_option.Files       = {}
 
             mod_group.Options.append(new_option)
             option_idx += 1
 
         for file in files:
-            new_option              = GroupOption()
-            new_option.Name         = file.stem
-            new_option.Priority     = option_idx if self.blend_group.group_type == "Multi" else None
-            new_option.Files        = {}
+            new_option             = GroupOption()
+            new_option.Name        = file.stem
+            new_option.Priority    = option_idx if mod_group.Type == "Multi" else None
+            new_option.Files       = {}
 
             if old_group:
-                if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == file.stem:
-                    new_option.Description = old_group.Options[option_idx].Description
-
-            relative_path = self._get_relative_path(file, file.stem, game_path)
-            new_option.Files[self.blend_group.game_path] = relative_path
+                self.try_keep_description(file.stem, new_option, old_group, option_idx)
+ 
+            new_option.Files[self.blend_group.game_path] = self._get_relative_path(file, file.stem, game_path)
             mod_group.Options.append(new_option)
             option_idx = 1
 
@@ -371,18 +368,18 @@ class ModPackager(Operator):
         
         return base_phybs, new_phybs
         
-    def create_option(self, option: BlendModOption) -> GroupOption:
+    def create_option(self, option: BlendModOption, mod_group: ModGroup) -> GroupOption:
         new_option               = GroupOption()
         new_option.Name          = option.name
         new_option.Description   = option.description
 
-        new_option.Priority = option.priority if self.blend_group.group_type == "Multi" else None
+        new_option.Priority = option.priority if mod_group.Type == "Multi" else None
 
         return new_option
     
-    def try_keep_description(self, option :BlendModOption, new_option: GroupOption, old_group: ModGroup, option_idx: int) -> None:
+    def try_keep_description(self, option_name: str, new_option: GroupOption, old_group: ModGroup, option_idx: int) -> None:
         # Checks to see if the Options at the same indices match via name.
-        if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == option.name:
+        if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == option_name:
             new_option.Description = old_group.Options[option_idx].Description
 
     @singledispatchmethod

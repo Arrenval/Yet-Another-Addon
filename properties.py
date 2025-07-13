@@ -12,7 +12,7 @@ from bpy.props       import StringProperty, EnumProperty, CollectionProperty, Po
 from collections.abc import Iterable
 
 from .utils.typings  import BlendEnum, DevkitProps, DevkitWindowProps
-from .formats.pmp    import Modpack
+from .formats.pmp.modpack    import Modpack
 
 
 class RacialCodes(Enum):

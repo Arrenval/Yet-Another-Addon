@@ -1,12 +1,12 @@
-from typing              import List
-from dataclasses         import dataclass, field
+from typing      import List
+from dataclasses import dataclass, field
 
-from .chain              import PhybChain
-from ...utils.serialiser import BinaryReader
+from .chain      import PhybChain
+from ...utils    import BinaryReader
 
 
 class DataSizes:
-    COLLISION     = 36
+    COLLISION      = 36
     CONNECTOR      = 32
     ATTRACT        = 52
     PIN            = 48
@@ -31,10 +31,6 @@ class PhybSimulator:
     pins                : List[bytes]     = field(default_factory=list)
     springs             : List[bytes]     = field(default_factory=list)
     post_alignments     : List[bytes]     = field(default_factory=list)
-    
-    def get_counts(self) -> tuple[int, ...]:
-        counts = [len(item) for item in self.get_item_lists()]
-        return counts
     
     def get_collision_names(self) -> set[str]:
         names = set()

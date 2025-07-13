@@ -1,16 +1,16 @@
 import bpy
 import time
 
-from pathlib                 import Path
-from itertools               import combinations
-from bpy.types               import Operator, Context
-from bpy.props               import StringProperty
+from pathlib       import Path
+from itertools     import combinations
+from bpy.types     import Operator, Context
+from bpy.props     import StringProperty
 
-from ..properties            import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
-from ..preferences           import get_prefs
-from ..mesh.export           import check_triangulation, get_export_path, export_result
-from ..utils.logging         import YetAnotherLogger
-from ..utils.scene_optimiser import SceneOptimiser
+from ..utils       import YetAnotherLogger, SceneOptimiser
+from ..properties  import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ..preferences import get_prefs
+from ..mesh.export import check_triangulation, get_export_path, export_result
+
 
 
 _yab_keys : dict[str, float] = {}

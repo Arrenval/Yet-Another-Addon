@@ -1,7 +1,5 @@
-import bpy
-
-from bpy.types    import Operator, Context
-from bpy.props    import StringProperty
+from bpy.types import Operator, Context
+from bpy.props import StringProperty
 
 
 class TransparencyOverview(Operator):

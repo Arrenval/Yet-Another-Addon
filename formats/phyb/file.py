@@ -3,10 +3,10 @@ import copy
 import struct
 import itertools
 
-from typing              import List, Optional, BinaryIO, Callable
+from typing     import List, Optional, BinaryIO, Callable
 
-from .simulator          import PhybSimulator
-from ...utils.serialiser import BinaryReader
+from .simulator import PhybSimulator
+from ...utils   import BinaryReader
 
 
 class CollisionData:
@@ -197,4 +197,3 @@ class PhybFile:
     
     def copy(self) -> 'PhybFile':
         return copy.deepcopy(self)
-
