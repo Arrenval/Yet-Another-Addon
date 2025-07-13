@@ -25,4 +25,6 @@ The remaining code within this tool is made for the Blender API and follows its 
 or assets that are behind a permanent paywall. 
 
 ## Acknowledgements
-* The `pmp` module is based around Penumbra's [Modpack schemas](https://github.com/xivdev/Penumbra/tree/master/schemas) by Ottermandias and Ny.
+* The `pmp` package is based around Penumbra's [Modpack schemas](https://github.com/xivdev/Penumbra/tree/master/schemas) by [@Ottermandias](https://github.com/Ottermandias) and [@Ny](https://github.com/Exter-N).
+* The `phyb` package uses VFXEditor/Penumbra's Phyb structs by [@0ceal0t](https://github.com/0ceal0t) and [@Ottermandias](https://github.com/Ottermandias).
+* The binary span reader in the `serialiser` module is based on [@Ottermandias](https://github.com/Ottermandias)' [utilities](https://github.com/Ottermandias/Penumbra.GameData/blob/10fdb025436f7ea9f1f5e97635c19eee0578de7b/Files/Utility/SpanBinaryReader.cs).
