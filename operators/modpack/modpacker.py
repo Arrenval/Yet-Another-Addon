@@ -15,7 +15,17 @@ from ...preferences        import get_prefs
 from ...formats.pmp        import *
 from ...formats.phyb       import PhybFile
 from ...utils.ya_exception import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError, ModpackPhybCollisionError
-    
+
+
+def get_binary_name(all_options: list, options: set[str]) -> str:
+    option_name = ""
+    for option in reversed(all_options):
+        if option in options:
+            option_name += "1"
+        else:
+            option_name += "0"
+
+    return option_name
 
 class ModelConverter(Operator):
     bl_idname = "ya.fbx_converter"
@@ -97,7 +107,7 @@ class ModPackager(Operator):
         else:
             return "Pack selected group"
         
-    def execute(self, context:Context):
+    def execute(self, context: Context):
         self.props = get_window_properties()
         self.prefs = get_prefs()
 
@@ -129,6 +139,7 @@ class ModPackager(Operator):
             self.blender_groups = [self.blender_groups[self.group]]
 
         self.temp_dir: list[Path] = []
+        context.window.cursor_set('WAIT')
         try:
             self.create_modpack(context)
         except (ModpackError) as e:
@@ -137,10 +148,11 @@ class ModPackager(Operator):
         finally:
             for dir in self.temp_dir:
                 shutil.rmtree(dir, ignore_errors=True)
+            context.window.cursor_set('DEFAULT')
 
         return {'FINISHED'}
 
-    def create_modpack(self, context:Context) -> int | None:
+    def create_modpack(self, context: Context) -> int | None:
         if self.update:
             pmp = Modpack.from_archive(self.pmp_source)  
         else:
@@ -231,7 +243,6 @@ class ModPackager(Operator):
         old_group       = None if combining_group else old_group
 
         for option_idx, option in enumerate(self.blend_group.mod_options):
-            self.option_name = option.name
             self.validate_container(option)
 
             new_option = self.create_option(option, mod_group)
@@ -248,12 +259,13 @@ class ModPackager(Operator):
 
             for idx in container_indices:
                 for entry in chain(option.file_entries, option.meta_entries):
-                    self.update_container(entry, container_list[idx])
+                    self.update_container(entry, container_list[idx], option.name)
 
         if not combining_group:
             mod_group.Options = container_list
             return
-            
+        
+        all_options = [option.name for option in self.blend_group.mod_options]
         for correction in self.blend_group.corrections:
             correction_indices = [
                 idx for idx, combo in enumerate(combinations) 
@@ -261,12 +273,11 @@ class ModPackager(Operator):
             ]
 
             for idx in correction_indices:
+                option_name = get_binary_name(all_options, set(combinations[idx]))
                 for entry in chain(correction.file_entries, correction.meta_entries):
-                    self.update_container(entry, container_list[idx])
+                    self.update_container(entry, container_list[idx], option_name)
 
         mod_group.Containers = container_list
-
-            
 
     def options_from_folder(self, mod_group:ModGroup, old_group:ModGroup=None) -> None:
         ''' Takes a folder and sorts files into mod options'''
@@ -309,21 +320,21 @@ class ModPackager(Operator):
             categories = [new_phybs[option][1] for option in options if new_phybs[option][1] != 'ALL']
             return len(categories) != len(set(categories))
         
-        temp_dir = Path(tempfile.mkdtemp())
-        self.temp_dir.append(temp_dir)
-
         base_phybs, new_phybs = self._get_phybs(mod_group)
 
         combinations   = self.blend_group.get_combinations()
         container_list = [GroupContainer() for combo in combinations]
 
+        temp_dir = Path(tempfile.mkdtemp())
+        self.temp_dir.append(temp_dir)
+        all_options = [name for name in new_phybs]
         for idx, options in enumerate(combinations):
             if idx == 0:
                 continue
             if duplicate_sim_category(options):
                 continue
             
-            option_name = " + ".join(options)
+            option_name = get_binary_name(all_options, set(options))
             option_dir  = temp_dir / option_name
             Path.mkdir(option_dir)
 
@@ -331,9 +342,11 @@ class ModPackager(Operator):
             new_sims    = [sim for option in options for sim in new_phybs[option][0].simulators]
 
             for game_path, phyb in phyb_copies.items():
-                phyb.simulators.extend(new_sims)
                 file_path = option_dir / Path(game_path).name
+
+                phyb.simulators.extend(new_sims)
                 phyb.to_file(str(file_path))
+
                 container_list[idx].Files[game_path] = self._get_relative_path(file_path, option_name, game_path)
         
         mod_group.Containers = container_list
@@ -357,6 +370,7 @@ class ModPackager(Operator):
             sim_phyb               = PhybFile.from_file(phyb.path)
             option_name            = Path(phyb.path).stem
             new_phybs[option_name] = (sim_phyb, phyb.category)
+
             mod_group.Options.append(GroupOption(Name=option_name))
             for collision_obj in sim_phyb.get_collision_names():
                 if collision_obj in base_collisions:
@@ -364,7 +378,9 @@ class ModPackager(Operator):
                 undefined_collisions.add(collision_obj)
         
         if undefined_collisions:
-            raise ModpackPhybCollisionError(f"Collision Objects not defined in all base phybs: {', '.join(undefined_collisions)}.")
+            raise ModpackPhybCollisionError(
+                f"Collision Objects not defined in all base phybs: {', '.join(undefined_collisions)}."
+            )
         
         return base_phybs, new_phybs
         
@@ -385,17 +401,18 @@ class ModPackager(Operator):
     @singledispatchmethod
     def update_container(self, 
                          entry: ModMetaEntry | ModFileEntry, 
-                         new_option : GroupOption | GroupContainer,
+                         new_option: GroupOption | GroupContainer,
+                         option_name: str
                          ): ...
                        
     @update_container.register
-    def file_entry(self, entry: ModFileEntry, new_option: GroupOption | GroupContainer) -> None:
+    def file_entry(self, entry: ModFileEntry, new_option: GroupOption | GroupContainer, option_name: str) -> None:
         file                = Path(entry.file_path)
 
-        new_option.Files[entry.game_path] = self._get_relative_path(file, self.option_name, entry.game_path)
+        new_option.Files[entry.game_path] = self._get_relative_path(file, option_name, entry.game_path)
 
     @update_container.register
-    def meta_entry(self, entry: ModMetaEntry, new_option: GroupOption | GroupContainer) -> None:
+    def meta_entry(self, entry: ModMetaEntry, new_option: GroupOption | GroupContainer, option_name: str) -> None:
         new_manip = ManipulationType()
         new_entry = ManipulationEntry()
 
@@ -410,7 +427,7 @@ class ModPackager(Operator):
             new_entry.Shape = entry.manip_ref
             new_entry.ConnectorCondition  = entry.connector_condition
 
-        if entry.type == "ATR":
+        elif entry.type == "ATR":
             new_manip.Type = "Atr"
 
             new_entry.Attribute = entry.manip_ref

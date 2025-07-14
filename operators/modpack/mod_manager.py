@@ -328,8 +328,9 @@ class ModpackPresets(Operator):
     def to_clipboard(self, context: Context, manager: RNAPropertyIO) -> set:
         option_data     = manager.extract(self.mod_group.mod_options)
         correction_data = manager.extract(self.mod_group.corrections)
+        base_phybs      = manager.extract(self.mod_group.base_phybs)
 
-        preset_json: str = self.get_wrapper([option_data, correction_data])
+        preset_json: str = self.get_wrapper([option_data, correction_data, base_phybs])
         preset_bytes     = gzip.compress(preset_json.encode("utf-8"))                  
         b64_string       = base64.b64encode(preset_bytes).decode("utf-8")
         
@@ -337,26 +338,28 @@ class ModpackPresets(Operator):
         return {"FINISHED"}
 
     def add_preset(self, preset: Preset, manager: RNAPropertyIO) -> set:
+        modpack_idx_attr = {
+            0: "mod_options",
+            1: "corrections",
+            2: "group_files",
+            3: "base_phybs",
+        }
+
         if preset.get("_version") == 1 and preset.get("_format") == "modpack":
-            manager.add(preset["preset"][0], self.mod_group.mod_options)
-            manager.add(preset["preset"][1], self.mod_group.corrections)
+            for idx, attr_data in enumerate(preset["preset"]):
+                manager.add(attr_data, getattr(self.mod_group, modpack_idx_attr[idx]))
         else:
             self.report({"ERROR"}, "Not a valid modpack preset!")
             return {"CANCELLED"}
         return {"FINISHED"}
     
     def load_preset(self, context: Context, source: str) -> Preset:
-        print(source)
         preset_bytes   = base64.b64decode(source)
         preset_data    = gzip.decompress(preset_bytes) 
         preset: Preset = json.loads(preset_data.decode("utf-8"))
-
-        # print(preset)
-
         return preset
     
     def get_wrapper(self, preset: Any):
-
         wrapper: Preset = {
             "_version":    1,
             "_format":     self.format.lower(),
