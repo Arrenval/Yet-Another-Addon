@@ -614,8 +614,6 @@ class OutfitStudio(Panel):
                 pass
         return layout  
 
-    
-
 
 CLASSES = [
     OutfitStudio,

@@ -531,7 +531,7 @@ class BlendModGroup(ModpackHelper):
                             description="Simulator to append to all phybs"
                         ) # type: ignore
 
-    show_folder     : BoolProperty(default=False, name="", description="Show the contents of the target folder", update=get_files) # type: ignore
+    show_folder     : BoolProperty(default=False, name="", description="Show the contents of the target folder") # type: ignore
     show_group      : BoolProperty(default=True, name="", description="Show the contents of the group") # type: ignore
 
     use_folder      : BoolProperty(default=True, name="", description="Creates an option for each file in the folder", update=_use_folder_change) # type: ignore
