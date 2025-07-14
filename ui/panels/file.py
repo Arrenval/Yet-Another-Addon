@@ -719,7 +719,7 @@ class FileManager(Panel):
 
             button_row = row.row(align=True)
             button_row.prop(container, "ya_sort", text="", icon='SORTSIZE')
-            button_row.operator("ya.refresh_folder", text="", icon='FILE_REFRESH')
+            button_row.operator("ya.refresh_folder", text="", icon='FILE_REFRESH').group = group_idx
 
             if button:
                 split_factor = 0.8
@@ -822,7 +822,7 @@ class FileManager(Panel):
             row.label(text="Simulators")
 
             subrow = row.row(align=True)
-            subrow.operator("ya.refresh_folder", text="", icon='FILE_REFRESH')
+            subrow.operator("ya.refresh_folder", text="", icon='FILE_REFRESH').group = group_idx
 
             if button:
                 sim_box.separator(factor=2,type="LINE")

@@ -331,9 +331,7 @@ class ShapeKeyTransfer(Operator):
         for source_key in shape_key_list:
             new_name      = source_key.name
             driver_source = source_key
-            deform        = True
 
-            
             if self.shapes_type == 'ALL':
                 target_key = self.target.data.shape_keys.key_blocks.get(new_name)
                 if not target_key:
@@ -350,21 +348,13 @@ class ShapeKeyTransfer(Operator):
 
             if not target_key:
                 continue
-
-            if not self.deforms:
-                deform = False
             
-            temp_target = quick_copy(self.target)
-            self.cleanup.append(temp_target)
-            self.cleanup.append(temp_target.data)
-
-            controller = quick_copy(self.source)
-            self.cleanup.append(controller)
-            self.cleanup.append(controller.data)
+            temp_target = self._clean_copy(self.target)
+            controller = self._clean_copy(self.source)
 
             controller_key = controller.data.shape_keys.key_blocks.get(source_key.name)
             
-            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform))
+            shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, self.deforms))
 
         return shape_key_queue
     
@@ -378,28 +368,23 @@ class ShapeKeyTransfer(Operator):
             sub_key       = source_key.name.startswith("-") and not lava_size and self.sub_keys
             deform        = not sub_key
 
-            key_name = "Lavatop" if source_key.name == "Lavabod" else source_key.name
+            if sub_key:
+                get_target_key(self.target, source_key.name)
+                continue
+            if not self.deform_target.get(source_key.name, False):
+                continue
             
-            if not self.deform_target.get(source_key.name, False) and not sub_key:
+            key_name = "Lavatop" if source_key.name == "Lavabod" else source_key.name
+            body_key = shape_controller.data.shape_keys.key_blocks.get(key_name)
+            if not body_key:
                 continue
 
-            body_key  = shape_controller.data.shape_keys.key_blocks.get(key_name)
-
-            if body_key:
-                controller = quick_copy(shape_controller)
-                self.cleanup.append(controller)
-                self.cleanup.append(controller.data)
-
-            elif not self.sub_keys:
-                continue
+            controller = self._clean_copy(shape_controller)
 
             controller_key = controller.data.shape_keys.key_blocks.get(key_name)
             target_key = get_target_key(self.target, source_key.name)
 
-            temp_target = quick_copy(self.target)
-            self.cleanup.append(temp_target)
-            self.cleanup.append(temp_target.data)
-
+            temp_target = self._clean_copy(self.target)
 
             shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform))
             
@@ -425,13 +410,10 @@ class ShapeKeyTransfer(Operator):
                 key_name = "Rue/Lava Legs"
             else:
                 key_name = source_key.name
-            body_key = shape_controller.data.shape_keys.key_blocks.get(key_name)
-            
-            if body_key:
-                controller = quick_copy(shape_controller)
-                self.cleanup.append(controller)
-                self.cleanup.append(controller.data)
 
+            body_key = shape_controller.data.shape_keys.key_blocks.get(key_name)
+            if body_key:
+                controller     = self._clean_copy(shape_controller)
                 controller_key = controller.data.shape_keys.key_blocks.get(key_name)
             else:
                 continue
@@ -448,9 +430,7 @@ class ShapeKeyTransfer(Operator):
         
             target_key = get_target_key(self.target, new_name)
 
-            temp_target = quick_copy(self.target)
-            self.cleanup.append(temp_target)
-            self.cleanup.append(temp_target.data)
+            temp_target = self._clean_copy(self.target)
 
             shape_key_queue.append((temp_target, controller, target_key, controller_key, driver_source, deform))
             
@@ -461,45 +441,34 @@ class ShapeKeyTransfer(Operator):
     
         if self.deform_target["Rue"] or self.target.data.shape_keys.key_blocks.get("Rue"):
             rue_hip_driver = self.source.data.shape_keys.key_blocks.get("Less Hip Dips (for Rue)")
-            controller = quick_copy(shape_controller)
-            self.cleanup.append(controller)
-            self.cleanup.append(controller.data)
+            controller = self._clean_copy(shape_controller)
 
             controller_key = controller.data.shape_keys.key_blocks.get("Less Hip Dips (for Rue)")
 
             target_key  = get_target_key(self.target, "shpx_rue_hip")
-            temp_target = quick_copy(self.target)
-            self.cleanup.append(temp_target)
-            self.cleanup.append(temp_target.data)
+            self._clean_copy(self.target)
 
             hip_keys.append((temp_target, controller, target_key, controller_key, rue_hip_driver, deform))
 
         if self.deform_target["Soft Butt"] or self.target.data.shape_keys.key_blocks.get("shpx_softbutt"):
             target_key = get_target_key(self.target, "shpx_yab_c_hipsoft")
-            controller = quick_copy(shape_controller)
-            self.cleanup.append(controller)
-            self.cleanup.append(controller.data)
+            controller = self._clean_copy(shape_controller)
 
             correction_key = controller.data.shape_keys.key_blocks.get("shpx_yab_c_hipsoft")
             correction_driver_source = self.source.data.shape_keys.key_blocks.get("shpx_yab_c_hipsoft")
             
-            temp_target = quick_copy(self.target)
-            self.cleanup.append(temp_target)
-            self.cleanup.append(temp_target.data)
+            temp_target = self._clean_copy(self.target)
 
             hip_keys.append((temp_target, controller, target_key, correction_key, correction_driver_source, deform))
 
             if self.deform_target["Rue"] or self.target.data.shape_keys.key_blocks.get("Rue"):
                 target_key = get_target_key(self.target, "shpx_rue_c_hipsoft")
-                controller = quick_copy(shape_controller)
-                self.cleanup.append(controller)
-                self.cleanup.append(controller.data)
+                controller = self._clean_copy(shape_controller)
+
                 correction_key = controller.data.shape_keys.key_blocks.get("shpx_rue_c_hipsoft")
                 correction_driver_source = self.source.data.shape_keys.key_blocks.get("shpx_rue_c_hipsoft")
 
-                temp_target = quick_copy(self.target)
-                self.cleanup.append(temp_target)
-                self.cleanup.append(temp_target.data)
+                temp_target = self._clean_copy(self.target)
                 hip_keys.append((temp_target, controller, target_key, correction_key, correction_driver_source, deform))
     
         return hip_keys
@@ -522,13 +491,8 @@ class ShapeKeyTransfer(Operator):
             if not self.source.data.shape_keys.key_blocks.get(source_key.name):
                 continue
 
-            buff = self.target.data.shape_keys.key_blocks.get("Buff")
-
-            target_key = get_target_key(self.target, new_name)
-
-            temp_target = quick_copy(self.target)
-            self.cleanup.append(temp_target)
-            self.cleanup.append(temp_target.data)
+            target_key  = get_target_key(self.target, new_name)
+            temp_target = self._clean_copy(self.target)
 
             controller = quick_copy(self.source)
             self.cleanup.append(controller)
@@ -691,6 +655,11 @@ class ShapeKeyTransfer(Operator):
         mute_var.targets[0].id = source.data.shape_keys
         mute_var.targets[0].data_path = f'key_blocks["{driver_source.name}"].mute'
 
+    def _clean_copy(self, obj: Object) -> Object:
+        obj_copy = quick_copy(obj)
+        self.cleanup.append(obj_copy)
+        self.cleanup.append(obj_copy.data)
+        return obj_copy
         
 CLASSES = [
     ControllerVisibility,
