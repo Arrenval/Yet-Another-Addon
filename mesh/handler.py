@@ -152,7 +152,7 @@ class MeshHandler:
 
         for obj in visible_obj:
             if not obj.parent or obj.parent.type != "ARMATURE":
-                no_skeleton.append(obj)
+                no_skeleton.append(obj.name)
                 continue
             shape_key    = self.sort_shape_keys(obj) if self.shapekeys and obj.data.shape_keys else []
             transparency = ("xiv_transparency" in obj and obj["xiv_transparency"])
@@ -172,7 +172,7 @@ class MeshHandler:
                 }
         
         if no_skeleton:
-            raise XIVMeshParentError(len(no_skeleton))
+            raise XIVMeshParentError(f"Missing Skeleton Parent: {', '.join(no_skeleton)}.")
 
     def devkit_checks(self, visible_obj: Iterable[Object]) -> None:
         for obj in visible_obj:
