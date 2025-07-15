@@ -284,13 +284,17 @@ class YetAnotherExport(Operator):
     def simple_export(self) -> set[str]:
         devkit = get_devkit_properties()
 
-        if devkit:
-            devkit.collection_state.export = True
-        
-        export_result(self.export_dir / self.user_input, self.window.file_format)
-   
-        if devkit:
-            devkit.collection_state.export = False
+        bpy.context.window.cursor_set('WAIT')
+        try:
+            if devkit:
+                devkit.collection_state.export = True
+            
+            export_result(self.export_dir / self.user_input, self.window.file_format)
+    
+            if devkit:
+                devkit.collection_state.export = False
+        finally:
+            bpy.context.window.cursor_set('DEFAULT')
         
         return {'FINISHED'}
     
@@ -339,6 +343,7 @@ class YetAnotherExport(Operator):
             self.size_options["Pubes"]
             )
 
+        bpy.context.window.cursor_set('WAIT')
         try:
             with SceneOptimiser(bpy.context, optimisation_level="high"):
                 self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
@@ -358,6 +363,7 @@ class YetAnotherExport(Operator):
             return {'FINISHED'}
         
         finally:
+            bpy.context.window.cursor_set('DEFAULT')
             if self.logger:
                 self.logger.close()
             reset_chest_values()

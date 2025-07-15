@@ -43,12 +43,16 @@ class ModifierShape(Operator):
         modifier:str = window.shape_modifiers
         key_name     = obj.active_shape_key.name
 
-        if obj.modifiers[modifier].type == "DATA_TRANSFER":
-            self.apply_data(obj, modifier)
-            self.report({'INFO'}, "Applied data transfer.")
-        else:
-            self.apply_deform(key_name, obj, modifier)
-            self.report({'INFO'}, "Modifier Applied to Shape.")
+        context.window.cursor_set('WAIT')
+        try:
+            if obj.modifiers[modifier].type == "DATA_TRANSFER":
+                self.apply_data(obj, modifier)
+                self.report({'INFO'}, "Applied data transfer.")
+            else:
+                self.apply_deform(key_name, obj, modifier)
+                self.report({'INFO'}, "Modifier Applied to Shape.")
+        finally:
+            context.window.cursor_set('DEFAULT')
         return {'FINISHED'}
     
     def apply_deform(self, key_name: str, target: Object, modifier: str) -> None:
@@ -146,6 +150,7 @@ class ShapeKeyModifier(Operator):
         depsgraph = context.evaluated_depsgraph_get()
         evaluate_obj(self.main_copy, depsgraph)
 
+        context.window.cursor_set('WAIT')
         try:
             if self.remove:
                 pass
@@ -184,6 +189,7 @@ class ShapeKeyModifier(Operator):
             return {"FINISHED"}
         
         finally:
+            context.window.cursor_set('DEFAULT')
             self._cleanup()
 
         self.report({"INFO"}, "Modifier applied.")

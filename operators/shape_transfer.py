@@ -112,6 +112,7 @@ class ShapeKeyTransfer(Operator):
             self.shape_target: str    = window.shapes_target_enum
             self.source      : Object = props.shapes_source
 
+        context.window.cursor_set('WAIT')
         try:
             shr_combined = self._shrinkwrap_exclude()
             self.transfer()
@@ -128,6 +129,7 @@ class ShapeKeyTransfer(Operator):
             raise e
         
         finally:
+            context.window.cursor_set('DEFAULT')
             if shr_combined:
                 combined_group = self.target.vertex_groups.get(self.shr_group)
                 self.target.vertex_groups.remove(combined_group)

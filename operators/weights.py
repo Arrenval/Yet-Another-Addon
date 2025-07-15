@@ -49,8 +49,12 @@ class RemoveEmptyVGroups(Operator):
         finally:
             bpy.ops.object.mode_set(mode=old_mode)
             context.window.cursor_set('DEFAULT')
-
-        self.report({'INFO'}, f"Removed {', '.join(removed)}.")
+            
+        if removed:
+            self.report({'INFO'}, f"Removed {', '.join(removed)}.")
+        else:
+            self.report({'INFO'}, "No empty groups.")
+            
         props.set_yas_ui_vgroups(context)
         return {"FINISHED"}
     
