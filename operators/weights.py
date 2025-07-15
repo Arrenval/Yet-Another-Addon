@@ -1,7 +1,7 @@
 import bpy
 
 from bpy.props       import StringProperty, EnumProperty, BoolProperty
-from bpy.types       import Operator, Context, Object
+from bpy.types       import Operator, Context, Object, DataTransferModifier
 from ..properties    import get_window_properties, get_outfit_properties, get_devkit_properties
 from ..mesh.weights  import remove_vertex_groups, restore_yas_groups
 from ..utils.typings import DevkitProps
@@ -32,24 +32,47 @@ class RemoveEmptyVGroups(Operator):
         obj = context.active_object
         
         vgroups = {vg.index: False for vg in obj.vertex_groups if not vg.lock_weight}
-    
-        for vert in obj.data.vertices:
-            for v_group in vert.groups:
-                if v_group.group in vgroups and v_group.weight > 0:
-                    vgroups[v_group.group] = True
-        
-        removed = []
-        for idx, used in sorted(vgroups.items(), reverse=True):
-            if not used:
-                removed.append(obj.vertex_groups[idx].name)
-                obj.vertex_groups.remove(obj.vertex_groups[idx])
-                
+        self.check_modifiers(obj, vgroups)
+
+        context.window.cursor_set('WAIT')
+        try:
+            for vert in obj.data.vertices:
+                for v_group in vert.groups:
+                    if v_group.group in vgroups and v_group.weight > 0:
+                        vgroups[v_group.group] = True
+            
+            removed = []
+            for idx, used in sorted(vgroups.items(), reverse=True):
+                if not used:
+                    removed.append(obj.vertex_groups[idx].name)
+                    obj.vertex_groups.remove(obj.vertex_groups[idx])
+        finally:
+            bpy.ops.object.mode_set(mode=old_mode)
+            context.window.cursor_set('DEFAULT')
 
         self.report({'INFO'}, f"Removed {', '.join(removed)}.")
-        bpy.ops.object.mode_set(mode=old_mode)
         props.set_yas_ui_vgroups(context)
         return {"FINISHED"}
     
+    def check_modifiers(self, obj: Object, vgroups: dict[int, bool]):
+        data_source: set[str] = set()
+        for modifier in obj.modifiers:
+            vgroup = getattr(modifier, "vertex_group", False)
+            if vgroup:
+                vgroups[obj.vertex_groups.get(vgroup).index] = True
+
+            if modifier.type == 'DATA_TRANSFER':
+                modifier: DataTransferModifier
+                source: Object = getattr(modifier, "object", False)
+                if source and modifier.data_types_verts == 'VGROUP_WEIGHTS':
+                    source_vgroups = [vgroup.name for vgroup in source.vertex_groups]
+                    data_source.update(source_vgroups)
+        
+        for vgroup_name in data_source:
+            source_vgroup = obj.vertex_groups.get(vgroup_name)
+            if source_vgroup:
+                vgroups[source_vgroup.index] = True
+                    
 class RemoveSelectedVGroups(Operator):
     bl_idname = "ya.remove_select_vgroups"
     bl_label = ""
@@ -338,45 +361,48 @@ class YASManager(Operator):
         props   = get_outfit_properties()
         devkit  = get_devkit_properties()
         targets = self.get_targets(context, devkit)
+        
+        context.window.cursor_set('WAIT')
+        try:
+            if self.mode == "RESTORE":
+                for obj in targets:
+                    if not obj.yas.v_groups:
+                        continue
+                    if len(obj.data.vertices) != obj.yas.old_count:
+                        self.report({'ERROR'}, f"{obj.name}'s vertex count has changed, not possible to restore.")
+                        return {'CANCELLED'}
 
-        if self.mode == "RESTORE":
-            for obj in targets:
-                if not obj.yas.v_groups:
-                    continue
-                if len(obj.data.vertices) != obj.yas.old_count:
-                    self.report({'ERROR'}, f"{obj.name}'s vertex count has changed, not possible to restore.")
-                    return {'CANCELLED'}
-
-                if self.store:
-                    restore_yas_groups(obj)
-                else:
-                    obj.yas.v_groups.clear()
-                
-                obj.yas.all_groups = False
-                obj.yas.genitalia  = False
-                obj.yas.physics    = False
+                    if self.store:
+                        restore_yas_groups(obj)
+                    else:
+                        obj.yas.v_groups.clear()
                     
-        else:
-            prefix = self.get_prefix()
-            for obj in targets:
-                if devkit:
-                    skeleton  = bpy.data.objects.get("Skeleton")
-                elif obj.parent.type == 'ARMATURE':
-                    skeleton = obj.parent
-                else:
-                    self.report({'ERROR'}, f"{obj.name} is not parented to a skeleton.")
-                    return {'CANCELLED'}
-                
-                remove_vertex_groups(obj, skeleton, prefix, self.store)
-                if obj.yas.v_groups:
-                    obj.yas.old_count = len(obj.data.vertices)
-                    if self.mode == "ALL":
-                        obj.yas.all_groups = True
-                    elif self.mode == "GEN":
-                        obj.yas.genitalia  = True
-                    elif self.mode == "PHYS":
-                        obj.yas.physics    = True
-
+                    obj.yas.all_groups = False
+                    obj.yas.genitalia  = False
+                    obj.yas.physics    = False
+                        
+            else:
+                prefix = self.get_prefix()
+                for obj in targets:
+                    if devkit:
+                        skeleton  = bpy.data.objects.get("Skeleton")
+                    elif obj.parent.type == 'ARMATURE':
+                        skeleton = obj.parent
+                    else:
+                        self.report({'ERROR'}, f"{obj.name} is not parented to a skeleton.")
+                        return {'CANCELLED'}
+                    
+                    remove_vertex_groups(obj, skeleton, prefix, self.store)
+                    if obj.yas.v_groups:
+                        obj.yas.old_count = len(obj.data.vertices)
+                        if self.mode == "ALL":
+                            obj.yas.all_groups = True
+                        elif self.mode == "GEN":
+                            obj.yas.genitalia  = True
+                        elif self.mode == "PHYS":
+                            obj.yas.physics    = True
+        finally:
+            context.window.cursor_set('DEFAULT')
 
         props.set_yas_ui_vgroups(context)
         return {'FINISHED'}
