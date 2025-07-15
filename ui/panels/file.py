@@ -465,15 +465,20 @@ class FileManager(Panel):
             
             for correction_idx, correction in enumerate(group.corrections):
                 correction: CorrectionEntry
-
                 row = layout.row(align=True)
                 split = row.split(factor=option_indent)
 
                 columns = [split.column() for _ in range(1, 3)]
 
                 self.correction_header(columns[1], correction, group_idx, correction_idx)
-
+                
                 if correction.show_option:
+                    if correction.group_idx != group_idx:
+                        row = columns[1].row(align=True)
+                        row.alignment = "CENTER"
+                        row.label(text="Reference missing, please create a new option.")
+                        continue
+
                     aligned_row(columns[1], "Options:", "names", correction)
 
                     columns[1].separator(factor=2,type="LINE")
@@ -501,7 +506,7 @@ class FileManager(Panel):
 
         layout.separator(factor=0.1,type="SPACE")
 
-    def group_header(self, layout: UILayout, group:BlendModGroup, group_idx:int):
+    def group_header(self, layout: UILayout, group: BlendModGroup, group_idx: int):
         button = group.show_group
 
         row = layout.row(align=True)
@@ -580,7 +585,7 @@ class FileManager(Panel):
         
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
-    def group_container(self, layout: UILayout, group:BlendModGroup, idx:int):
+    def group_container(self, layout: UILayout, group: BlendModGroup, idx: int):
             text = "Create:" if group.idx == "New" else "Replace:"
             row = aligned_row(layout, text, "idx", group)
 
@@ -599,7 +604,7 @@ class FileManager(Panel):
             if not group.use_folder:
                 layout.separator(factor=0.1, type="SPACE")
 
-    def option_header(self, layout: UILayout, group:BlendModGroup, option:BlendModOption, group_idx:int, option_idx:int):
+    def option_header(self, layout: UILayout, group: BlendModGroup, option: BlendModOption, group_idx: int, option_idx: int):
         row = layout.box().row(align=True)
         columns = [row.column() for _ in range(1, 4)]
 
@@ -664,9 +669,10 @@ class FileManager(Panel):
             
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
     
-    def correction_header(self, layout: UILayout, option:CorrectionEntry, group_idx:int, option_idx:int):
+    def correction_header(self, layout: UILayout, option: CorrectionEntry, group_idx: int, option_idx: int):
         row = layout.box().row(align=True)
         columns = [row.column() for _ in range(1, 4)]
+        header_icon = "LINK_BLEND" if option.group_idx == group_idx else 'ERROR'
 
         button = option.show_option
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
@@ -677,7 +683,7 @@ class FileManager(Panel):
     
         row = columns[1].row(align=True)
         row.alignment = "EXPAND"
-        row.row(align=True).label(text=f"Correction #{option_idx + 1}", icon="LINK_BLEND")
+        row.row(align=True).label(text=f"Correction #{option_idx + 1}", icon=header_icon)
 
         row = columns[2].row(align=True)
         row.alignment = "RIGHT"

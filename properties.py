@@ -255,7 +255,7 @@ class CorrectionEntry(ModpackHelper):
     
     names: EnumProperty(
         name= "",
-         default=0,
+        default=0,
         description= "When these two groups are in the same combination, you can specify another entry to add",
         items=get_possible_corrections
         )  # type: ignore
