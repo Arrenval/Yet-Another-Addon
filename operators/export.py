@@ -12,7 +12,6 @@ from ..preferences import get_prefs
 from ..mesh.export import check_triangulation, get_export_path, export_result
 
 
-
 _yab_keys : dict[str, float] = {}
 _lava_keys: dict[str, float] = {}
 
@@ -191,9 +190,9 @@ def apply_model_state(options: tuple[str, ...], size:str , gen: str, body_slot: 
         skip_keys                = ("Nip Nops",)
         preset: dict[str, float] = {}
 
-        try:
-            preset = saved_sizes[size]
-        except:
+        if size in ("Large", "Medium", "Small"):
+            preset = saved_sizes
+        else:
             preset = devkit.get_shape_presets(size)
         
         key_filter = []
