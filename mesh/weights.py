@@ -142,6 +142,13 @@ def _get_group_parent(obj: Object, skeleton: Object, prefix: set[str]) -> dict[i
     return group_to_parent
 
 def _create_weight_matrix(obj: Object, skeleton: Object, group_to_parent: dict[int, int | str], source_groups: set[int]) -> NDArray[float32]:
+
+    def find_parent_recursive(parent_idx: int):
+        parent = group_to_parent[parent_idx]
+        if parent in group_to_parent:
+           parent = find_parent_recursive(parent)
+        return parent
+
     verts          = len(obj.data.vertices)
     missing_groups = {value for value in group_to_parent.values() if isinstance(value, str)}
     max_groups     = len(obj.vertex_groups) + len(missing_groups)
@@ -166,8 +173,12 @@ def _create_weight_matrix(obj: Object, skeleton: Object, group_to_parent: dict[i
     _create_missing_parents(obj, skeleton, group_to_parent)
 
     for group_idx, parent in group_to_parent.items():
+        if parent in group_to_parent:
+            parent = find_parent_recursive(parent)
+            group_to_parent[group_idx] = parent
+            
         weight_matrix[:, parent] += weight_matrix[:, group_idx]
-    
+
     return weight_matrix
 
 def _create_missing_parents(obj: Object, skeleton: Object, group_to_parent: dict[int, int | str]) -> None:
