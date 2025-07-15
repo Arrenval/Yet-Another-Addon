@@ -1,8 +1,8 @@
 import bmesh
 
-from bpy.types     import Object
-from bmesh.types   import BMFace
-from collections   import Counter
+from bpy.types   import Object
+from bmesh.types import BMFace
+from collections import Counter
 
 def get_original_faces(obj: Object) -> list[tuple[set[int], int]]:
     '''A list denoting the verts in the original faces and the amount of triangles when triangulated'''

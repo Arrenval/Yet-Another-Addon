@@ -6,6 +6,7 @@ from pathlib     import Path
 from typing      import Self
 from dataclasses import asdict, fields
 
+
 class PMPJson:
 
     @classmethod

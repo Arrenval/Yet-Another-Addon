@@ -1,9 +1,8 @@
-import bpy
 import numpy as np
 
-from numpy         import float32
-from numpy.typing  import NDArray
-from bpy.types     import Object, Depsgraph
+from numpy           import float32
+from numpy.typing    import NDArray
+from bpy.types       import Object, Depsgraph
 
 from ..utils.objects import evaluate_obj
 
