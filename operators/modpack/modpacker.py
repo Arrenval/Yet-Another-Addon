@@ -222,7 +222,7 @@ class ModPackager(Operator):
         mod_group.Options  = []
 
         if self.blend_group.group_type == "Phyb":
-            self.create_phyb_group(mod_group)
+            self.create_phyb_group(mod_group, old_group)
 
         elif self.blend_group.use_folder:
             self.options_from_folder(mod_group, old_group=old_group)
@@ -311,13 +311,13 @@ class ModPackager(Operator):
             mod_group.Options.append(new_option)
             option_idx += 1
 
-    def create_phyb_group(self, mod_group: ModGroup) -> None:
+    def create_phyb_group(self, mod_group: ModGroup, old_group: ModGroup) -> None:
 
         def duplicate_sim_category(options: list[str]) -> bool:
             categories = [new_phybs[option][1] for option in options if new_phybs[option][1] != 'ALL']
             return len(categories) != len(set(categories))
         
-        base_phybs, new_phybs = self._get_phybs(mod_group)
+        base_phybs, new_phybs = self._get_phybs(mod_group, old_group)
 
         combinations   = self.blend_group.get_combinations()
         container_list = [GroupContainer() for combo in combinations]
@@ -348,7 +348,7 @@ class ModPackager(Operator):
         
         mod_group.Containers = container_list
 
-    def _get_phybs(self, mod_group: ModGroup) -> tuple[dict[str, PhybFile], dict[str, tuple[PhybFile, str]]]:
+    def _get_phybs(self, mod_group: ModGroup, old_group: ModGroup) -> tuple[dict[str, PhybFile], dict[str, tuple[PhybFile, str]]]:
         base_phybs: dict[str, PhybFile]             = {}
         new_phybs : dict[str, tuple[PhybFile, str]] = {}
 
@@ -363,12 +363,14 @@ class ModPackager(Operator):
             base_collisions.update(base_phyb.get_collision_names())
 
         undefined_collisions = set()
+        old_options = {option.Name: option.Description for option in old_group.Options if option.Description} if old_group else {}
         for phyb in self.blend_group.group_files:
             sim_phyb               = PhybFile.from_file(phyb.path)
             option_name            = Path(phyb.path).stem
+            description            = old_options[option_name] if option_name in old_options else ""
             new_phybs[option_name] = (sim_phyb, phyb.category)
-
-            mod_group.Options.append(GroupOption(Name=option_name))
+            
+            mod_group.Options.append(GroupOption(Name=option_name, Description=description))
             for collision_obj in sim_phyb.get_collision_names():
                 if collision_obj in base_collisions:
                     continue
