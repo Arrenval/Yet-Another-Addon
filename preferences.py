@@ -240,7 +240,7 @@ class YetAnotherPreference(AddonPreferences):
         button_col.prop(self.menus, "file_panel", text="File Manager", icon=get_conditional_icon(self.menus.outfit_panel))
         label_col.label(text="Panel for import/export and modpacking tools")
 
-        button_col.prop(self.menus, "inspect_panel", text="Utilities", icon=get_conditional_icon(self.menus.inspect_panel))
+        button_col.prop(self.menus, "util_panel", text="Utilities", icon=get_conditional_icon(self.menus.util_panel))
         label_col.label(text="Panel with various file utilities")
 
         button_col.separator(type='SPACE')
