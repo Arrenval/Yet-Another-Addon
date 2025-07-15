@@ -485,7 +485,7 @@ class ShapeKeyTransfer(Operator):
             deform        = True
 
             if source_key.name[5:8] not in self.seams:
-                if self.seam_values["wa_"] and source_key.name == "shpx_yam_c_softwaist":
+                if self.seam_values["wa_"] and source_key.name == "shpx_yab_c_softwaist":
                     pass
                 else:
                     continue
@@ -574,6 +574,9 @@ class ShapeKeyTransfer(Operator):
             modifier.invert_vertex_group = True
         
         base_model_state()
+
+        if target_key.name[8:11] == "_c_":
+            return
         
         if self.smooth_level != "None":
             self._deform_corrections(temp_target, controller, self.smooth_level)
