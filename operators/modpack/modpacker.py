@@ -240,15 +240,13 @@ class ModPackager(Operator):
         combinations    = self.blend_group.get_combinations()
         container_list  = [GroupContainer() for combo in combinations] if combining_group else []
         container       = mod_group.Options if combining_group else container_list
-        old_group       = None if combining_group else old_group
 
-        for option_idx, option in enumerate(self.blend_group.mod_options):
+        old_options = {option.Name: option.Description for option in old_group.Options if option.Description} if old_group else {}
+        for option in self.blend_group.mod_options:
             self.validate_container(option)
 
-            new_option = self.create_option(option, mod_group)
-
-            if old_group and not option.description.strip():
-                self.try_keep_description(option.name, container_list[option_idx], old_group, option_idx)
+            new_option             = self.create_option(option, mod_group)
+            new_option.Description = old_options[option] if option in old_options and not option.description.strip() else ""
 
             container.append(new_option)
 
@@ -301,18 +299,17 @@ class ModPackager(Operator):
             mod_group.Options.append(new_option)
             option_idx += 1
 
+        old_options = {option.Name: option.Description for option in old_group.Options if option.Description} if old_group else {}
         for file in files:
             new_option             = GroupOption()
             new_option.Name        = file.stem
             new_option.Priority    = option_idx if mod_group.Type == "Multi" else None
             new_option.Files       = {}
+            new_option.Description = old_options[file.stem] if file.stem in old_options else ""
 
-            if old_group:
-                self.try_keep_description(file.stem, new_option, old_group, option_idx)
- 
             new_option.Files[self.blend_group.game_path] = self._get_relative_path(file, file.stem, game_path)
             mod_group.Options.append(new_option)
-            option_idx = 1
+            option_idx += 1
 
     def create_phyb_group(self, mod_group: ModGroup) -> None:
 
@@ -393,11 +390,6 @@ class ModPackager(Operator):
 
         return new_option
     
-    def try_keep_description(self, option_name: str, new_option: GroupOption, old_group: ModGroup, option_idx: int) -> None:
-        # Checks to see if the Options at the same indices match via name.
-        if option_idx < len(old_group.Options or []) and old_group.Options[option_idx].Name == option_name:
-            new_option.Description = old_group.Options[option_idx].Description
-
     @singledispatchmethod
     def update_container(self, 
                          entry: ModMetaEntry | ModFileEntry, 
