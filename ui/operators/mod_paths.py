@@ -56,6 +56,18 @@ class GamepathCategory(Operator):
         self.entry: int
         self.props = get_window_properties()
 
+        if self.category == "EXPORT":
+            game_path: str = self.props.export_xiv_path
+            game_path      = self.change_category(game_path)
+            setattr(self.props, "export_xiv_path", game_path)
+        else:
+            self.modpack_path()
+
+        for area in context.screen.areas:
+            area.tag_redraw()
+        return {'FINISHED'}
+    
+    def modpack_path(self):
         mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
         mod_group: BlendModGroup = self.props.pmp_mod_groups[self.group]
         
@@ -71,20 +83,23 @@ class GamepathCategory(Operator):
         else:
             game_path: str = group_options[self.option].file_entries[self.entry].game_path
         
+        game_path = self.change_category(game_path)
+
+        if self.category == "GROUP":
+            setattr(mod_groups[self.group], "game_path", game_path)
+        else:
+            setattr(group_options[self.option].file_entries[self.entry], "game_path", game_path)
+        
+    def change_category(self, game_path: str) -> str:
         game_path_split     = game_path.split("_")
         category_split      = game_path_split[-1].split(".")
         category_split[0]   = self.body_slot
         game_path_split[-1]  = ".".join(category_split)
 
         game_path = "_".join(game_path_split)
+        
+        return game_path
 
-        if self.category == "GROUP":
-            setattr(mod_groups[self.group], "game_path", "_".join(game_path_split))
-        else:
-            setattr(group_options[self.option].file_entries[self.entry], "game_path", "_".join(game_path_split))
-        context.view_layer.update()
-        return {'FINISHED'}
-  
 
 CLASSES = [
     CopyToModpacker,

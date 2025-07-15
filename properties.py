@@ -809,6 +809,11 @@ class YAWindowProps(PropertyGroup):
         items=_get_formats
         ) # type: ignore
 
+    def check_gamepath_category(self, context) -> None:
+        if self.valid_xiv_path:
+            category = self.export_xiv_path.split("_")[-1].split(".")[0]
+            return category
+    
     def _check_valid_path(self, context):
         path: str        = self.export_xiv_path
         self.valid_xiv_path = path.startswith("chara") and path.endswith(".mdl")

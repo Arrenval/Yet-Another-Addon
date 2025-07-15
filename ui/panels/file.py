@@ -5,7 +5,7 @@ from ..draw         import aligned_row, get_conditional_icon, operator_button
 from ...properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props, get_racial_name
 from ...preferences import get_prefs
 
-
+        
 class FileManager(Panel):
     bl_idname = "VIEW3D_PT_YA_FileManager"
     bl_space_type = "VIEW_3D"
@@ -87,13 +87,33 @@ class FileManager(Panel):
         row.prop(self.window_props, "create_backfaces", text="Backfaces", icon=icon, emboss=self.window_props.check_tris)
 
         layout.separator(type="LINE")
-
+        
+        aligned_row(layout, "IVCS/YAS:", "remove_yas", self.window_props)
+        
         if self.window_props.file_format == 'MDL':
+            body_slots = {
+                "Chest": "top",
+                "Hands": "glv",
+                "Legs":  "dwn",
+                "Feet":  "sho"
+            }
+
             row = aligned_row(layout, "XIV Path:", "export_xiv_path", self.window_props)
             row.label(text="", icon=get_conditional_icon(self.window_props.valid_xiv_path))
 
-        aligned_row(layout, "IVCS/YAS:", "remove_yas", self.window_props)
-        
+            if self.window_props.valid_xiv_path:
+                row = layout.row(align=True)
+                split = row.split(factor=0.25, align=True)
+                split.alignment = "RIGHT"
+                split.label(text="")
+                
+                for key, value in body_slots.items():
+                    op = split.operator(
+                        "ya.gamepath_category", 
+                        text=key, depress=True if value == self.window_props.check_gamepath_category(context) else False)
+                    op.category  = "EXPORT"
+                    op.body_slot = value
+
 
         layout.separator(factor=0.1)
 
@@ -879,6 +899,7 @@ class FileManager(Panel):
             row = aligned_row(file_col, "XIV Path:", "game_path", file)
             icon = "CHECKMARK" if file.valid_path else "X"
             row.label(icon=icon)
+            file_col.separator(factor=0.2)
             self.xiv_path_category(file_col, file, category, group_idx, option_idx, file_idx)
 
             file_col.separator(factor=1.5,type="LINE")
