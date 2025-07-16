@@ -13,6 +13,4 @@ def draw_modifier_options(self, context: Context):
     if context.active_object.modifiers:
         layout.separator(type="LINE")
         layout.operator("ya.apply_modifier_sk", text="Apply with Shape Keys", icon="CHECKMARK")
-  
-    
    

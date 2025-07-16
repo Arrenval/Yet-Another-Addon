@@ -128,6 +128,52 @@ class RemoveSelectedVGroups(Operator):
         props.set_yas_ui_vgroups(context)
         return {"FINISHED"}
 
+class AddSymmetryGroup(Operator):
+    bl_idname = "ya.add_symmetry_vgroup"
+    bl_label = ""
+    bl_description = "Add missing symmetry groups with empty weights"
+    bl_options = {"UNDO"}
+
+    def execute(self, context: Context):
+        right_suffix = get_window_properties().sym_group_r.strip()
+        left_suffix  = get_window_properties().sym_group_l.strip()
+
+        if len(right_suffix) != len(left_suffix):
+            self.report({'ERROR'}, "Both suffix need to be the same length")
+            return {'CANCELLED'}
+        
+        symmetry_groups: dict[str, str] = {}
+        obj = context.active_object
+
+        for v_group in obj.vertex_groups:
+            if v_group.name.endswith((left_suffix, right_suffix)):
+                symmetry_groups[v_group.name] = None
+
+        for v_group in obj.vertex_groups:
+            opposite_suffix = None
+            if v_group.name.endswith(left_suffix):
+                opposite_suffix = right_suffix
+            elif v_group.name.endswith(right_suffix):
+                opposite_suffix = left_suffix
+            if opposite_suffix:
+                opposite = v_group.name[:-(len(opposite_suffix))] + opposite_suffix 
+                if opposite in symmetry_groups:
+                    symmetry_groups[v_group.name] = opposite
+                
+        added_groups = 0
+        for v_group, opposite in symmetry_groups.items():
+            if opposite is None:
+                suffix   = right_suffix if v_group[-len(left_suffix):] == left_suffix else left_suffix
+                new_name = v_group[:-(len(left_suffix))] + suffix
+                obj.vertex_groups.new(name=new_name)
+                added_groups += 1
+
+        if added_groups:
+            self.report({'INFO'}, "Symmetry groups added.")
+        else:
+            self.report({'INFO'}, "No symmetry groups to add.")
+        return {'FINISHED'}
+
 class AddYASGroups(Operator):
     bl_idname = "ya.add_yas_vgroups"
     bl_label = ""
@@ -535,6 +581,7 @@ class YASManager(Operator):
 CLASSES = [
     RemoveEmptyVGroups,
     RemoveSelectedVGroups,
+    AddSymmetryGroup,
     AddYASGroups,
     YASManager
 ]

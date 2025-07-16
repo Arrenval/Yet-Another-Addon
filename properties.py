@@ -1079,6 +1079,22 @@ class YAWindowProps(PropertyGroup):
         description="File to inspect", 
         maxlen=255,
         )  # type: ignore
+    
+    sym_group_l: StringProperty(
+        name="",
+        default="_l",
+        description="Left group suffix", 
+        maxlen=10,
+        )  # type: ignore
+    
+    sym_group_r: StringProperty(
+        name="",
+        default="_r",
+        description="Right group suffix", 
+        maxlen=10,
+        )  # type: ignore
+    
+
 
     @staticmethod
     def ui_buttons() -> None:
@@ -1174,6 +1190,9 @@ class YAWindowProps(PropertyGroup):
         seam_wrist      : bool
         seam_ankle      : bool
         sub_shape_keys  : bool
+
+        sym_group_l: str
+        sym_group_r: str
 
 class YAFileProps(PropertyGroup):
 

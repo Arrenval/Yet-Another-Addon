@@ -39,6 +39,14 @@ class MenuSelect(PropertyGroup):
         else:
             bpy.utils.unregister_class(FileUtilities)
 
+    def register_sym_panel(self, context) -> None:
+        from .ui.panels.v_groups import AddSymmetryGroups
+
+        if self.sym_panel:
+            bpy.utils.register_class(AddSymmetryGroups)
+        else:
+            bpy.utils.unregister_class(AddSymmetryGroups)
+
     outfit_panel: BoolProperty(
         name="",
         description="Show Outfit Studio",
@@ -58,6 +66,13 @@ class MenuSelect(PropertyGroup):
         description="Show Utilities",
         default=False,
         update=register_util_panel
+        ) # type: ignore
+    
+    sym_panel: BoolProperty(
+        name="",
+        description="Located under the Vertex Group list",
+        default=True,
+        update=register_sym_panel
         ) # type: ignore
 
     def register_weights(self, context) -> None:
@@ -212,7 +227,7 @@ class YetAnotherPreference(AddonPreferences):
 
     def draw(self, context: Context):
         layout = self.layout
-        layout_split = layout.split(factor=0.5, align=True)
+        layout_split = layout.split(factor=0.4, align=True)
 
         left_col = layout_split.column(align=True)
         right_col = layout_split.column(align=True)
@@ -235,22 +250,25 @@ class YetAnotherPreference(AddonPreferences):
         label_col = split.column(align=True)
 
         button_col.prop(self.menus, "outfit_panel", text="Outfit Studio", icon=get_conditional_icon(self.menus.outfit_panel))
-        label_col.label(text="Panel containing various mod tools")
+        label_col.label(text="Panel containing various mod tools.")
 
         button_col.prop(self.menus, "file_panel", text="File Manager", icon=get_conditional_icon(self.menus.outfit_panel))
-        label_col.label(text="Panel for import/export and modpacking tools")
+        label_col.label(text="Panel for import/export and modpacking tools.")
 
         button_col.prop(self.menus, "util_panel", text="Utilities", icon=get_conditional_icon(self.menus.util_panel))
-        label_col.label(text="Panel with various file utilities")
+        label_col.label(text="Panel with various file utilities.")
+
+        button_col.prop(self.menus, "sym_panel", text="Sym Groups", icon=get_conditional_icon(self.menus.sym_panel))
+        label_col.label(text="Panel under vertex group menu that can add missing symmetry groups.")
 
         button_col.separator(type='SPACE')
         label_col.separator(type='SPACE')
 
         button_col.prop(self.menus, "weight_menu", text="Vertex Weights", icon=get_conditional_icon(self.menus.weight_menu))
-        label_col.label(text="Vertex Group menu addition to quickly remove selected or empty vertex groups")
+        label_col.label(text="Vertex Group addition to quickly remove selected or empty vertex groups.")
 
         button_col.prop(self.menus, "mod_button", text="Shape Key Modifiers", icon=get_conditional_icon(self.menus.mod_button))
-        label_col.label(text="Operator that helps apply modifiers to meshes with shape keys")
+        label_col.label(text="Operator that helps apply modifiers to meshes with shape keys.")
 
         right_col.separator(type='SPACE')
 
@@ -355,6 +373,7 @@ def register_menus() -> None:
     from .ui.panels.outfit    import OutfitStudio
     from .ui.panels.file      import FileManager
     from .ui.panels.utilities import FileUtilities
+    from .ui.panels.v_groups  import AddSymmetryGroups
     from .ui.menu             import menu_vertex_group_append, draw_modifier_options
 
     if get_prefs().menus.outfit_panel:
@@ -363,6 +382,10 @@ def register_menus() -> None:
         bpy.utils.register_class(FileManager)
     if get_prefs().menus.util_panel:
         bpy.utils.register_class(FileUtilities)
+    if get_prefs().menus.util_panel:
+        bpy.utils.register_class(FileUtilities)
+    if get_prefs().menus.sym_panel:
+        bpy.utils.register_class(AddSymmetryGroups)
     if get_prefs().menus.weight_menu:
         bpy.types.MESH_MT_vertex_group_context_menu.append(menu_vertex_group_append)
     if get_prefs().menus.mod_button:
@@ -372,6 +395,7 @@ def unregister_menus() -> None:
     from .ui.panels.outfit    import OutfitStudio
     from .ui.panels.file      import FileManager
     from .ui.panels.utilities import FileUtilities
+    from .ui.panels.v_groups  import AddSymmetryGroups
     from .ui.menu             import menu_vertex_group_append, draw_modifier_options
 
     if get_prefs().menus.outfit_panel:
@@ -380,6 +404,8 @@ def unregister_menus() -> None:
         bpy.utils.unregister_class(FileManager)
     if get_prefs().menus.util_panel:
         bpy.utils.unregister_class(FileUtilities)
+    if get_prefs().menus.sym_panel:
+        bpy.utils.unregister_class(AddSymmetryGroups)
     if get_prefs().menus.weight_menu:
         bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_vertex_group_append)
     if get_prefs().menus.mod_button:
