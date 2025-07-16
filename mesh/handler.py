@@ -158,10 +158,10 @@ class MeshHandler:
             transparency = ("xiv_transparency" in obj and obj["xiv_transparency"])
             backfaces    = (self.is_tris and self.backfaces and obj.vertex_groups.get("BACKFACES")) 
 
-            if self.devkit and obj.data.name == "Waist":
+            if self.devkit and obj == self.devkit.yam_legs:
                 gen_b   = obj.data.shape_keys.key_blocks.get("Gen B")
                 gen_c   = obj.data.shape_keys.key_blocks.get("Gen C")
-                yas_vag = (gen_b and not gen_b.mute and gen_b.value != 0) or (gen_c and not gen_c.mute or gen_c.value != 0)
+                yas_vag = (gen_b and not gen_b.mute and gen_b.value == 1) or (gen_c and not gen_c.mute and gen_c.value == 1)
                 self.yas_vag = yas_vag
 
             self.reset.append(obj)
