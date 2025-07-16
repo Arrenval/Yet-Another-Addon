@@ -28,9 +28,9 @@ def save_chest_sizes() -> None:
         stored_keys = obj_state.lava_keys
 
     for key in obj.data.shape_keys.key_blocks:
-        if not key.name.startswith("- "):
+        if not key.name.startswith("-"):
             continue
-        if key.name.startswith("---- "):
+        if key.name.startswith("----"):
             continue
 
         if obj_state.lavabod:
