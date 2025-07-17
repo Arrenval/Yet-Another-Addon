@@ -4,7 +4,7 @@ import struct
 from typing      import List
 from dataclasses import dataclass, field
 
-from ...utils    import BinaryReader
+from ..utils     import BinaryReader
 
 vector = tuple[float, float, float]
     

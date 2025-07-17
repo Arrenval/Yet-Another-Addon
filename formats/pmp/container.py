@@ -1,7 +1,7 @@
 from typing        import List, Dict
 from dataclasses   import dataclass, field
 
-from .helper       import PMPJson
+from ..utils       import PMPJson
 from .manipulation import ManipulationType
 
 

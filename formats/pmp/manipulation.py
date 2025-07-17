@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .helper     import PMPJson
+from ..utils     import PMPJson
 
 
 @dataclass

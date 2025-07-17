@@ -1,7 +1,7 @@
 from typing        import List
 from dataclasses   import dataclass
 
-from .helper       import PMPJson
+from ..utils       import PMPJson
 from .container    import GroupOption, GroupContainer
 from .manipulation import ManipulationEntry, ManipulationType
 

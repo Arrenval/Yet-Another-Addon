@@ -2,7 +2,7 @@ from typing      import List
 from dataclasses import dataclass, field
 
 from .chain      import PhybChain
-from ...utils    import BinaryReader
+from ..utils     import BinaryReader
 
 
 class DataSizes:

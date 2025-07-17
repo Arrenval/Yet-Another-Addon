@@ -12,7 +12,7 @@ from pathlib     import Path
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from .helper     import PMPJson
+from ..utils     import PMPJson
 from .groups     import ModGroup
 from .container  import GroupOption, DefaultMod
 

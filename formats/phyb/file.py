@@ -6,7 +6,7 @@ import itertools
 from typing     import List, Optional, BinaryIO, Callable
 
 from .simulator import PhybSimulator
-from ...utils   import BinaryReader
+from ..utils    import BinaryReader
 
 
 class CollisionData:
