@@ -1,3 +1,3 @@
 from .logging         import YetAnotherLogger
-from .serialiser      import BinaryReader, RNAPropertyIO, read_packed_version
+from .serialiser      import RNAPropertyIO
 from .scene_optimiser import SceneOptimiser

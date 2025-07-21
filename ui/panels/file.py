@@ -117,192 +117,193 @@ class FileManager(Panel):
 
         layout.separator(factor=0.1)
 
-        if self.devkit_props:
-            box = layout.box()
-            row = box.row(align=True)
-            if self.window_props.export_body_slot == "Chest & Legs":
-                row.label(text=f"Body Part: Chest")
-            else:
-                row.label(text=f"Body Part: {self.window_props.export_body_slot}")
-
-            row.prop(self.window_props, "export_body_slot", text="" , expand=True)
-
-            # CHEST EXPORT  
+        if not self.devkit_props:
+            return
         
-            button_type = "export"
-        
-            if self.window_props.export_body_slot == "Chest" or self.window_props.export_body_slot == "Chest & Legs":
+        box = layout.box()
+        row = box.row(align=True)
+        if self.window_props.export_body_slot == "Chest & Legs":
+            row.label(text=f"Body Part: Chest")
+        else:
+            row.label(text=f"Body Part: {self.window_props.export_body_slot}")
 
-                category = "Chest"
+        row.prop(self.window_props, "export_body_slot", text="" , expand=True)
 
-                labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Flat": ("Masc", [])}
-        
-                self.dynamic_column_buttons(len(labels), layout, labels, category, button_type)
+        # CHEST EXPORT  
+    
+        button_type = "export"
+    
+        if self.window_props.export_body_slot == "Chest" or self.window_props.export_body_slot == "Chest & Legs":
 
-                yab = self.devkit_win.export_yab_chest_bool
-                rue = self.devkit_win.export_rue_chest_bool and self.window_props.rue_export
-                lava = self.devkit_win.export_lava_chest_bool
-                masc = self.devkit_win.export_flat_chest_bool
+            category = "Chest"
 
-                layout.separator(factor=0.5, type="LINE")
+            labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Flat": ("Masc", [])}
+    
+            self.dynamic_column_buttons(len(labels), layout, labels, category, button_type)
 
-                labels = {"Buff": ("Buff", [yab, rue, lava, masc]), "Piercings": ("Piercings", [yab, rue, lava, masc])}
-        
-                self.dynamic_column_buttons(len(labels), layout, labels, category, button_type)
+            yab = self.devkit_win.export_yab_chest_bool
+            rue = self.devkit_win.export_rue_chest_bool and self.window_props.rue_export
+            lava = self.devkit_win.export_lava_chest_bool
+            masc = self.devkit_win.export_flat_chest_bool
 
-                layout.separator(factor=0.5, type="LINE")
-                
-                labels = {
-                    "Large":      ("Large", [yab, rue, lava]),    
-                    "Medium":     ("Medium", [yab, rue, lava]),   
-                    "Small":      ("Small", [yab, rue, lava]),    
-                    "Omoi":       ("Omoi", [yab, rue]),     
-                    "Sayonara":   ("Sayonara", [yab, rue]), 
-                    "Mini":       ("Mini", [yab, rue]),     
-                    "Sugoi Omoi": ("Sugoi Omoi", [yab, rue]),
-                    "Tsukareta":  ("Tsukareta", [yab, rue]),
-                    "Tsukareta+": ("Tsukareta+", [yab, rue]),
-                    "Uranus":     ("Uranus", [yab, rue]),
-                    "Sugar":      ("Sugar", [lava]),
-                    "Pecs":       ("Pecs", [masc]),
-                }
-        
-                self.dynamic_column_buttons(3, layout, labels, category, button_type)
-                
-            # LEG EXPORT  
-            
-            if self.window_props.export_body_slot == "Legs" or self.window_props.export_body_slot == "Chest & Legs":
-                
-                category = "Legs"
-
-                if self.window_props.export_body_slot == "Chest & Legs":
-                    layout.separator(factor=1, type="LINE")
-                    row = layout.row(align=True)
-                    row.label(text=f"Body Part: Legs")
-
-                labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Masc": ("Masc", [])}
-        
-                self.dynamic_column_buttons(len(labels), layout, labels, category, button_type)
-
-                yab = self.devkit_win.export_yab_legs_bool
-                rue = self.devkit_win.export_rue_legs_bool
-                lava = self.devkit_win.export_lava_legs_bool
-                masc = self.devkit_win.export_masc_legs_bool
-
-                layout.separator(factor=0.5, type="LINE")
-
-                labels = {
-                    "Gen A":  ("Gen A", [yab, rue, lava, masc]),
-                    "Gen B":  ("Gen B", [yab, rue, lava, masc]), 
-                    "Gen C":  ("Gen C", [yab, rue, lava, masc]),
-                    "Gen SFW":  ("Gen SFW", [yab, rue, lava, masc]),
-                    "Melon": ("Melon", [yab, rue, lava, masc]),
-                    "Skull": ("Skull", [yab, rue]),
-                    "Yanilla":  ("Yanilla", [yab, rue]),  
-                    "Mini": ("Mini", [yab, rue]),
-                    
-                }
-                
-                self.dynamic_column_buttons(4, layout, labels, category, button_type)
-
-                layout.separator(factor=0.5, type="LINE")
-
-                labels = {
-                    "Small Butt":  ("Small", [yab, rue, lava, masc]),
-                    "Pubes":  ("Pubes", [yab, rue, lava, masc])
-                }
-        
-                self.dynamic_column_buttons(3, layout, labels, category, button_type) 
-
-            # HAND EXPORT  
-            
-            if self.window_props.export_body_slot == "Hands":
-                
-                category = "Hands"
-                labels = {
-                    "YAB": ("YAB", []), 
-                    "Rue": ("Rue", []),
-                    "Lava": ("Lava", []),
-                    }
-        
-                self.dynamic_column_buttons(3, layout, labels, category, button_type)
-                
-                yab = self.devkit_win.export_yab_hands_bool
-                rue = self.devkit_win.export_rue_hands_bool
-                lava = self.devkit_win.export_lava_hands_bool
-
-                layout.separator(factor=0.5, type="LINE")
-
-                labels = {
-                    "Long": ("Long", [yab, rue, lava]), 
-                    "Short": ("Short", [yab, rue, lava]),  
-                    "Ballerina": ("Ballerina", [yab, rue, lava]), 
-                    "Stabbies": ("Stabbies", [yab, rue, lava]), 
-                    }
-
-                self.dynamic_column_buttons(2, layout, labels, category, button_type)
-                
-                row = layout.row(align=True)
-                row.label(text="Clawsies:")
-
-                labels = { 
-                    "Straight": ("Straight", [yab, rue, lava]),
-                    "Curved": ("Curved", [yab, rue, lava]),
-                    }
-
-                self.dynamic_column_buttons(2, layout, labels, category, button_type)
-
-                row = layout.row(align=True)
-
-            # FEET EXPORT  
-            
-            if self.window_props.export_body_slot == "Feet":
-                
-                category = "Feet"
-                labels = {
-                    "YAB": ("YAB", []), 
-                    "Rue": ("Rue", []), 
-                    }
-        
-                self.dynamic_column_buttons(2, layout, labels, category, button_type)
-
-                yab = self.devkit_win.export_yab_feet_bool
-                rue = self.devkit_win.export_rue_feet_bool
-
-                layout.separator(factor=0.5, type="LINE")
-
-                labels = { 
-                    "Clawsies": ("Clawsies", [yab, rue])
-                    }
-
-                self.dynamic_column_buttons(2, layout, labels, category, button_type)
-        
             layout.separator(factor=0.5, type="LINE")
 
-        if get_devkit_properties():
-            box = layout.box()
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="Batch Options")
+            labels = {"Buff": ("Buff", [yab, rue, lava, masc]), "Piercings": ("Piercings", [yab, rue, lava, masc])}
+    
+            self.dynamic_column_buttons(len(labels), layout, labels, category, button_type)
 
-            layout.separator(factor=0.1) 
+            layout.separator(factor=0.5, type="LINE")
+            
+            labels = {
+                "Large":      ("Large", [yab, rue, lava]),    
+                "Medium":     ("Medium", [yab, rue, lava]),   
+                "Small":      ("Small", [yab, rue, lava]),    
+                "Omoi":       ("Omoi", [yab, rue]),     
+                "Sayonara":   ("Sayonara", [yab, rue]), 
+                "Mini":       ("Mini", [yab, rue]),     
+                "Sugoi Omoi": ("Sugoi Omoi", [yab, rue]),
+                "Tsukareta":  ("Tsukareta", [yab, rue]),
+                "Tsukareta+": ("Tsukareta+", [yab, rue]),
+                "Uranus":     ("Uranus", [yab, rue]),
+                "Sugar":      ("Sugar", [lava]),
+                "Pecs":       ("Pecs", [masc]),
+            }
+    
+            self.dynamic_column_buttons(3, layout, labels, category, button_type)
+            
+        # LEG EXPORT  
+        
+        if self.window_props.export_body_slot == "Legs" or self.window_props.export_body_slot == "Chest & Legs":
+            
+            category = "Legs"
+
+            if self.window_props.export_body_slot == "Chest & Legs":
+                layout.separator(factor=1, type="LINE")
+                row = layout.row(align=True)
+                row.label(text=f"Body Part: Legs")
+
+            labels = {"YAB": ("YAB", []), "Rue": ("Rue", []), "Lava": ("Lava", []), "Masc": ("Masc", [])}
+    
+            self.dynamic_column_buttons(len(labels), layout, labels, category, button_type)
+
+            yab = self.devkit_win.export_yab_legs_bool
+            rue = self.devkit_win.export_rue_legs_bool
+            lava = self.devkit_win.export_lava_legs_bool
+            masc = self.devkit_win.export_masc_legs_bool
+
+            layout.separator(factor=0.5, type="LINE")
+
+            labels = {
+                "Gen A":  ("Gen A", [yab, rue, lava, masc]),
+                "Gen B":  ("Gen B", [yab, rue, lava, masc]), 
+                "Gen C":  ("Gen C", [yab, rue, lava, masc]),
+                "Gen SFW":  ("Gen SFW", [yab, rue, lava, masc]),
+                "Melon": ("Melon", [yab, rue, lava, masc]),
+                "Skull": ("Skull", [yab, rue]),
+                "Yanilla":  ("Yanilla", [yab, rue]),  
+                "Mini": ("Mini", [yab, rue]),
+                
+            }
+            
+            self.dynamic_column_buttons(4, layout, labels, category, button_type)
+
+            layout.separator(factor=0.5, type="LINE")
+
+            labels = {
+                "Small Butt":  ("Small", [yab, rue, lava, masc]),
+                "Pubes":  ("Pubes", [yab, rue, lava, masc])
+            }
+    
+            self.dynamic_column_buttons(3, layout, labels, category, button_type) 
+
+        # HAND EXPORT  
+        
+        if self.window_props.export_body_slot == "Hands":
+            
+            category = "Hands"
+            labels = {
+                "YAB": ("YAB", []), 
+                "Rue": ("Rue", []),
+                "Lava": ("Lava", []),
+                }
+    
+            self.dynamic_column_buttons(3, layout, labels, category, button_type)
+            
+            yab = self.devkit_win.export_yab_hands_bool
+            rue = self.devkit_win.export_rue_hands_bool
+            lava = self.devkit_win.export_lava_hands_bool
+
+            layout.separator(factor=0.5, type="LINE")
+
+            labels = {
+                "Long": ("Long", [yab, rue, lava]), 
+                "Short": ("Short", [yab, rue, lava]),  
+                "Ballerina": ("Ballerina", [yab, rue, lava]), 
+                "Stabbies": ("Stabbies", [yab, rue, lava]), 
+                }
+
+            self.dynamic_column_buttons(2, layout, labels, category, button_type)
+            
+            row = layout.row(align=True)
+            row.label(text="Clawsies:")
+
+            labels = { 
+                "Straight": ("Straight", [yab, rue, lava]),
+                "Curved": ("Curved", [yab, rue, lava]),
+                }
+
+            self.dynamic_column_buttons(2, layout, labels, category, button_type)
 
             row = layout.row(align=True)
-            col = row.column(align=True)
+
+        # FEET EXPORT  
+        
+        if self.window_props.export_body_slot == "Feet":
             
-            aligned_row(col, "Export Prefix:", "export_prefix", self.window_props)
+            category = "Feet"
+            labels = {
+                "YAB": ("YAB", []), 
+                "Rue": ("Rue", []), 
+                }
+    
+            self.dynamic_column_buttons(2, layout, labels, category, button_type)
 
-            icon = get_conditional_icon(self.window_props.body_names)
-            text = "Always" if self.window_props.body_names else "Conditional"
-            aligned_row(col, "Body Names:", "body_names", self.window_props, prop_str=text, attr_icon=icon)
+            yab = self.devkit_win.export_yab_feet_bool
+            rue = self.devkit_win.export_rue_feet_bool
 
-            icon = get_conditional_icon(self.window_props.create_subfolder)
-            text = "Standalone" if self.window_props.create_subfolder else "Variant"
-            aligned_row(col, "Rue Export:", "rue_export", self.window_props, prop_str=text, attr_icon=icon)
+            layout.separator(factor=0.5, type="LINE")
 
-            icon = get_conditional_icon(self.window_props.create_subfolder)
-            text = "Remove" if self.window_props.create_subfolder else "Keep"
-            aligned_row(col, "Subfolder:", "create_subfolder", self.window_props, prop_str=text, attr_icon=icon)
+            labels = { 
+                "Clawsies": ("Clawsies", [yab, rue])
+                }
+
+            self.dynamic_column_buttons(2, layout, labels, category, button_type)
+    
+        layout.separator(factor=0.5, type="LINE")
+
+        box = layout.box()
+        row = box.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Batch Options")
+
+        layout.separator(factor=0.1) 
+
+        row = layout.row(align=True)
+        col = row.column(align=True)
+        
+        aligned_row(col, "Export Prefix:", "export_prefix", self.window_props)
+
+        icon = get_conditional_icon(self.window_props.body_names)
+        text = "Always" if self.window_props.body_names else "Conditional"
+        aligned_row(col, "Body Names:", "body_names", self.window_props, prop_str=text, attr_icon=icon)
+
+        icon = get_conditional_icon(self.window_props.rue_export)
+        text = "Standalone" if self.window_props.rue_export else "Variant"
+        aligned_row(col, "Rue Export:", "rue_export", self.window_props, prop_str=text, attr_icon=icon)
+
+        icon = get_conditional_icon(self.window_props.create_subfolder)
+        text = "Remove" if self.window_props.create_subfolder else "Keep"
+        aligned_row(col, "Subfolder:", "create_subfolder", self.window_props, prop_str=text, attr_icon=icon)
 
     def draw_import(self, layout: UILayout):
         layout = self.layout
