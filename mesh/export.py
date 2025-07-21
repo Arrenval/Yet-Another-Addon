@@ -46,6 +46,7 @@ def get_export_path(directory: Path, file_name: str, subfolder: bool, body_slot:
     return export_path
 
 def export_result(file_path: Path, file_format: str, logger: YetAnotherLogger=None, batch=False):
+    bpy.context.evaluated_depsgraph_get().update()
     export = FileExport(file_path, file_format, logger=logger, batch=batch)
     export.export_template()
 
