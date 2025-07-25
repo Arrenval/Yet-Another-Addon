@@ -57,7 +57,7 @@ def register():
     preferences.register_menus()
 
     set_handlers()
-    bpy.types.Scene.ya_addon_ver = (0, 21, 3)
+    bpy.types.Scene.ya_addon_ver = (0, 21, 4)
     
 
 def unregister():

@@ -7,7 +7,7 @@
       "id": "yet_another_addon_ffxiv",
       "name": "Yet Another Addon",
       "tagline": "Several tools to speed up XIV modding workflows",
-      "version": "0.21.3",
+      "version": "0.21.4",
       "type": "add-on",
       "maintainer": "Aleks",
       "license": [
@@ -29,9 +29,9 @@
         "Rigging",
         "User Interface"
       ],
-      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/v0.21.3/Yet.Another.Addon.v0.21.3.zip",
-      "archive_size": 123927,
-      "archive_hash": "sha256:15571b372d26905e43ae0215c65e414b738992d8a556ea0f18a37291230d5708"
+      "archive_url": "https://github.com/Arrenval/Yet-Another-Addon/releases/download/v0.21.4/Yet.Another.Addon.v0.21.4.zip",
+      "archive_size": 124227,
+      "archive_hash": "sha256:7e571e91fa9eedb2c21ff9f674cc102307ad06fc0a05541a0eff298a152a975e"
     }
   ]
 }
