@@ -215,6 +215,11 @@ class ShapeKeyTransfer(Operator):
         def resolve_base_name() -> None:
             '''Resolves the name of the basis shape key. Important for relative key assignment later.'''
 
+            existing_base_key = True
+            if not self.target.data.shape_keys:
+                existing_base_key = False
+                self.target.shape_key_add(name="Basis", from_mix=False)
+
             if self.input_method == "Seams":
                 pass
 
@@ -224,28 +229,33 @@ class ShapeKeyTransfer(Operator):
             elif self.input_method == "Legs" and self.leg_base != "Gen A/Watermelon Crushers":
                 self.target.data.shape_keys.key_blocks[0].name = self.leg_base
 
-            else:
+            elif not existing_base_key:
                 self.target.data.shape_keys.key_blocks[0].name = self.source.data.shape_keys.key_blocks[0].name
 
         def finalise_key_relationship() -> None:
             '''Sets appropriate relative keys and assigns a driver.'''
 
+            key_blocks = self.target.data.shape_keys.key_blocks
+
             if self.input_method == "Chest" and self.chest_base != "Large" and driver_source.relative_key.name == "LARGE":
-                target_key.relative_key = self.target.data.shape_keys.key_blocks[self.chest_base.upper()]
+                target_key.relative_key = key_blocks[self.chest_base.upper()]
                 
             elif self.input_method == "Legs" and self.leg_base != "Gen A/Watermelon Crushers" and driver_source.relative_key.name == "Gen A/Watermelon Crushers":
-                target_key.relative_key = self.target.data.shape_keys.key_blocks[self.leg_base]
+                target_key.relative_key = key_blocks[self.leg_base]
 
             elif target_key.name == "shpx_wa_yabs":
                 try:
-                    target_key.relative_key = self.target.data.shape_keys.key_blocks["Buff"]
+                    target_key.relative_key = key_blocks["Buff"]
                 except:
-                    target_key.relative_key = self.target.data.shape_keys.key_blocks[0]
+                    target_key.relative_key = key_blocks[0]
             else:
                 try:
-                    target_key.relative_key = self.target.data.shape_keys.key_blocks[driver_source.relative_key.name]
+                    if driver_source.relative_key.name != target_key.name:
+                        target_key.relative_key = key_blocks[driver_source.relative_key.name]
+                    else:
+                        target_key.relative_key = key_blocks[0]
                 except:
-                    target_key.relative_key = self.target.data.shape_keys.key_blocks[0]
+                    target_key.relative_key = key_blocks[0]
             
             if target_key.name[8:11] == "_c_" or self.input_method == "Seams":
                 return
@@ -253,16 +263,13 @@ class ShapeKeyTransfer(Operator):
             self._add_driver(target_key, driver_source, self.source)
         
         sk_transfer: list[ShapeKey] = []
+        existing_keys = self.shapes_type == 'EXISTING' and self.input_method == 'Selected'
 
-        if self.shapes_type != 'EXISTING':
-            if not self.target.data.shape_keys:
-                self.target.shape_key_add(name="Basis", from_mix=False)
+        if not existing_keys:
             resolve_base_name()
 
         if not self.target.data.shape_keys:
             return
-        
-        base_key = self.target.data.shape_keys.key_blocks[0].name
         
         if self.shapes_type in ('ALL', 'EXISTING') or self.input_method != "Selected":
             for key in self.source.data.shape_keys.key_blocks:
@@ -283,25 +290,30 @@ class ShapeKeyTransfer(Operator):
         #     print(f"Controller Key: {controller_key.name}")
         #     print(f"Deform: {deform}")
         
-        base_copy = quick_copy(self.target)
-        self.cleanup.append(base_copy)
-        self.cleanup.append(base_copy.data)
+        for temp_target, controller, target_key, controller_key, driver_source, deform in shape_key_queue:
+            finalise_key_relationship()
+
+        base_copy = self._clean_copy(self.target)
+        if self.input_method == 'Selected' and self.shapes_type == 'SINGLE':
+            transfer_key = shape_key_queue[0][2].name
+            base_key = self.target.data.shape_keys.key_blocks.get(transfer_key).relative_key.name
+        else:
+            base_key = self.target.data.shape_keys.key_blocks[0].name
         
         shapes: dict[str, Object] = {base_key: base_copy}
         for temp_target, controller, target_key, controller_key, driver_source, deform in shape_key_queue:
             if deform:
                 self.add_modifier(temp_target, controller, target_key, controller_key)
                 shapes[target_key.name] = temp_target
-        
-        for temp_target, controller, target_key, controller_key, driver_source, deform in shape_key_queue:
-            finalise_key_relationship()
 
         co_cache = {}
-        for key in self.target.data.shape_keys.key_blocks:
+        for key in self.target.data.shape_keys.key_blocks:  
             relative_key = key.relative_key.name
             if relative_key not in co_cache and relative_key in shapes:
                 co_cache[key.relative_key.name] = None
 
+        print(co_cache)
+        print(shapes)
         vert_count = len(self.target.data.vertices)
         depsgraph  = bpy.context.evaluated_depsgraph_get()
 
@@ -448,7 +460,7 @@ class ShapeKeyTransfer(Operator):
             controller_key = controller.data.shape_keys.key_blocks.get("Less Hip Dips (for Rue)")
 
             target_key  = get_target_key(self.target, "shpx_rue_hip")
-            self._clean_copy(self.target)
+            temp_target = self._clean_copy(self.target)
 
             hip_keys.append((temp_target, controller, target_key, controller_key, rue_hip_driver, deform))
 
@@ -508,33 +520,14 @@ class ShapeKeyTransfer(Operator):
     
     def add_modifier(self, temp_target: Object, controller: Object, target_key: ShapeKey, source_key: ShapeKey) -> None:
 
-        def base_model_state() -> None:
-            key_blocks   = controller.data.shape_keys.key_blocks
-            chest_filter = {"LARGE", "MEDIUM", "SMALL", "MASC", "Lavabod"} 
-            lava_keys    = {"Lavabod" , "-- Teardrop", "--- Cupcake"}
-            leg_filter   = {"Gen A/Watermelon Crushers", "Skull Crushers", "Yanilla", "Mini", "Lavabod", "Masc"} 
-
-            source_key.mute = False
-            source_key.value = 1
-            
-            if self.input_method == "Chest" and target_key.name in chest_filter:
-                key_name = "Lavatop" if self.chest_base == "Lavabod" else self.chest_base 
-                key_blocks[key_name].mute = True
-
-                if self.chest_base in ("Lavabod", "Teardrop", "Cupcake") and target_key.name not in lava_keys:
-                    key_blocks["Lavatop"].mute = True
-
-            elif self.input_method == "Legs" and target_key.name in leg_filter:
-                key_name = "LARGE" if self.leg_base == "Gen A/Watermelon Crushers" else self.leg_base
-                key_blocks[key_name].mute = True
-
-        def controller_state(reset=False) -> None:
+        def initial_state(reset=False) -> None:
             main_shapes = get_devkit_properties().yam_shapes.data
-            key_blocks = controller.data.shape_keys.key_blocks
+            key_blocks  = controller.data.shape_keys.key_blocks
+
             for key in key_blocks:
                 key.mute = True
 
-            if main_shapes.name in controller.data.name and self.input_method == "Chest":
+            if self.input_method == "Chest" and main_shapes.name in controller.data.name:
                 key_name = "Lavatop" if self.chest_base == "Lavabod" else self.chest_base
                 key_blocks[key_name].mute = False
 
@@ -555,12 +548,40 @@ class ShapeKeyTransfer(Operator):
                 if self.input_method == "Seams":
                     key_blocks[self.seam_base].mute = False
             
-            if not reset and self.input_method == "Chest":
+            if self.input_method == "Chest" and not reset:
                 if main_shapes.name in controller.data.name and self.overhang:
                     key_blocks["Overhang"].mute = False
 
-        controller_state()
+        def target_state() -> None:
+            key_blocks   = controller.data.shape_keys.key_blocks
+            chest_filter = {"LARGE", "MEDIUM", "SMALL", "MASC", "Lavabod"} 
+            lava_keys    = {"Lavabod" , "-- Teardrop", "--- Cupcake"}
+            leg_filter   = {"Gen A/Watermelon Crushers", "Skull Crushers", "Yanilla", "Mini", "Lavabod", "Masc"} 
 
+            if self.input_method == "Selected":
+                for key in key_blocks:
+                    key.mute = True
+
+            source_key.mute  = False
+            source_key.value = 1
+            if self.input_method == "Selected":
+                source_key.relative_key.mute  = False
+                source_key.relative_key.value = 1
+            
+            if self.input_method == "Chest" and target_key.name in chest_filter:
+                key_name = "Lavatop" if self.chest_base == "Lavabod" else self.chest_base 
+                key_blocks[key_name].mute = True
+
+                if self.chest_base in ("Lavabod", "Teardrop", "Cupcake") and target_key.name not in lava_keys:
+                    key_blocks["Lavatop"].mute = True
+
+            elif self.input_method == "Legs" and target_key.name in leg_filter:
+                key_name = "LARGE" if self.leg_base == "Gen A/Watermelon Crushers" else self.leg_base
+                key_blocks[key_name].mute = True
+
+        if self.input_method != "Selected":
+            initial_state()
+        
         modifier: SurfaceDeformModifier = temp_target.modifiers.new(name="Deform", type='SURFACE_DEFORM')
         modifier.target = controller
         with bpy.context.temp_override(object=temp_target):
@@ -573,7 +594,7 @@ class ShapeKeyTransfer(Operator):
             modifier.vertex_group = self.vertex_pin
             modifier.invert_vertex_group = True
         
-        base_model_state()
+        target_state()
 
         if target_key.name[8:11] == "_c_":
             return
