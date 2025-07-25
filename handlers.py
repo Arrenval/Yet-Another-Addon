@@ -1,8 +1,9 @@
 import bpy
 
-from bpy.types            import Object
+from bpy.types            import Object, Context
 from bpy.app.handlers     import persistent
 from .properties          import get_window_properties, get_devkit_properties, get_outfit_properties, get_devkit_win_props
+from .preferences         import get_prefs
 
 
 _active_obj = None
@@ -42,26 +43,31 @@ def active_obj_msgbus(dummy):
         notify=get_mesh_props,
         )
 
+def viewport_armature(context: Context, visibility: bool) -> None:
+    context = bpy.context
+    area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
+    view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
+
+    with context.temp_override(area=area, space=view3d):
+        context.space_data.show_object_viewport_armature = visibility
+
 @persistent
 def pre_anim_handling(dummy) ->None:
     global _pre_tri, _pre_armature
 
-    devkit   = get_devkit_win_props()
+    devkit  = get_devkit_win_props()
     context = bpy.context
     if devkit:
         _pre_tri = devkit.devkit_triangulation
-        context.scene.devkit_props.controller_triangulation = False
+        devkit.devkit_triangulation = False
         get_devkit_properties().collection_state.export = False
     
-    try:
-        area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
-        view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
-
-        with context.temp_override(area=area, space=view3d):
+    if get_prefs().armature_vis_anim:
+        try:
             _pre_armature = context.space_data.show_object_viewport_armature
-            context.space_data.show_object_viewport_armature = False
-    except:
-        pass
+            viewport_armature(context, False)
+        except:
+            pass
 
     bpy.app.handlers.frame_change_pre.append(frame_ui)
 
@@ -75,14 +81,12 @@ def post_anim_handling(dummy) ->None:
     
     props.animation_frame = context.scene.frame_current
     
-    try:
-        area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
-        view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
+    if get_prefs().armature_vis_anim:
+        try:
+            viewport_armature(context, _pre_armature)
+        except:
+            pass
 
-        with context.temp_override(area=area, space=view3d):
-            context.space_data.show_object_viewport_armature = _pre_armature
-    except:
-        pass
     bpy.app.handlers.frame_change_pre.remove(frame_ui)
 
 

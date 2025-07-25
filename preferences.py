@@ -192,19 +192,25 @@ class YetAnotherPreference(AddonPreferences):
     
     remove_nonmesh: BoolProperty(
         name="Cleanup",
-        description="Removes objects without any meshes. Cleans up unnecessary files from TT imports",
+        description="Removes non-mesh objects. Typically leftover objects from FBX imports or skeletons",
         default=True,
         ) # type: ignore
     
     update_material: BoolProperty(
         name="Cleanup",
-        description="Changes material rendering and enables backface culling. Tries to normalise metallic and roughness values of TT materials",
+        description="Changes material rendering and enables backface culling. Tries to adjust metallic and roughness values of TT materials",
         default=True,
         ) # type: ignore
     
     reorder_meshid: BoolProperty(
         name="Cleanup",
         description="Moves mesh identifier to the front of the object name",
+        default=True,
+        ) # type: ignore
+    
+    armature_vis_anim: BoolProperty(
+        name="Hide Armature",
+        description="Controls whether armatures are hidden during animation playback.",
         default=True,
         ) # type: ignore
 
@@ -226,56 +232,30 @@ class YetAnotherPreference(AddonPreferences):
         reorder_meshid : bool
 
     def draw(self, context: Context):
-        layout = self.layout
-        layout_split = layout.split(factor=0.4, align=True)
+        layout       = self.layout
+        layout_split = layout.split(factor=0.5, align=True)
+        left_col     = layout_split.column(align=True)
+        right_col    = layout_split.column(align=True)
 
-        left_col = layout_split.column(align=True)
-        right_col = layout_split.column(align=True)
+        import_box = left_col.box()
+        self.draw_import(import_box)
 
         export_box = left_col.box()
-        self.draw_export(export_box, context)
+        self.draw_export(export_box)
 
         modpack_box = left_col.box()
+        self.draw_modpack(modpack_box)
 
-        self.draw_modpack(modpack_box, context)
+        options_box = right_col.box()
+        self.draw_options(options_box)
 
         panel_box = right_col.box()
-
-        row = panel_box.row(align=True)
-        row.alignment = "CENTER"
-        row.label(text="Menus:")
-
-        split = panel_box.split(factor=0.25)
-        button_col = split.column(align=True)
-        label_col = split.column(align=True)
-
-        button_col.prop(self.menus, "outfit_panel", text="Outfit Studio", icon=get_conditional_icon(self.menus.outfit_panel))
-        label_col.label(text="Panel containing various mod tools.")
-
-        button_col.prop(self.menus, "file_panel", text="File Manager", icon=get_conditional_icon(self.menus.outfit_panel))
-        label_col.label(text="Panel for import/export and modpacking tools.")
-
-        button_col.prop(self.menus, "util_panel", text="Utilities", icon=get_conditional_icon(self.menus.util_panel))
-        label_col.label(text="Panel with various file utilities.")
-
-        button_col.prop(self.menus, "sym_panel", text="Sym Groups", icon=get_conditional_icon(self.menus.sym_panel))
-        label_col.label(text="Panel under vertex group menu that can add missing symmetry groups.")
-
-        button_col.separator(type='SPACE')
-        label_col.separator(type='SPACE')
-
-        button_col.prop(self.menus, "weight_menu", text="Vertex Weights", icon=get_conditional_icon(self.menus.weight_menu))
-        label_col.label(text="Vertex Group addition to quickly remove selected or empty vertex groups.")
-
-        button_col.prop(self.menus, "mod_button", text="Shape Key Modifiers", icon=get_conditional_icon(self.menus.mod_button))
-        label_col.label(text="Operator that helps apply modifiers to meshes with shape keys.")
-
-        right_col.separator(type='SPACE')
+        self.draw_menus(panel_box)
 
         preset_box = right_col.box()
-        self.draw_presets(preset_box, context)
+        self.draw_presets(preset_box)
 
-    def draw_modpack(self, layout: UILayout, context: Context):
+    def draw_modpack(self, layout: UILayout) -> None:
         # options = [
         #     (None, "", "", "", ""),
         # ]
@@ -286,14 +266,6 @@ class YetAnotherPreference(AddonPreferences):
         
         layout.separator(type="LINE")
 
-        if platform.system() == "Windows":
-            text = "✓  ConsoleTools Ready!" if self.consoletools_status else "X  ConsoleTools missing."
-            row = aligned_row(layout, "", text)
-            row.operator("ya.consoletools", text="Check")
-
-            row = aligned_row(layout, "ConsoleTools:", "textools_directory", self)
-            row.operator("ya.consoletools_dir", text="", icon="FILE_FOLDER")
-
         row = aligned_row(layout, "Mod Output:", "modpack_output_dir", self)
         row.operator("ya.modpack_dir_selector", text="", icon="FILE_FOLDER").category = "OUTPUT_PMP"
 
@@ -302,8 +274,22 @@ class YetAnotherPreference(AddonPreferences):
         # self.option_rows(layout, options)
         
         layout.separator(type="SPACE")
-  
-    def draw_export(self, layout: UILayout, context: Context):
+    
+    def draw_import(self, layout: UILayout) -> None:
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Import:")
+
+        options = [
+            (self, "auto_cleanup", self.auto_cleanup, "Auto Cleanup", "Cleans up imported files automatically with your current settings"),
+            (self, "remove_nonmesh", self.remove_nonmesh, "Remove Non-Mesh", "Removes non-mesh objects. Typically leftover objects from FBX imports or skeletons."),
+            (self, "update_material", self.update_material, "Update Materials", "Changes material rendering and enables backface culling. Tries to adjust metallic and roughness values of TT materials."),
+            (self, "reorder_meshid", self.reorder_meshid, "Mesh ID", "Moves mesh identifier to the front of the object name."),
+        ]
+
+        self.option_rows(layout.column(align=True), options)
+
+    def draw_export(self, layout: UILayout) -> None:
         # options = [
         #     (None, "", "", "", ""),
         # ]
@@ -314,20 +300,23 @@ class YetAnotherPreference(AddonPreferences):
 
         layout.separator(type="LINE")
 
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="File Export:")
-        split.prop(self, "export_dir", text="")
+        if platform.system() == "Windows":
+            text = "✓  ConsoleTools Ready!" if self.consoletools_status else "X  ConsoleTools missing."
+            row = aligned_row(layout, "", text)
+            row.operator("ya.consoletools", text="Check")
+
+            col = layout.column(align=True)
+            row = aligned_row(col, "ConsoleTools:", "textools_directory", self)
+            row.operator("ya.consoletools_dir", text="", icon="FILE_FOLDER")
+        else:
+            col = layout.column(align=True)
+
+        row = aligned_row(col, "File Export:", "export_dir", self)
         row.operator("ya.dir_selector", text="", icon="FILE_FOLDER")
-
-        # layout.separator(type="LINE")
-
-        # self.option_rows(layout, options)
 
         layout.separator(type='SPACE')
 
-    def draw_presets(self, layout: UILayout, contex: Context):
+    def draw_presets(self, layout: UILayout) -> None:
         row = layout.row(align=True)
         row.alignment = "CENTER"
         row.label(text="Presets:")
@@ -358,14 +347,41 @@ class YetAnotherPreference(AddonPreferences):
             subrow.label(text="", icon="BLANK1")
         
         layout.separator(type="SPACE")
-            
+
+    def draw_options(self, layout: UILayout) -> None:
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Options:")
+        options = [
+            (self, "auto_cleanup", self.armature_vis_anim, "Hide Armature", "Controls whether armatures are hidden during animation playback."),
+        ]
+
+        self.option_rows(layout.column(align=True), options)
+
+    def draw_menus (self, layout: UILayout) -> None:
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Menus:")
+
+        options = [
+            (self.menus, "outfit_panel", self.menus.outfit_panel, "Outfit Studio", "Panel containing various mod tools."),
+            (self.menus, "file_panel", self.menus.file_panel, "File Manager", "Panel for import/export and modpacking tools."),
+            (self.menus, "util_panel", self.menus.util_panel, "Utilities", "Panel with various file utilities."),
+            (self.menus, "sym_panel", self.menus.sym_panel, "Sym Groups", "Panel under vertex group menu that can add missing symmetry groups."),
+            (None, "", "", "", ""),
+            (self.menus, "weight_menu", self.menus.weight_menu, "Vertex Weights", "Vertex Group addition to quickly remove selected or empty vertex groups."),
+            (self.menus, "mod_button", self.menus.mod_button, "Shape Key Modifiers", "Operator that helps apply modifiers to meshes with shape keys."),
+        ]
+
+        self.option_rows(layout.column(align=True), options)
+
     def option_rows(self, layout:UILayout, options:list):
         for (prop, attr, button_icon, button_text, label) in options:
             if prop is None:
                 layout.label(text="")
                 continue
             split = layout.split(factor=0.25)
-            split.prop(prop, attr, text=button_text, icon=button_icon)
+            split.prop(prop, attr, text=button_text, icon=get_conditional_icon(button_icon))
             split.label(text=label)
 
 
