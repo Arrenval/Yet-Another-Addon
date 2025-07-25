@@ -312,8 +312,6 @@ class ShapeKeyTransfer(Operator):
             if relative_key not in co_cache and relative_key in shapes:
                 co_cache[key.relative_key.name] = None
 
-        print(co_cache)
-        print(shapes)
         vert_count = len(self.target.data.vertices)
         depsgraph  = bpy.context.evaluated_depsgraph_get()
 
