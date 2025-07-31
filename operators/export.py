@@ -1,16 +1,17 @@
 import bpy
 import time
 
-from pathlib       import Path
-from itertools     import combinations
-from bpy.types     import Operator, Context
-from bpy.props     import StringProperty
+from pathlib         import Path
+from itertools       import combinations
+from bpy.types       import Operator, Context, Object
+from bpy.props       import StringProperty, BoolProperty
 
-from ..utils       import YetAnotherLogger, SceneOptimiser
-from ..properties  import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
-from ..preferences import get_prefs
-from ..mesh.export import check_triangulation, get_export_path, export_result
-
+from ..utils         import YetAnotherLogger, SceneOptimiser
+from ..ui.draw       import aligned_row, get_conditional_icon, show_ui_button
+from ..properties    import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ..preferences   import get_prefs
+from ..mesh.export   import check_triangulation, get_export_path, export_result
+from ..utils.objects import visible_meshobj
 
 _yab_keys : dict[str, float] = {}
 _lava_keys: dict[str, float] = {}
@@ -221,11 +222,26 @@ def reset_model_state(body_slot: str) -> None:
     elif body_slot == "Feet":
         devkit.reset_feet()
 
-class YetAnotherExport(Operator):
-    # Currently very messy, will refactor later
-    # The combinations and queue calculation is atrocious why did past me do this
-    # It works tho, somehow
+def verify_armature(objects: list[Object]) -> bool:
+    no_armature = []
+    armatures   = set()
+    for obj in objects:
+        if not obj.parent or obj.parent.type != 'ARMATURE':
+            no_armature.append(obj)
+        armatures.add(obj.parent)
 
+    return no_armature or len(armatures) != 1
+
+def set_armature(objects: list[Object], armature: Object) -> None:
+    for obj in objects:
+        obj.parent = armature
+
+        for modifier in obj.modifiers:
+            if modifier.type == 'ARMATURE':
+                modifier.object = armature
+
+
+class YetAnotherExport(Operator):
     bl_idname = "ya.export"
     bl_label = "Export"
     bl_description = "Exports your scene based on your selections"
@@ -233,25 +249,33 @@ class YetAnotherExport(Operator):
     
     user_input: StringProperty(name="File Name", default="", options={'HIDDEN'}) # type: ignore
 
-    mode: StringProperty(name="", default="SIMPLE", options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
+    mode        : StringProperty(name="", default="SIMPLE", options={'HIDDEN', "SKIP_SAVE"}) # type: ignore
+    show_objs   : BoolProperty(
+                    name="",
+                    description="", 
+                    default=False, 
+                    options={'HIDDEN', "SKIP_SAVE"}
+                    ) # type: ignore
 
     @classmethod
     def poll(cls, context):
         return context.mode == "OBJECT"
 
     def invoke(self, context: Context, event):
-        self.window     = get_window_properties()
-        self.export_dir = Path(get_prefs().export_dir)
+        self.window      = get_window_properties()
+        self.export_dir  = Path(get_prefs().export_dir)
+        self.visible     = visible_meshobj()
+        self.no_armature = verify_armature(self.visible)
 
         if self.window.file_format == 'MDL':
             if not self.window.valid_xiv_path:
-                self.report({'ERROR'}, "Please input a path to your target model")
+                self.report({'ERROR'}, "Please input a path to your target model.")
                 return {'CANCELLED'}
             
             if not get_prefs().consoletools_status:
                 bpy.ops.ya.consoletools("EXEC_DEFAULT")
                 if not get_prefs().consoletools_status:
-                    self.report({'ERROR'}, "Verify that ConsoleTools is ready in the add-on preferences")
+                    self.report({'ERROR'}, "Verify that ConsoleTools is ready in the add-on preferences.")
                     return {'CANCELLED'} 
 
         if not self.export_dir.is_dir():
@@ -261,17 +285,28 @@ class YetAnotherExport(Operator):
         if self.window.check_tris:
             not_triangulated = check_triangulation()
             if not_triangulated:
-                self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}")
+                self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}.")
                 return {'CANCELLED'}
-
-        if self.mode == "SIMPLE": 
+            
+        if self.mode == "SIMPLE" or self.no_armature:
             bpy.context.window_manager.invoke_props_dialog(self, confirm_text="Export")
             return {'RUNNING_MODAL'}
         else:
             return self.execute(context)
         
     def execute(self, context):
+        if self.no_armature:
+            armature = get_file_properties().export_armature
+            if not armature:
+                self.report({'ERROR'}, "Armature was not set.")
+                return {'CANCELLED'}
+            
+            set_armature(self.visible, armature)
+
         if self.mode == "SIMPLE":
+            if self.user_input.strip() == "":
+                self.report({'ERROR'}, "Missing file name.")
+                return {'CANCELLED'}
             return self.simple_export()
         
         else:
@@ -279,7 +314,33 @@ class YetAnotherExport(Operator):
     
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "user_input")   
+        if self.no_armature:
+            row = layout.row(align=True)
+            row.alignment = 'CENTER'
+            row.label(icon='ERROR', text="Missing or multiple armatures detected.")
+            row = layout.row(align=True)
+            row.alignment = 'CENTER'
+            row.label(text="Please select an armature to use for your export.")
+
+            layout.separator(type='LINE')
+
+            button, row = show_ui_button(layout, self, "show_objs", "Show Object/Armature")   
+            if button:
+                layout.separator(type='LINE', factor=0.5)
+
+                for obj in self.visible:
+                    parent = "" if not obj.parent or obj.parent.type != 'ARMATURE' else obj.parent.name
+                    aligned_row(layout, f"{obj.name}:", parent, factor=0.5)
+
+            layout.separator(type='LINE')
+
+            aligned_row(layout, "Armature:", "export_armature", get_file_properties())
+
+            if self.mode == "SIMPLE":
+                layout.separator(type='LINE')
+
+        if self.mode == "SIMPLE":
+            aligned_row(layout, "File Name:", "user_input", self)
 
     def simple_export(self) -> set[str]:
         devkit = get_devkit_properties()

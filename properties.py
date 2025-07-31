@@ -1229,9 +1229,18 @@ class YAFileProps(PropertyGroup):
         update=lambda self, context: self.update_directory(context, 'import'),
         ) # type: ignore
     
+    export_armature: PointerProperty(
+        type= Object,
+        name= "",
+        description= "Armature for exports",
+        poll=lambda self, obj: obj.type == "ARMATURE"
+        )  # type: ignore
+    
     if TYPE_CHECKING:
+        loaded_pmp_groups : LoadedModpackGroup
         import_display_dir: str
         import_armature   : Object
+        export_armature   : Object
         
 class YAOutfitProps(PropertyGroup):
 
