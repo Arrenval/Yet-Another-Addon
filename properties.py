@@ -1519,7 +1519,7 @@ class YAOutfitProps(PropertyGroup):
                                     f"MOD_{modifier.type}"
             
             if self.shape_modifiers_group and window.shape_modifiers == "":
-                self.shape_modifiers = self.shape_modifiers_group[0].name
+                window.shape_modifiers = self.shape_modifiers_group[0].name
 
         else:
             self.shape_modifiers_group.clear()

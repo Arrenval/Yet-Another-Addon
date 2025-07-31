@@ -5,7 +5,7 @@ from bpy.props       import StringProperty, BoolProperty, CollectionProperty
 from bpy.types       import Operator, PropertyGroup, Context, Object, Mesh, UILayout
 
 from ..ui.draw       import get_conditional_icon
-from ..properties    import get_window_properties
+from ..properties    import get_window_properties, get_outfit_properties
 from ..mesh.shapes   import create_co_cache, create_shape_keys
 from ..utils.objects import quick_copy, evaluate_obj, safe_object_delete
 
@@ -53,6 +53,7 @@ class ModifierShape(Operator):
                 self.report({'INFO'}, "Modifier Applied to Shape.")
         finally:
             context.window.cursor_set('DEFAULT')
+            get_outfit_properties().set_modifiers(context)
         return {'FINISHED'}
     
     def apply_deform(self, key_name: str, target: Object, modifier: str) -> None:
@@ -152,23 +153,8 @@ class ShapeKeyModifier(Operator):
 
         context.window.cursor_set('WAIT')
         try:
-            if self.remove:
-                pass
-                
-            elif len(self.main_copy.data.vertices) == len(self.original.data.vertices):
-                vert_count = len(self.original.data.vertices)
-                for key in self.original.data.shape_keys.key_blocks:
-                    shape_co = np.zeros(vert_count * 3, dtype=np.float32)
-                    key.data.foreach_get("co", shape_co)
-
-                    new_shape = self.main_copy.shape_key_add(name=key.name)
-
-                    new_shape.data.foreach_set("co", shape_co)
-                
-                self._set_relative_keys()
-
-            else:
-                self._vert_mismatch(context)
+            if not self.remove:
+                self.resolve_shapes(context)
 
             self.delete_mesh.add(self.main_copy.data)
             self.original.data.clear_geometry()
@@ -195,7 +181,7 @@ class ShapeKeyModifier(Operator):
         self.report({"INFO"}, "Modifier applied.")
         return {"FINISHED"}
     
-    def _vert_mismatch(self, context: Context) -> None:
+    def resolve_shapes(self, context: Context) -> None:
         base_key   = self.original.data.shape_keys.key_blocks[0].name
         vert_count = len(self.main_copy.data.vertices)
         co_cache   = {}

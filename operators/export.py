@@ -7,7 +7,7 @@ from bpy.types       import Operator, Context, Object
 from bpy.props       import StringProperty, BoolProperty
 
 from ..utils         import YetAnotherLogger, SceneOptimiser
-from ..ui.draw       import aligned_row, get_conditional_icon, show_ui_button
+from ..ui.draw       import aligned_row, show_ui_button
 from ..properties    import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
 from ..preferences   import get_prefs
 from ..mesh.export   import check_triangulation, get_export_path, export_result
@@ -300,17 +300,26 @@ class YetAnotherExport(Operator):
             if not armature:
                 self.report({'ERROR'}, "Armature was not set.")
                 return {'CANCELLED'}
-            
             set_armature(self.visible, armature)
 
-        if self.mode == "SIMPLE":
-            if self.user_input.strip() == "":
-                self.report({'ERROR'}, "Missing file name.")
-                return {'CANCELLED'}
-            return self.simple_export()
-        
-        else:
-            return self.batch_export()
+        armature = self.visible[0].parent
+        arm_vis  = armature.hide_get()
+        armature.hide_set(state=False)
+        try:
+            with SceneOptimiser(bpy.context, optimisation_level="high"):
+                if self.mode == "SIMPLE":
+                    if self.user_input.strip() == "":
+                        self.report({'ERROR'}, "Missing file name.")
+                        return {'CANCELLED'}
+                    self.simple_export()
+                
+                else:
+                    self.batch_export()
+        finally:
+            armature.hide_set(state=arm_vis)
+            
+        self.report({'INFO'}, "Export complete!")
+        return {'FINISHED'}
     
     def draw(self, context):
         layout = self.layout
@@ -406,16 +415,15 @@ class YetAnotherExport(Operator):
 
         bpy.context.window.cursor_set('WAIT')
         try:
-            with SceneOptimiser(bpy.context, optimisation_level="high"):
-                self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
-                for item in self.queue:
-                    self.logger.log_progress(operation="Exporting files", clear_messages=True)
-                    self.logger.log_separator()
-                    self.logger.log(f"Size: {item[0]}")
-                    self.logger.log_separator()
-                    self.logger.log("Applying sizes...", 2)
+            self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
+            for item in self.queue:
+                self.logger.log_progress(operation="Exporting files", clear_messages=True)
+                self.logger.log_separator()
+                self.logger.log(f"Size: {item[0]}")
+                self.logger.log_separator()
+                self.logger.log("Applying sizes...", 2)
 
-                    self._process_queue(item, self.body_slot, leg_queue=self.leg_queue)
+                self._process_queue(item, self.body_slot, leg_queue=self.leg_queue)
                     
         except Exception as e:
             if self.logger:
@@ -430,9 +438,6 @@ class YetAnotherExport(Operator):
             reset_chest_values()
             get_devkit_properties().collection_state.export = False
             bpy.context.view_layer.update()
-            
-        self.report({'INFO'}, "Export complete!")
-        return {'FINISHED'}
     
     def _get_size_options(self) -> dict[str, bool]:
         devkit_win = get_devkit_win_props()
