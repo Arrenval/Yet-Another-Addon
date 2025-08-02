@@ -30,7 +30,7 @@ class SimpleImport(Operator):
         if format == "GLTF":
             bpy.ops.import_scene.gltf("INVOKE_DEFAULT")
         elif format == "FBX":
-            bpy.ops.import_scene.fbx("INVOKE_DEFAULT", ignore_leaf_bones=True)
+            bpy.ops.import_scene.fbx("INVOKE_DEFAULT")
         
         if self.cleanup:
             bpy.ops.object.select_all(action="DESELECT")
