@@ -78,7 +78,7 @@ def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
 
             for attr in obj.keys():
                 attr: str
-                if attr.startswith("atr_") and obj[attr]:
+                if attr.startswith("atr") and obj[attr]:
                     obj_attr.append(attr.strip())
                 if attr.startswith("heels_offset") and obj[attr]:
                     obj_attr.append(attr.strip())    
