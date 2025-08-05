@@ -74,29 +74,31 @@ def yet_another_sort(files:list[Path]) -> list[Path]:
     for file in files:
         ranking[file] = 0
         if "Small" in file.stem:
-            ranking[file] += 2
+            ranking[file] += 3
         if "Cupcake" in file.stem:
-            ranking[file] += 2
-        if "Medium" in file.stem:
             ranking[file] += 3
-        if "Teardrop" in file.stem:
-            ranking[file] += 3
-        if "Sayonara" in file.stem:
+        if "Sugar" in file.stem:
             ranking[file] += 4
-        if "Tsukareta" in file.stem:
+        if "Medium" in file.stem:
             ranking[file] += 5
+        if "Teardrop" in file.stem:
+            ranking[file] += 5
+        if "Sayonara" in file.stem:
+            ranking[file] += 6
+        if "Tsukareta" in file.stem:
+            ranking[file] += 7
         if "Tsukareta+" in file.stem:
             ranking[file] += 1
         if "Mini" in file.stem:
-            ranking[file] += 8
-        if "Large" in file.stem:
             ranking[file] += 9
-        if "Omoi" in file.stem:
+        if "Large" in file.stem:
             ranking[file] += 10
+        if "Omoi" in file.stem:
+            ranking[file] += 11
         if "Sugoi" in file.stem:
             ranking[file] += 1
         if "Uranus" in file.stem:
-            ranking[file] += 12
+            ranking[file] += 13
         if "Skull" in file.stem:
             ranking[file] += 1
         if "Yanilla" in file.stem:
