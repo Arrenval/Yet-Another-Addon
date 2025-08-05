@@ -398,8 +398,6 @@ def register_menus() -> None:
         bpy.utils.register_class(FileManager)
     if get_prefs().menus.util_panel:
         bpy.utils.register_class(FileUtilities)
-    if get_prefs().menus.util_panel:
-        bpy.utils.register_class(FileUtilities)
     if get_prefs().menus.sym_panel:
         bpy.utils.register_class(AddSymmetryGroups)
     if get_prefs().menus.weight_menu:
