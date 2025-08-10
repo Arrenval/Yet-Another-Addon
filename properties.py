@@ -1068,14 +1068,14 @@ class YAWindowProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-    insp_file_first: StringProperty(
+    insp_file1: StringProperty(
         name="",
         default="",
         description="File to inspect", 
         maxlen=255,
         )  # type: ignore
     
-    insp_file_sec: StringProperty(
+    insp_file2: StringProperty(
         name="",
         default="",
         description="File to inspect", 

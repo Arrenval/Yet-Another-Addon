@@ -1,4 +1,3 @@
-import struct
 import logging
 
 from bpy.types    import PropertyGroup

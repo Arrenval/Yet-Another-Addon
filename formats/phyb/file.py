@@ -5,8 +5,8 @@ import itertools
 
 from typing     import List, Optional, BinaryIO, Callable
 
-from .simulator import PhybSimulator
 from ..utils    import BinaryReader
+from .simulator import PhybSimulator
 
 
 class CollisionData:
@@ -17,14 +17,13 @@ class CollisionData:
     SPHERES       = 80
 
 class PhybFile:
-    
     MAGIC_EXTENDED_DATA_PRE  = 0x42485045 
     MAGIC_EXTENDED_DATA_POST = 0x4B434150
     
     def __init__(self):
-        self.version       : int = 0
-        self.data_type     : int = 0
-        self.collision_data: bytes = b''
+        self.version       : int                 = 0
+        self.data_type     : int                 = 0
+        self.collision_data: bytes               = b''
         self.simulators    : List[PhybSimulator] = []
         self.extended_data : Optional[bytes]     = None
     
@@ -35,7 +34,7 @@ class PhybFile:
     
     @classmethod
     def from_bytes(cls, data: bytes) -> 'PhybFile':
-        phyb = cls()
+        phyb   = cls()
         reader = BinaryReader(data)
     
         phyb.version     = reader.read_uint32()

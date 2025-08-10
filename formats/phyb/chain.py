@@ -10,7 +10,6 @@ vector = tuple[float, float, float]
     
 @dataclass
 class PhybChain:
-
     HEADER_SIZE = 48
 
     dampening          : float  = 0
@@ -38,7 +37,7 @@ class PhybChain:
         chain.collision_dampening = reader.read_float()
         chain.repulsion_strength  = reader.read_float()
 
-        chain.last_bone_offset = reader.read_vector(3)
+        chain.last_bone_offset = reader.read_array(3, format_str='f')
         chain.type             = reader.read_uint32()
 
         collision_offset = reader.read_uint32() + 4

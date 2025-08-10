@@ -1,12 +1,30 @@
 import os
 import json
 import copy
+import numpy as np
 import struct
 
-from pathlib     import Path
-from typing      import Self
-from dataclasses import asdict, fields
+from io           import BytesIO
+from typing       import Self
+from pathlib      import Path
+from dataclasses  import asdict, fields
+from numpy.typing import NDArray
 
+
+def write_padding(amount: int) -> bytes:
+    if amount == 0:
+        return b''
+    
+    return bytes([0] * amount)
+
+def write_alignment(file: BytesIO, alignment: int=8) -> bytes:
+    current_pos = file.tell()
+    if current_pos % alignment == 0:
+        return
+    
+    padding = alignment - (current_pos % alignment)
+    
+    return bytes([0] * padding)
 
 def read_packed_version(packed_version: int) -> float:
     build = packed_version & 0xFF
@@ -16,7 +34,6 @@ def read_packed_version(packed_version: int) -> float:
     return f"{major}.{minor}.{patch}.{build}"
 
 class BinaryReader:
-
     def __init__(self, data: bytes):
         self.data   = data
         self.pos    = 0
@@ -41,6 +58,9 @@ class BinaryReader:
         self.pos += length
         return result
     
+    def read_bool(self) -> bool:
+        return self.read_struct('<?')
+    
     def read_uint16(self) -> int:
         return self.read_struct('<H')
     
@@ -50,11 +70,24 @@ class BinaryReader:
     def read_float(self) -> float:
         return self.read_struct('<f')
     
-    def read_vector(self, length: int, format_str: str='f') -> tuple[float, ...]:
-        if length < 2:
-            raise ValueError("Vector needs at least a length of 2.")
-        return self.read_struct(f'<{format_str * length}')
+    def read_array(self, length: int, format_str: str='I') -> list[int | float]:
+        array = []
+        for _ in range(length):
+            array.append(self.read_struct(f'<{format_str}'))
+        
+        return array
     
+    def read_to_ndarray(self, dtype: str, count: int) -> NDArray:
+        array = np.frombuffer(
+                    self.data[self.pos:],
+                    dtype,
+                    count,
+                    0
+                ).copy()
+
+        self.pos += np.dtype(dtype).itemsize * count
+        return array
+
     def read_string(self, length: int, encoding: str='utf-8') -> str:
         raw_bytes = self.read_bytes(length)
     
@@ -77,11 +110,10 @@ class BinaryReader:
 class PMPJson:
 
     @classmethod
-    def from_dict(cls, input:dict):
+    def from_dict(cls, input: dict):
         field_names = {field.name for field in fields(cls)}
         
         filtered_input = {}
-
         for key, value in input.items():
             if key in field_names:
                 filtered_input[key] = value

@@ -1,12 +1,13 @@
 import os
 import tempfile
 
-from pathlib             import Path
-from bpy.types           import Operator
-from bpy.props           import BoolProperty
+from pathlib              import Path
+from bpy.types            import Operator
+from bpy.props            import BoolProperty
 
-from ..properties        import get_window_properties
-from ..formats.phyb.file import PhybFile
+from ..properties         import get_window_properties
+from ..formats.phyb.file  import PhybFile
+from ..formats.model.file import XIVModel
 
 
 def compare_binaries(original_path: str, written_path: str, context_bytes: int=32):
@@ -67,9 +68,18 @@ class FileInspector(Operator):
     bl_description = "Prints a binary comparison of the two files"
 
     def execute(self, context):
+        self.window = get_window_properties()
+        model = XIVModel.from_file(self.window.insp_file1)
+        path = str(Path(self.window.insp_file1).parent / "Test.mdl")
+
+        for offset in model.header.vert_offset:
+            print(offset)
+
+        model.to_file((path))
+   
         compare_binaries(
-            get_window_properties().insp_file_first, 
-            get_window_properties().insp_file_sec
+            get_window_properties().insp_file1, 
+            path
             )
         
         return {'FINISHED'}
@@ -90,32 +100,33 @@ class PhybAppend(Operator):
             return """Appends simulators to the base phyb.
 Prints an error for every simulator that has undefined collision objects in the primary phyb.
 Resulting phyb is written to the same folder as the base phyb"""
+
     def execute(self, context):
         self.window = get_window_properties()
 
-        files_exist = Path(self.window.insp_file_first).is_file() and Path(self.window.insp_file_sec).is_file()
+        files_exist = Path(self.window.insp_file1).is_file() and Path(self.window.insp_file2).is_file()
         if not files_exist:
             self.report({'ERROR'}, "Couldn't find selected files.")
             return {'CANCELLED'}
         
-        phyb_files  = Path(self.window.insp_file_first).suffix == ".phyb" and Path(self.window.insp_file_first).suffix == ".phyb"
+        phyb_files  = Path(self.window.insp_file1).suffix == ".phyb" and Path(self.window.insp_file1).suffix == ".phyb"
         if not phyb_files:
             self.report({'ERROR'}, "Please select phyb files.")
             return {'CANCELLED'}
             
-        base_phyb = PhybFile.from_file(self.window.insp_file_first)
-        sim_phyb  = PhybFile.from_file(self.window.insp_file_sec)
+        base_phyb = PhybFile.from_file(self.window.insp_file1)
+        sim_phyb  = PhybFile.from_file(self.window.insp_file2)
         collision_obj = base_phyb.get_collision_names()
 
         for idx, simulator in enumerate(sim_phyb.simulators):
             if not simulator.get_collision_names() <= collision_obj:
-                print(f"{Path(self.window.insp_file_first).stem}: Simulator {idx} has collision object not defined in the base phyb.")
-                self.report({'ERROR'}, f"{Path(self.window.insp_file_first).stem}: Simulator {idx} has collision object not defined in the base phyb.")
+                print(f"{Path(self.window.insp_file1).stem}: Simulator {idx} has collision object not defined in the base phyb.")
+                self.report({'ERROR'}, f"{Path(self.window.insp_file1).stem}: Simulator {idx} has collision object not defined in the base phyb.")
                 continue
             base_phyb.simulators.append(simulator)
         
         if not self.collision_check:
-            base_phyb.to_file(str(Path(self.window.insp_file_first).parent / "Result.phyb"))
+            base_phyb.to_file(str(Path(self.window.insp_file1).parent / "Result.phyb"))
         
         return {'FINISHED'}
     
@@ -127,16 +138,16 @@ class CompareOutput(Operator):
 
     def execute(self, context):
         self.window = get_window_properties()
-        original    = Path(self.window.insp_file_first)
+        original    = Path(self.window.insp_file1)
             
-        phyb = PhybFile.from_file(self.window.insp_file_first)
+        phyb = PhybFile.from_file(self.window.insp_file1)
 
         temp_fd, temp_path = tempfile.mkstemp(prefix="CompareFile", suffix=original.suffix)
         try:
             with os.fdopen(temp_fd, 'wb') as temp_file:
                 temp_file.write(phyb.to_bytes())
             
-            compare_binaries(self.window.insp_file_first, temp_path)
+            compare_binaries(self.window.insp_file1, temp_path)
             
         finally:
             os.unlink(temp_path)

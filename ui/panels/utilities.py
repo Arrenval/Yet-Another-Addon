@@ -18,9 +18,9 @@ class FileUtilities(Panel):
         layout = self.layout
 
         self.options ={
-            "File": "FILE",
-            "Phyb": "PHYSICS",
-            "Model": "OUTLINER_OB_MESH",
+            "File": 'FILE',
+            "Phyb": 'PHYSICS',
+            "Model": 'OUTLINER_OB_MESH',
             }
 
         row = layout.row()
@@ -31,7 +31,10 @@ class FileUtilities(Panel):
 
         if self.window.phyb_category:
             self.draw_phyb(main_col)
-        else:
+        if self.window.model_category:
+            self.draw_mdl(main_col)
+        if self.window.file_category:
+            row.operator("ya.file_selector", text="", icon="FILE_FOLDER").category = "INSP1"
             row = main_col.split(factor=1.0, align=True).row(align=True)
             row.alignment = "CENTER"
             row.label(text="Check back later.", icon='INFO')
@@ -47,10 +50,10 @@ class FileUtilities(Panel):
 
         layout.separator(type="LINE", factor=2)
 
-        row = aligned_row(layout, "Base Phyb:", "insp_file_first", self.window)
-        row.operator("ya.file_selector", text="", icon="FILE_FOLDER").category = "INSP_ONE"
-        row = aligned_row(layout, "Simulators:", "insp_file_sec", self.window)
-        row.operator("ya.file_selector", text="", icon="FILE_FOLDER").category = "INSP_TWO"
+        row = aligned_row(layout, "Base Phyb:", "insp_file1", self.window)
+        row.operator("ya.file_selector", text="", icon="FILE_FOLDER").category = "INSP1"
+        row = aligned_row(layout, "Simulators:", "insp_file2", self.window)
+        row.operator("ya.file_selector", text="", icon="FILE_FOLDER").category = "INSP2"
 
         split = layout.split(factor=0.25, align=True)
         split.label(text="")
@@ -58,6 +61,20 @@ class FileUtilities(Panel):
         split.operator("ya.phyb_append", text="Collision").collision_check = True
 
         layout.separator()
+
+    def draw_mdl(self, layout: UILayout) -> None:
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="MODEL", icon='OUTLINER_OB_MESH')
+
+        layout.separator(type="LINE", factor=2)
+
+        row = aligned_row(layout, "File:", "insp_file1", self.window)
+        row.operator("ya.file_selector", text="", icon="FILE_FOLDER").category = "INSP1"
+
+        split = layout.split(factor=0.25, align=True)
+        split.label(text="")
+        split.operator("ya.file_inspector", text="Load")
 
                
 CLASSES = [

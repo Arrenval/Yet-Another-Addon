@@ -75,7 +75,7 @@ class FileSelector(Operator):
     
     def invoke(self, context: Context, event):
         if self.category.startswith("INSP"):
-            self.filter_glob = "*.phyb"
+            self.filter_glob = "*.mdl"
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
@@ -90,10 +90,10 @@ class FileSelector(Operator):
         return {'FINISHED'}
     
     def attr_from_category(self) -> str:
-        if self.category == "INSP_ONE":
-            return "insp_file_first"
-        elif self.category == "INSP_TWO":
-            return "insp_file_sec"
+        if self.category == "INSP1":
+            return "insp_file1"
+        elif self.category == "INSP2":
+            return "insp_file2"
     
 class DirSelector(Operator):
     bl_idname = "ya.dir_selector"

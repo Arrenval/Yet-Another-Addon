@@ -17,7 +17,6 @@ from ..utils.objects      import visible_meshobj, safe_object_delete, copy_mesh_
 from ..utils.ya_exception import XIVMeshParentError
 
 
-
 def create_backfaces(obj:Object) -> None:
     """Assumes the mesh is triangulated to get the faces from _get_backfaces."""
     mesh = obj.data
