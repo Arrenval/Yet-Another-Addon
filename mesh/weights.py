@@ -8,6 +8,31 @@ from collections.abc import Iterable
 
 from ..properties    import YASGroup
 
+def add_to_vgroup(weight_matrix: NDArray, v_group: VertexGroup) -> NDArray:
+    indices = np.flatnonzero(weight_matrix[:, v_group.index])
+    weights = weight_matrix[:, v_group.index][indices]
+    if len(indices) == 0:
+        return
+
+    grouped_indices, unique_weights = group_weights(indices, weights)
+    
+    for array_idx, vert_indices in enumerate(grouped_indices):
+        vert_indices = vert_indices.tolist()
+        v_group.add(vert_indices, unique_weights[array_idx], type='ADD')
+
+def group_weights(indices: NDArray[uint32], weights: NDArray[float32]) -> tuple[list[NDArray[uint32]], NDArray[float32]]:
+    '''Groups vert indices based on unique weight values. 
+    This limits the calls to the Blender API vertex_group.add() function.'''
+    unique_weights, inverse_indices = np.unique(weights, return_inverse=True)
+
+    sort_order     = np.argsort(inverse_indices)
+    sorted_groups  = inverse_indices[sort_order]
+    sorted_indices = indices[sort_order]
+
+    split_points    = np.where(np.diff(sorted_groups))[0] + 1
+    grouped_indices = np.split(sorted_indices, split_points)
+
+    return grouped_indices, unique_weights
 
 def remove_vertex_groups(obj: Object, skeleton: Object, prefix: tuple[str, ...], store_yas=False) -> None:
         """Can remove any vertex group and add weights to parent group."""
@@ -25,17 +50,8 @@ def remove_vertex_groups(obj: Object, skeleton: Object, prefix: tuple[str, ...],
             if v_group.index not in updated_groups:
                 continue
 
-            indices = np.flatnonzero(weight_matrix[:, v_group.index])
-            weights = weight_matrix[:, v_group.index][indices]
-            if len(indices) == 0:
-                continue
+            add_to_vgroup(weight_matrix, v_group)
 
-            grouped_indices, unique_weights = group_weights(indices, weights)
-            
-            for array_idx, vert_indices in enumerate(grouped_indices):
-                vert_indices = vert_indices.tolist()
-                v_group.add(vert_indices, unique_weights[array_idx], type='ADD')
-        
         if store_yas:
             _store_yas_groups(obj, skeleton, group_to_parent, weight_matrix)
 
@@ -109,20 +125,6 @@ def restore_yas_groups(obj: Object) -> None:
             yas_group.add(vert_indices, weights[1][array_idx], type='REPLACE')
     
     yas_groups.clear()
-
-def group_weights(indices: NDArray[uint32], weights: NDArray[float32]) -> tuple[list[NDArray[uint32]], NDArray[float32]]:
-    '''Groups vert indices based on unique weight values. 
-    This limits the calls to the Blender API vertex_group.add() function.'''
-    unique_weights, inverse_indices = np.unique(weights, return_inverse=True)
-
-    sort_order     = np.argsort(inverse_indices)
-    sorted_groups  = inverse_indices[sort_order]
-    sorted_indices = indices[sort_order]
-
-    split_points    = np.where(np.diff(sorted_groups))[0] + 1
-    grouped_indices = np.split(sorted_indices, split_points)
-
-    return grouped_indices, unique_weights
 
 def _get_group_parent(obj: Object, skeleton: Object, prefix: set[str]) -> dict[int, int | str]:
     group_to_parent = {}

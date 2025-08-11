@@ -15,6 +15,10 @@ class SimpleImport(Operator):
     bl_options = {"UNDO"}
 
     preset: StringProperty() # type: ignore
+    filepath: StringProperty(options={'HIDDEN'}) # type: ignore
+    filter_glob: bpy.props.StringProperty(
+        subtype='FILE_PATH',
+        options={'HIDDEN'}) # type: ignore
 
     @classmethod
     def poll(cls, context: Context):
@@ -31,6 +35,8 @@ class SimpleImport(Operator):
             bpy.ops.import_scene.gltf("INVOKE_DEFAULT")
         elif format == "FBX":
             bpy.ops.import_scene.fbx("INVOKE_DEFAULT")
+        elif format == "MDL":
+            bpy.ops.ya.file_selector("INVOKE_DEFAULT", category="MDL")
         
         if self.cleanup:
             bpy.ops.object.select_all(action="DESELECT")
@@ -113,8 +119,6 @@ class SimpleCleanUp(Operator):
                 material = obj.active_material
                 material.surface_render_method = "BLENDED"
                 material.use_backface_culling = True
-                material.roughness = 0.5
-                material.metallic = 0.0
                 material.use_transparency_overlap = False
                 for node in material.node_tree.nodes:
                     if node.inputs:
@@ -134,14 +138,16 @@ class SimpleCleanUp(Operator):
             bpy.context.view_layer.objects.active = obj
             obj.select_set(state=True)
             bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
-            obj.parent = armature
+            if armature:
+                obj.parent = armature
             bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
             
-            for modifier in obj.modifiers:
-                if modifier.type == "ARMATURE":
-                    modifier: ArmatureModifier
-                    modifier.object = armature
-                    modifier.name = "Armature"
+            if armature:
+                for modifier in obj.modifiers:
+                    if modifier.type == "ARMATURE":
+                        modifier: ArmatureModifier
+                        modifier.object = armature
+                        modifier.name = "Armature"
 
     def remove(self):
         for obj in self.selected:

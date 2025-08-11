@@ -1,13 +1,26 @@
 import os
 import bpy
+import zipfile
 
-from pathlib            import Path
-from bpy.types          import Operator, Context
-from bpy.props          import StringProperty, IntProperty
+from pathlib          import Path
+from bpy.types        import Operator, PropertyGroup, Context
+from bpy.props        import StringProperty, IntProperty, EnumProperty, CollectionProperty
+from collections      import defaultdict
 
-from ...properties      import BlendModOption, BlendModGroup, ModFileEntry, get_file_properties, get_window_properties
-from ...preferences     import get_prefs
+from ...mesh.xiv      import ModelImport
+from ...utils.typings import BlendEnum
+from ...properties    import BlendModOption, BlendModGroup, ModFileEntry, get_window_properties
+from ...preferences   import get_prefs
+from ...formats.pmp   import Modpack
 
+
+class PMPOption(PropertyGroup):
+    name: StringProperty() # type: ignore
+
+class PMPGroup(PropertyGroup):
+    group_name: StringProperty() # type: ignore
+    group_desc: StringProperty() # type: ignore
+    files: CollectionProperty(type=PMPOption) # type: ignore
 
 class PMPSelector(Operator):
     bl_idname = "ya.pmp_selector"
@@ -63,10 +76,10 @@ class PMPSelector(Operator):
         return {'FINISHED'}
 
 class FileSelector(Operator):
-    bl_idname = "ya.file_selector"
-    bl_label = "Select File"
+    bl_idname      = "ya.file_selector"
+    bl_label       = "Select File"
     bl_description = "Select file"
-    
+    bl_options     = {'UNDO'}
     filepath: StringProperty(options={'HIDDEN'}) # type: ignore
     category: StringProperty(options={'HIDDEN'}) # type: ignore
     filter_glob: bpy.props.StringProperty(
@@ -75,25 +88,165 @@ class FileSelector(Operator):
     
     def invoke(self, context: Context, event):
         if self.category.startswith("INSP"):
-            self.filter_glob = "*.mdl"
+            self.filter_glob = "*.phyb;*.mdl"
+
+        if self.category == 'MDL':
+            self.filter_glob = "*.pmp;*.mdl"
+
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
+        file = Path(self.filepath)
 
-        if Path(self.filepath).is_file():
+        if not file.is_file():
+            self.report({"ERROR"}, "Not a valid file!")
+            return {'FINISHED'}
+        
+        if self.category == 'MDL':
+            if file.suffix == '.mdl':
+                ModelImport.from_file(self.filepath, file.stem)
+                self.report({"INFO"}, "Model Imported!")
+            elif file.suffix == '.pmp':
+                bpy.ops.ya.select_from_pmp('INVOKE_DEFAULT', filepath=self.filepath)
+        else:
             setattr(get_window_properties(), self.attr_from_category(), self.filepath)
             self.report({"INFO"}, "File selected!")
-        else:
-            self.report({"ERROR"}, "Not a valid file!")
         
         return {'FINISHED'}
-    
+
     def attr_from_category(self) -> str:
         if self.category == "INSP1":
             return "insp_file1"
         elif self.category == "INSP2":
             return "insp_file2"
+
+class SelectFromPMP(Operator):
+    bl_idname      = "ya.select_from_pmp"
+    bl_label       = "Select File"
+    bl_description = "Select file"
+    bl_options     = {'UNDO'}
+
+    filepath: StringProperty(options={'HIDDEN'}) # type: ignore
+    pmp_groups: CollectionProperty(type=PMPGroup) # type: ignore
+    
+    def invoke(self, context: Context, event):
+        pmp = Modpack.from_archive(Path(self.filepath))
+        self.mdl_files: dict[str, dict[str, set[str]]] = defaultdict(dict)
+        self.parse_modpack(pmp)
+        
+        return context.window_manager.invoke_props_dialog(self, confirm_text="Import")
+    
+    def parse_modpack(self, pmp: Modpack):
+        pmp_groups: list[PMPGroup] = self.pmp_groups
+
+        added_groups = 0
+        for group in pmp.groups:
+            options = group.Containers if group.Containers else group.Options or []
+
+            mdl_files: dict[str, set[str]] = defaultdict(set)
+            for option in options:
+                files = [(key, relative_path) for key, relative_path in (option.Files or {}).items()]
+                
+                for (key, relative_path) in files:
+                    file = Path(relative_path)
+                    if file.suffix != ".mdl":
+                        continue
+
+                    mdl_files[option.Name].add(relative_path)
+
+            if mdl_files:
+                new_group            = pmp_groups.add()
+                new_group.group_name = group.Name
+                new_group.group_desc = group.Description
+
+                for option, paths in mdl_files.items():
+                    new_file          = new_group.files.add()
+                    new_file.name     = option
+
+                    self.mdl_files[(added_groups)][option] = set()
+                    for path in paths:
+                        self.mdl_files[(added_groups)][option].add(path)
+                        
+                added_groups += 1
+
+    def get_groups_items(self, context) -> BlendEnum:
+        pmp_groups: list[PMPGroup] = self.pmp_groups
+
+        items = []
+        for idx, group in enumerate(pmp_groups):
+            items.append((str(idx), group.group_name, group.group_desc))
+
+        return items
+        
+    def get_files_items(self, context: Context) -> BlendEnum:
+        pmp_groups: list[PMPGroup] = self.pmp_groups
+        options: list[PMPOption]   = pmp_groups[int(self.group)].files
+        
+        items = []
+        for option in options:
+            items.append((option.name, option.name, ""))
+        
+        return items
+
+    group: EnumProperty(
+                name="",
+                description="Select a group",
+                items=get_groups_items,
+                # update=lambda self, context: self.on_group_changed(context)
+            ) # type: ignore
+    
+    option: EnumProperty(
+                name="",
+                description="Select a file",
+                items=get_files_items,
+            ) # type: ignore
+    
+    def draw(self, context) -> None:
+        layout = self.layout
+
+        if len(self.pmp_groups) == 0:
+            row = layout.row(align=True)
+            row.alignment = 'CENTER'
+            row.label(icon='INFO', text=f"Modpack contains no models.")
+            return
+
+        split  = layout.split(factor=0.5, align=True)
+
+        col_group = split.column(align=True)
+        col_group.label(text="Group:")
+        col_group.column(align=True).prop(self, "group", text="")
+
+        col_files = split.column(align=True)
+        col_files.label(text="Option:")
+        col_files.column(align=True).prop(self, "option", text="")
+
+        files = len(self.mdl_files[int(self.group)][self.option])
+        if files > 1:
+            row = layout.row(align=True)
+            row.alignment = 'CENTER'
+            row.label(icon='INFO', text=f"This option contains {files} models.")
+
+    def execute(self, context):
+        if len(self.pmp_groups) == 0:
+            return {'FINISHED'}
+        
+        rel_paths = self.mdl_files[int(self.group)][self.option]
+
+        with zipfile.ZipFile(self.filepath, 'r') as zip_file:
+            archive_files = zip_file.namelist()
+            archive_lower = {file.lower(): file for file in archive_files}
+
+            for rel_path in rel_paths:
+                normalised_path = rel_path.replace('\\', '/').lower()
+                
+                if normalised_path in archive_lower:
+                    actual_path = archive_lower[normalised_path]
+                    data = zip_file.read(actual_path)
+                    ModelImport.from_bytes(data, self.option)
+        
+        self.report({"INFO"}, "Model Imported!")
+        return {'FINISHED'}
     
 class DirSelector(Operator):
     bl_idname = "ya.dir_selector"
@@ -310,11 +463,12 @@ class ModpackDirSelector(Operator):
             new_phyb.file_path = str(file)
 
 
-
-
 CLASSES = [
+    PMPOption,
+    PMPGroup,
     PMPSelector,
     FileSelector,
+    SelectFromPMP,
     DirSelector,
     ModpackFileSelector,
     ModpackDirSelector,

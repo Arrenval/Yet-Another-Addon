@@ -6,8 +6,8 @@ from bpy.types            import Operator
 from bpy.props            import BoolProperty
 
 from ..properties         import get_window_properties
+from ..mesh.xiv           import ModelImport 
 from ..formats.phyb.file  import PhybFile
-from ..formats.model.file import XIVModel
 
 
 def compare_binaries(original_path: str, written_path: str, context_bytes: int=32):
@@ -69,18 +69,18 @@ class FileInspector(Operator):
 
     def execute(self, context):
         self.window = get_window_properties()
-        model = XIVModel.from_file(self.window.insp_file1)
-        path = str(Path(self.window.insp_file1).parent / "Test.mdl")
+        ModelImport.from_file(self.window.insp_file1, Path(self.window.insp_file1).name)
+        # path = str(Path(self.window.insp_file1).parent / "Test.mdl")
 
-        for offset in model.header.vert_offset:
-            print(offset)
+        # for offset in model.header.vert_offset:
+        #     print(offset)
 
-        model.to_file((path))
+        # model.to_file((path))
    
-        compare_binaries(
-            get_window_properties().insp_file1, 
-            path
-            )
+        # compare_binaries(
+        #     get_window_properties().insp_file1, 
+        #     path
+        #     )
         
         return {'FINISHED'}
     

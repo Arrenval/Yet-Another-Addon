@@ -3,16 +3,16 @@ import re
 import bpy
 import platform
 
-from enum            import Enum
-from typing          import TYPE_CHECKING, Literal
-from pathlib         import Path
-from itertools       import chain
-from bpy.types       import PropertyGroup, Object, Context
-from bpy.props       import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
-from collections.abc import Iterable
-
-from .utils.typings  import BlendEnum, DevkitProps, DevkitWindowProps
-from .formats.pmp.modpack    import Modpack
+from enum                 import Enum
+from typing               import TYPE_CHECKING, Literal
+from pathlib              import Path
+from itertools            import chain
+from bpy.types            import PropertyGroup, Object, Context
+from bpy.props            import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
+from collections.abc      import Iterable
+     
+from .utils.typings       import BlendEnum, DevkitProps, DevkitWindowProps
+from .formats.pmp.modpack import Modpack
 
 
 class RacialCodes(Enum):
@@ -792,7 +792,7 @@ class YAWindowProps(PropertyGroup):
         )  # type: ignore
 
     def _get_formats(self, context) -> None:
-        if self.file_man_ui == 'EXPORT' and platform.system() == 'Windows':
+        if self.file_man_ui == 'IMPORT' or platform.system() == 'Windows':
             return [
             ('MDL', "MDL", "Export FBX and convert to MDL."),
             ('FBX', "FBX", "Export FBX."),
@@ -1615,7 +1615,7 @@ def set_addon_properties() -> None:
     
     bpy.types.Object.yas = PointerProperty(name="YAS Weight Storage",
         type=YASStorage)
-
+    
     YAWindowProps.ui_buttons()
     YAWindowProps.set_extra_options()
     

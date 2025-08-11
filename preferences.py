@@ -64,7 +64,7 @@ class MenuSelect(PropertyGroup):
     util_panel: BoolProperty(
         name="",
         description="Show Utilities",
-        default=False,
+        default=True,
         update=register_util_panel
         ) # type: ignore
     

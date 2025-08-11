@@ -330,7 +330,7 @@ class FileManager(Panel):
         
         subrow = row.row()
         subrow.alignment = "RIGHT"
-        subrow.scale_x = 0.25
+        subrow.scale_x = 0.20
         subrow.prop(self.window_props, "file_format", text=self.window_props.file_format, expand=True)
 
         box = layout.box()

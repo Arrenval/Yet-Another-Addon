@@ -38,4 +38,3 @@ class XIVMeshIDError(XIVMeshError):
 class XIVMeshParentError(XIVMeshError):
     """Raised if mesh parent is not a visible armature"""
 
-
