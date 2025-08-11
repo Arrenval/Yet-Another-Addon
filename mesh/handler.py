@@ -126,7 +126,6 @@ class MeshHandler:
         self.remove_yas: str             = props.remove_yas
         self.batch     : bool            = batch
         self.torso     : bool            = self.batch and "Chest" in get_window_properties().export_body_slot
-        self.reset     : list[Object]    = []
         self.delete    : list[Object]    = []
         self.tri_method: tuple[str, str] = ("BEAUTY", "BEAUTY")
 
@@ -163,12 +162,14 @@ class MeshHandler:
                 yas_vag = (gen_b and not gen_b.mute and gen_b.value == 1) or (gen_c and not gen_c.mute and gen_c.value == 1)
                 self.yas_vag = yas_vag
 
-            self.reset.append(obj)
             self.meshes[obj] = {
                 'shape'       : shape_key, 
                 'transparency': transparency, 
-                'backfaces'   : backfaces
+                'backfaces'   : backfaces,
+                'old_name'    : obj.name
                 }
+            
+            obj.name = "temp_export"
         
         if no_skeleton:
             raise XIVMeshParentError(f"Missing Skeleton Parent: {', '.join(no_skeleton)}.")
@@ -218,11 +219,10 @@ class MeshHandler:
         return shape_keys
 
     def process_meshes(self) -> None:
-        dupe: Object 
-        fixed_transp = {}
-        shape_keys   = []
-        backfaces    = []
-        dupes        = []
+        fixed_transp: dict[Object, Object]              = {}
+        shape_keys  : list[tuple[Object, Object, list]] = []
+        backfaces   : list[Object]                      = []
+        dupes       : list[Object]                      = []
 
         if not self.depsgraph:
             self.depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -247,11 +247,7 @@ class MeshHandler:
             else:
                 dupe = copy_mesh_object(obj, self.depsgraph)
 
-                if re.search(r"^\d+\.\d+\s", obj.name):
-                    name_parts = obj.name.split(" ")
-                    dupe.name = " ".join(["ExportMesh"] + name_parts[1:] + name_parts[0:1])
-                else:
-                    dupe.name = "ExportMesh " + obj.name
+                self.rename_object(dupe, stats["old_name"])
 
             if stats["shape"]:
                 shape_keys.append((dupe, obj, stats["shape"]))
@@ -287,11 +283,7 @@ class MeshHandler:
 
             dupe = copy_mesh_object(obj, self.depsgraph)
 
-            if re.search(r"^\d+.\d+\s", obj.name):
-                name_parts = obj.name.split(" ")
-                dupe.name = " ".join(["ExportMesh"] + name_parts[1:] + name_parts[0:1])
-            else:
-                dupe.name = "ExportMesh " + obj.name
+            self.rename_object(dupe, self.meshes[obj]["old_name"])
 
             fixed_transp[obj] = dupe
             to_process.append((dupe, original_faces))
@@ -308,7 +300,14 @@ class MeshHandler:
             sequential_faces(dupe, original_faces)
         
         return fixed_transp
-   
+    
+    def rename_object(self, obj: Object, old_name: str) -> None:
+        if re.search(r"^\d+.\d+\s", old_name):
+            name_parts = old_name.split(" ")
+            obj.name = " ".join(name_parts[1:] + name_parts[0:1])
+        else:
+            obj.name = "ExportMesh " + old_name
+
     def handle_shape_keys(self, shape_keys: list[tuple[Object, Object, list[ShapeKey]]]) -> None:
         if self.logger:
             self.logger.log("Retaining shape keys...", 2)
@@ -463,8 +462,9 @@ class MeshHandler:
         for obj in self.delete:
             safe_object_delete(obj)
     
-        for obj in self.reset:
+        for obj in self.meshes:
             try:
+                obj.name = self.meshes[obj]["old_name"]
                 obj.hide_set(state=False)
             except Exception as e:
                 if self.logger:
