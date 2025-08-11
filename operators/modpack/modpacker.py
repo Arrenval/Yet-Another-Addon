@@ -15,7 +15,7 @@ from ...preferences        import get_prefs
 from ...formats.pmp        import *
 from ...formats.phyb       import PhybFile
 from ...props.modpack      import BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry, modpack_data, yet_another_sort
-from ...utils.ya_exception import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError, ModpackPhybCollisionError
+from ...utils.ya_exception import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError, ModpackPhybCollisionError, ModpackFolderError
 
 
 def get_binary_name(all_options: list, options: set[str]) -> str:
@@ -96,7 +96,7 @@ class ModelConverter(Operator):
 class ModPackager(Operator):
     bl_idname = "ya.mod_packager"
     bl_label = "Modpacker"
-    bl_description = "Penumbra modpack creator"
+    bl_description = "Penumbra modpack creator" 
 
     category: StringProperty() # type: ignore
     group   : IntProperty() # type: ignore
@@ -166,9 +166,9 @@ class ModPackager(Operator):
         self.checked_files: dict[Path, str] = {}
         for blend_group in self.blender_groups:
             self.blend_group = blend_group
-            self.validate_container(blend_group)
 
-            self.create_group(pmp)
+            self.validate_container(blend_group)
+            self.create_group(pmp)   
 
         with tempfile.TemporaryDirectory(prefix=f"modpack_{self.pmp_name}_", ignore_cleanup_errors=True) as temp_dir:
             temp_path = Path(temp_dir)
@@ -284,6 +284,9 @@ class ModPackager(Operator):
         file_format = Path(game_path).suffix
         
         file_folder = self.blend_group.final_folder()
+        if not file_folder:
+            raise ModpackFolderError("Could not find folder.")
+        
         files = [file for file in file_folder.glob(f"*{file_format}") if file.is_file()]
 
         if file_format == ".mdl" and self.blend_group.ya_sort:

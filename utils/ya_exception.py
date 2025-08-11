@@ -14,6 +14,10 @@ class ModpackFileError(ModpackError):
     """Either the file does not exist or is not a supported file format"""
     pass
 
+class ModpackFolderError(ModpackError):
+    """Could not find the specified folder"""
+    pass
+
 class ModpackPhybCollisionError(ModpackError):
     """New simulator uses collision object not defined in base phybs"""
     pass
