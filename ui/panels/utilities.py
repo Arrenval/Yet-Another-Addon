@@ -32,13 +32,14 @@ class FileUtilities(Panel):
         if self.window.phyb_category:
             self.draw_phyb(main_col)
         if self.window.model_category:
-            self.draw_mdl(main_col)
-        if self.window.file_category:
-            row.operator("ya.file_selector", text="", icon="FILE_FOLDER").category = "INSP1"
             row = main_col.split(factor=1.0, align=True).row(align=True)
             row.alignment = "CENTER"
             row.label(text="Check back later.", icon='INFO')
-            pass
+            # self.draw_mdl(main_col)
+        if self.window.file_category:
+            row = main_col.split(factor=1.0, align=True).row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="Check back later.", icon='INFO')
     
     def draw_overview(self, layout: UILayout) -> None:
         pass

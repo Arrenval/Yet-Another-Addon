@@ -68,7 +68,7 @@ class FileInspector(Operator):
     bl_description = "Prints a binary comparison of the two files"
 
     def execute(self, context):
-        self.window = get_window_properties()
+        # self.window = get_window_properties()
         ModelImport.from_file(self.window.insp_file1, Path(self.window.insp_file1).name)
         # path = str(Path(self.window.insp_file1).parent / "Test.mdl")
 
