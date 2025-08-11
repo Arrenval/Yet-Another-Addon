@@ -6,11 +6,12 @@ from typing           import Any
 from bpy.types        import Operator, Context
 from bpy.props        import StringProperty, EnumProperty, BoolProperty, IntProperty
 
+from ...props         import get_window_properties
 from ...utils         import RNAPropertyIO
 from ...ui.draw       import aligned_row, get_conditional_icon
-from ...properties    import BlendModOption, BlendModGroup, get_window_properties
 from ...preferences   import get_prefs
 from ...utils.typings import Preset
+from ...props.modpack import BlendModGroup, BlendModOption
 
 
 class RefreshFolder(Operator):

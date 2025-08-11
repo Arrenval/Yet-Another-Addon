@@ -1,7 +1,7 @@
 from bpy.types import Context, Panel, UILayout
 
-from ..draw import aligned_row, ui_category_buttons
-from ...properties import get_window_properties
+from ..draw    import aligned_row, ui_category_buttons
+from ...props  import get_window_properties
 
 
 class FileUtilities(Panel):

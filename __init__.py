@@ -1,7 +1,7 @@
 import bpy
 
+from .          import props
 from .          import preferences
-from .          import properties
 from .handlers  import set_handlers, remove_handlers
 
 from pathlib    import Path
@@ -16,7 +16,7 @@ SUBFOLDERS = [
 ]
 
 modules = [
-    properties,
+    props,
     preferences
 ]
 
@@ -48,8 +48,8 @@ def register():
     for module in modules[:2]:
         for cls in module.CLASSES:
             bpy.utils.register_class(cls)
-        if module == properties:
-            properties.set_addon_properties()
+        if module == props:
+            props.set_addon_properties()
 
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -70,7 +70,7 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
     for module in reversed(modules[:2]):
-        if module == properties:
-            properties.remove_addon_properties()
+        if module == props:
+            props.remove_addon_properties()
         for cls in reversed(module.CLASSES):
             bpy.utils.unregister_class(cls)

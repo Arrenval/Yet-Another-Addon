@@ -1,13 +1,13 @@
 import os
 import tempfile
 
-from pathlib              import Path
-from bpy.types            import Operator
-from bpy.props            import BoolProperty
+from pathlib             import Path
+from bpy.types           import Operator
+from bpy.props           import BoolProperty
 
-from ..properties         import get_window_properties
-from ..mesh.xiv           import ModelImport 
-from ..formats.phyb.file  import PhybFile
+from ..props             import get_window_properties
+from ..mesh.xiv          import ModelImport 
+from ..formats.phyb.file import PhybFile
 
 
 def compare_binaries(original_path: str, written_path: str, context_bytes: int=32):

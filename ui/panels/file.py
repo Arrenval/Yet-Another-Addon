@@ -1,9 +1,10 @@
-from pathlib        import Path   
-from bpy.types      import Panel, UILayout, Context
-
-from ..draw         import aligned_row, get_conditional_icon, operator_button
-from ...properties  import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props, get_racial_name
-from ...preferences import get_prefs
+from pathlib          import Path   
+from bpy.types        import Panel, UILayout, Context
+  
+from ..draw           import aligned_row, get_conditional_icon, operator_button
+from ...props         import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ...preferences   import get_prefs
+from ...props.modpack import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_racial_name
 
         
 class FileManager(Panel):

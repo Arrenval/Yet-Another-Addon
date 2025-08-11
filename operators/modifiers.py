@@ -1,11 +1,10 @@
 import bpy
-import numpy as np
 
 from bpy.props       import StringProperty, BoolProperty, CollectionProperty
 from bpy.types       import Operator, PropertyGroup, Context, Object, Mesh, UILayout
 
+from ..props         import get_window_properties, get_outfit_properties
 from ..ui.draw       import get_conditional_icon
-from ..properties    import get_window_properties, get_outfit_properties
 from ..mesh.shapes   import create_co_cache, create_shape_keys
 from ..utils.objects import quick_copy, evaluate_obj, safe_object_delete
 

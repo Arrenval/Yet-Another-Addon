@@ -1,7 +1,7 @@
-from functools    import singledispatchmethod, cache
-from bpy.types    import UIList, UILayout, Context, VertexGroup, ShapeKey
+from functools import cache
+from bpy.types import UIList, UILayout, Context, VertexGroup, ShapeKey
 
-from ..properties import get_outfit_properties, get_window_properties, YASUIList
+from ..props   import get_outfit_properties, get_window_properties, YASUIList
 
 
 @cache

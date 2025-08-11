@@ -1,0 +1,36 @@
+import bpy
+
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from .file           import YAFileProps
+    from .outfit         import YAOutfitProps
+    from .window         import YAWindowProps
+    from ..utils.typings import DevkitProps, DevkitWindowProps
+    
+
+def get_file_properties() -> 'YAFileProps':
+    return bpy.context.scene.ya_file_props
+
+def get_outfit_properties() -> 'YAOutfitProps':
+    return bpy.context.scene.ya_outfit_props
+
+def get_window_properties() -> 'YAWindowProps':
+    return bpy.context.window_manager.ya_window_props
+
+def get_devkit_properties() -> 'DevkitProps' | Literal[False]:
+    if hasattr(bpy.context.scene, "ya_devkit_props"):
+        return bpy.context.scene.ya_devkit_props
+    elif hasattr(bpy.context.scene, "devkit_props"):
+        return bpy.context.scene.devkit_props
+    else:
+        return False
+
+def get_devkit_win_props() -> 'DevkitWindowProps' | Literal[False]:
+    if hasattr(bpy.context.window_manager, "ya_devkit_window"):
+        return bpy.context.window_manager.ya_devkit_window
+    elif hasattr(bpy.context.scene, "devkit_props"):
+        return bpy.context.scene.devkit_props
+    else:
+        return False
+

@@ -1,7 +1,7 @@
-from bpy.types     import Panel
+from bpy.types import Panel
 
-from ..draw        import aligned_row
-from ...properties import get_window_properties
+from ..draw    import aligned_row
+from ...props  import get_window_properties
 
 
 class AddSymmetryGroups(Panel):

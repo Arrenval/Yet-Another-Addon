@@ -7,11 +7,12 @@ from bpy.types        import Operator, PropertyGroup, Context
 from bpy.props        import StringProperty, IntProperty, EnumProperty, CollectionProperty
 from collections      import defaultdict
 
+from ...props         import get_window_properties
 from ...mesh.xiv      import ModelImport
-from ...utils.typings import BlendEnum
-from ...properties    import BlendModOption, BlendModGroup, ModFileEntry, get_window_properties
 from ...preferences   import get_prefs
 from ...formats.pmp   import Modpack
+from ...utils.typings import BlendEnum
+from ...props.modpack import BlendModOption, BlendModGroup, ModFileEntry
 
 
 class PMPOption(PropertyGroup):

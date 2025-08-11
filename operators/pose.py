@@ -6,10 +6,10 @@ import base64
 
 from math            import pi
 from pathlib         import Path
+from ..props         import get_outfit_properties, get_window_properties
 from mathutils       import Quaternion
 from bpy.types       import Operator, PoseBone, Context, Modifier
 from bpy.props       import StringProperty, BoolProperty
-from ..properties    import get_outfit_properties, get_window_properties
 from ..utils.objects import visible_meshobj
 
 

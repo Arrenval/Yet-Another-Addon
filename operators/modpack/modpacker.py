@@ -10,10 +10,11 @@ from functools             import partial, singledispatchmethod
 from bpy.types             import Operator, Context, UILayout
 from bpy.props             import StringProperty, IntProperty
 
-from ...properties         import get_window_properties, modpack_data, yet_another_sort, BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry
+from ...props              import get_window_properties
 from ...preferences        import get_prefs
 from ...formats.pmp        import *
 from ...formats.phyb       import PhybFile
+from ...props.modpack      import BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry, modpack_data, yet_another_sort
 from ...utils.ya_exception import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError, ModpackPhybCollisionError
 
 

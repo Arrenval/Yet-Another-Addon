@@ -1,8 +1,8 @@
 import bpy
 
+from .props               import get_window_properties, get_devkit_properties, get_outfit_properties, get_devkit_win_props
 from bpy.types            import Object, Context
 from bpy.app.handlers     import persistent
-from .properties          import get_window_properties, get_devkit_properties, get_outfit_properties, get_devkit_win_props
 from .preferences         import get_prefs
 
 

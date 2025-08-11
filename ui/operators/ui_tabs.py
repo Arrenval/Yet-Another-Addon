@@ -1,6 +1,7 @@
-from bpy.types          import Operator, Context
-from bpy.props          import StringProperty
-from ...properties      import get_outfit_properties, get_window_properties
+from bpy.types import Operator, Context
+from bpy.props import StringProperty
+
+from ...props  import get_outfit_properties, get_window_properties
 
  
 class OutfitCategory(Operator):

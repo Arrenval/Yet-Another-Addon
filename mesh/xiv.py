@@ -372,7 +372,7 @@ class ModelImport:
       
         return new_mesh
     
-    def sort_arrays(self, streams: dict[int, NDArray]) -> tuple[NDArray, list[NDArray]]:
+    def sort_arrays(self, streams: dict[int, NDArray]) -> tuple[NDArray, NDArray, list[NDArray], list[NDArray]]:
 
         def set_normal_array() -> NDArray | None:
             if "normal" not in arr_fields:

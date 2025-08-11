@@ -1,9 +1,9 @@
 import re
 import bpy
 
+from ..props         import get_file_properties, get_window_properties
 from bpy.types       import Operator, ArmatureModifier, Context
 from bpy.props       import StringProperty
-from ..properties    import get_file_properties, get_window_properties
 from ..preferences   import get_prefs
 from ..utils.objects import safe_object_delete
 
