@@ -19,18 +19,7 @@ def get_window_properties() -> 'YAWindowProps':
     return bpy.context.window_manager.ya_window_props
 
 def get_devkit_properties() -> 'DevkitProps' | Literal[False]:
-    if hasattr(bpy.context.scene, "ya_devkit_props"):
-        return bpy.context.scene.ya_devkit_props
-    elif hasattr(bpy.context.scene, "devkit_props"):
-        return bpy.context.scene.devkit_props
-    else:
-        return False
+    return getattr(bpy.context.scene, "ya_devkit_props", False)
 
 def get_devkit_win_props() -> 'DevkitWindowProps' | Literal[False]:
-    if hasattr(bpy.context.window_manager, "ya_devkit_window"):
-        return bpy.context.window_manager.ya_devkit_window
-    elif hasattr(bpy.context.scene, "devkit_props"):
-        return bpy.context.scene.devkit_props
-    else:
-        return False
-
+    return getattr(bpy.context.window_manager, "ya_devkit_window", False)
