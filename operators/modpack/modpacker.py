@@ -217,10 +217,11 @@ class ModPackager(Operator):
             mod_group = pmp.groups[int(self.blend_group.idx)]
             old_group = mod_group.copy()
 
-        mod_group.Name     = self.blend_group.name
-        mod_group.Priority = self.blend_group.priority
-        mod_group.Type     = self.blend_group.group_type if self.blend_group.group_type != 'Phyb' else "Combining"
-        mod_group.Options  = []
+        mod_group.Name        = self.blend_group.name
+        mod_group.Description = self.blend_group.description
+        mod_group.Priority    = self.blend_group.priority
+        mod_group.Type        = self.blend_group.group_type if self.blend_group.group_type != 'Phyb' else "Combining"
+        mod_group.Options     = []
 
         if self.blend_group.group_type == "Phyb":
             self.create_phyb_group(mod_group, old_group)
