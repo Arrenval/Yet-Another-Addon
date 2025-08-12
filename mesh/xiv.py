@@ -225,14 +225,13 @@ class ModelImport:
         mdl_buffer    = model.remaining_data
         lod_level     = 0
         mesh_count    = model.lods[lod_level].mesh_count
-        max_idx_pos   = self.index_count(self.model, mesh_count)
 
         indices = np.frombuffer(
                         mdl_buffer,
-                        np.dtype(ushort),
-                        max_idx_pos,
+                        np.dtype(byte),
+                        self.model.header.idx_buffer_size[lod_level],
                         self.model.header.idx_offset[lod_level]
-                    ) 
+                    ).view(ushort)
 
         if indices.shape[0] == 0:
             print(f"Model has no vertex indices.")
@@ -268,16 +267,6 @@ class ModelImport:
                     print(f"Mesh #{mesh_idx}.{submesh_idx}: {e}.")
                     continue
     
-    def index_count(self, model: XIVModel, mesh_count: int) -> int:
-        max_idx_pos = 0
-        for mesh in model.meshes[:mesh_count]:
-            submeshes = model.submeshes[mesh.submesh_index: mesh.submesh_index + mesh.submesh_count]
-            for submesh in submeshes:
-                submesh_end = submesh.idx_offset + submesh.idx_count
-                max_idx_pos = max(max_idx_pos, submesh_end)
-        
-        return max_idx_pos
-
     def create_blend_obj(self, submesh: Submesh, streams: dict[int, NDArray], indices: NDArray[ushort], shapes: list[tuple[str, NDArray]], material: Material):
 
         def create_shape_keys() -> None:
