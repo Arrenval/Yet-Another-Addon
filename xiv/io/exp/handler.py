@@ -3,18 +3,18 @@ import bpy
 import bmesh
 import numpy as np
 
-from bpy.types            import Object, Depsgraph, ShapeKey
-from bmesh.types          import BMFace, BMesh
-from collections          import defaultdict
-from collections.abc      import Iterable 
+from bpy.types           import Object, Depsgraph, ShapeKey
+from bmesh.types         import BMFace, BMesh
+from collections         import defaultdict
+from collections.abc     import Iterable 
 
-from ..props              import get_window_properties, get_devkit_properties         
-from .shapes              import get_shape_mix
-from .weights             import remove_vertex_groups
-from .face_order          import get_original_faces, sequential_faces
-from ..utils.logging      import YetAnotherLogger
-from ..utils.objects      import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
-from ..utils.ya_exception import XIVMeshParentError
+from ....props           import get_window_properties, get_devkit_properties         
+from ....mesh.shapes     import get_shape_mix
+from ....mesh.weights    import remove_vertex_groups
+from ..com.exceptions    import XIVMeshParentError
+from ....utils.logging   import YetAnotherLogger
+from ....mesh.objects    import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
+from ....mesh.face_order import get_original_faces, sequential_faces
 
 
 def create_backfaces(obj:Object) -> None:
@@ -218,7 +218,7 @@ class MeshHandler:
 
         return shape_keys
 
-    def process_meshes(self) -> None:
+    def process_meshes(self) -> list[Object]:
         fixed_transp: dict[Object, Object]              = {}
         shape_keys  : list[tuple[Object, Object, list]] = []
         backfaces   : list[Object]                      = []
@@ -268,6 +268,8 @@ class MeshHandler:
 
         for obj in self.meshes:
             obj.hide_set(state=True)
+        
+        return dupes
 
     def handle_transparency(self, transparency: list[Object]) -> dict[Object, Object]:
         if self.logger:
@@ -306,7 +308,7 @@ class MeshHandler:
             name_parts = old_name.split(" ")
             obj.name = " ".join(name_parts[1:] + name_parts[0:1])
         else:
-            obj.name = "ExportMesh " + old_name
+            obj.name = old_name
 
     def handle_shape_keys(self, shape_keys: list[tuple[Object, Object, list[ShapeKey]]]) -> None:
         if self.logger:

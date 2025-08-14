@@ -2,17 +2,17 @@ import os
 import bpy
 import zipfile
 
-from pathlib          import Path
-from bpy.types        import Operator, PropertyGroup, Context
-from bpy.props        import StringProperty, IntProperty, EnumProperty, CollectionProperty
-from collections      import defaultdict
+from pathlib            import Path
+from bpy.types          import Operator, PropertyGroup, Context
+from bpy.props          import StringProperty, IntProperty, EnumProperty, CollectionProperty
+from collections        import defaultdict
 
-from ...props         import get_window_properties
-from ...mesh.xiv      import ModelImport
-from ...preferences   import get_prefs
-from ...formats.pmp   import Modpack
-from ...utils.typings import BlendEnum
-from ...props.modpack import BlendModOption, BlendModGroup, ModFileEntry
+from ...props           import get_window_properties
+from ...xiv.io          import ModelImport
+from ...preferences     import get_prefs
+from ...utils.typings   import BlendEnum
+from ...props.modpack   import BlendModOption, BlendModGroup, ModFileEntry
+from ...xiv.formats.pmp import Modpack
 
 
 class PMPOption(PropertyGroup):
@@ -81,6 +81,7 @@ class FileSelector(Operator):
     bl_label       = "Select File"
     bl_description = "Select file"
     bl_options     = {'UNDO'}
+
     filepath: StringProperty(options={'HIDDEN'}) # type: ignore
     category: StringProperty(options={'HIDDEN'}) # type: ignore
     filter_glob: bpy.props.StringProperty(

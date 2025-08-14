@@ -5,9 +5,14 @@ from bpy.types            import Operator, ShapeKey, Object, SurfaceDeformModifi
 from ..props              import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
 from ..mesh.shapes        import create_co_cache, create_shape_keys
 from ..mesh.weights       import combine_v_groups
-from ..utils.objects      import quick_copy, safe_object_delete
-from ..utils.ya_exception import SurfaceDeformBindError, VertexCountError
+from ..mesh.objects       import quick_copy, safe_object_delete
 
+
+class SurfaceDeformBindError(Exception):
+    pass
+
+class VertexCountError(Exception):
+    pass
 
 ShapeKeyQueue = list[tuple[Object, Object, ShapeKey, ShapeKey, ShapeKey, bool]]
 

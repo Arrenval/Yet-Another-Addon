@@ -3,9 +3,9 @@ import bpy
    
 from bpy.types        import Panel, UILayout, Context, Object
 
-from ..draw           import aligned_row, get_conditional_icon, ui_category_buttons
-from ...props         import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
-from ...utils.objects import visible_meshobj
+from ..draw          import aligned_row, get_conditional_icon, ui_category_buttons
+from ...props        import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ...mesh.objects import visible_meshobj
 
 
 class OutfitStudio(Panel):

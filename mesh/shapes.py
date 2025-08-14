@@ -1,10 +1,10 @@
 import numpy as np
 
-from numpy           import float32
-from numpy.typing    import NDArray
-from bpy.types       import Object, Depsgraph
+from numpy        import float32
+from bpy.types    import Object, Depsgraph
+from numpy.typing import NDArray
 
-from ..utils.objects import evaluate_obj
+from .objects     import evaluate_obj
 
 
 def get_shape_mix(source_obj: Object, extra_key: str="") -> NDArray[float32]:

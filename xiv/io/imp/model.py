@@ -2,16 +2,17 @@ import bpy
 import numpy as np
 import random
 
-from bpy.types            import Object, Mesh, Material
-from numpy                import short, ushort, half, single, byte, ubyte, uint8
-from numpy.typing         import NDArray
-from collections          import defaultdict
-     
-from .weights             import add_to_vgroup
-from ..formats.model      import XIVModel, Mesh as XIVMesh, Submesh, VertexDeclaration, VertexUsage, VertexType
-from ..utils.ya_exception import XIVMeshError
+from bpy.types        import Object, Mesh, Material
+from numpy            import ushort, single, byte, uint8
+from numpy.typing     import NDArray
+from collections      import defaultdict
 
+from .streams         import get_submesh_streams, create_stream_arrays
+from ....mesh.weights import add_to_vgroup
+from ...formats.model import XIVModel, Submesh
+from ..com.exceptions import XIVMeshError
 
+    
 def bone_map_correction(model: XIVModel, buffer: bytes, indices: NDArray, mesh_count: int) -> None:
     submesh_bonemaps = []
     for mesh_idx, mesh in enumerate(model.meshes[:mesh_count]):
@@ -39,94 +40,6 @@ def bone_map_correction(model: XIVModel, buffer: bytes, indices: NDArray, mesh_c
             submesh_bonemaps.extend(bone_indices.tolist())
     
     model.submesh_bonemaps = submesh_bonemaps
-
-def get_vertex_struct(vertex_type: VertexType, vertex_usage: VertexUsage) -> tuple[np.dtype, int]:
-    # This will default to the endianness of your system, in Blender this should always default to little-endian
-    weights = vertex_usage in (VertexUsage.BLEND_INDICES, VertexUsage.BLEND_WEIGHTS)
-
-    type_mapping = {
-        VertexType.SINGLE1: (single), 
-        VertexType.SINGLE2: (single, 2), 
-        VertexType.SINGLE3: (single, 3), 
-        VertexType.SINGLE4: (single, 4), 
-        
-        VertexType.UBYTE4:  (ubyte, 4),  
-        VertexType.SHORT2:  (short, 2),  
-        VertexType.SHORT4:  (short, 4),  
-        
-        VertexType.NBYTE4:  (byte, 4),   
-        VertexType.NSHORT2: (short, 2),  
-        VertexType.NSHORT4: (short, 4),  
-        
-        VertexType.HALF2:   (half, 2),   
-        VertexType.HALF4:   (half, 4),   
-        
-        VertexType.USHORT2: (ushort, 2), 
-        VertexType.USHORT4: (ubyte, 8) if weights else (ushort, 4), 
-    }
-    
-    return type_mapping.get(vertex_type)
-
-def get_array_type(vert_decl: VertexDeclaration) -> dict[int, np.dtype]:
-    streams: dict[int, list] = defaultdict(list)
-    
-    uv_channels  = 0
-    col_channels = 0
-    for element in vert_decl.vertex_elements:
-        base_dtype, component_count = get_vertex_struct(element.type, element.usage)
-
-        suffix = ""
-        if element.usage == VertexUsage.COLOUR:
-            suffix        = col_channels
-            col_channels += 1
-        if element.usage == VertexUsage.UV:
-            suffix       = uv_channels
-            uv_channels += 1
-
-        name = f"{element.usage.name.lower()}{suffix}"
-        if component_count == 1:
-            streams[element.stream].append((name, base_dtype))
-        else:
-            streams[element.stream].append((name, base_dtype, (component_count,)))
-    
-    array_types: dict[int, np.dtype] = {}
-    for stream, types in streams.items():
-        array_types[stream] = np.dtype(types)
-    
-    return array_types
-
-def create_stream_arrays(buffer: bytes, mesh: XIVMesh, vert_decl: VertexDeclaration, mesh_idx: int, blend_space: bool=True) -> dict[int, NDArray]:
-
-    def xiv_to_blend_space(array: NDArray) -> NDArray:
-        y_axis = array[:, 1].copy()
-        z_axis = array[:, 2].copy()
-
-        array[:, 1] = -z_axis
-        array[:, 2] = y_axis
-
-        return array
-    
-    array_types = get_array_type(vert_decl)
-    streams     = {}
-    for stream, array_type in array_types.items():
-        if array_type.itemsize != mesh.vertex_buffer_stride[stream]:
-            print(f"Couldn't read Vertex Buffer of Mesh #{mesh_idx}. Array/Buffer: {array_type.itemsize}/{mesh.vertex_buffer_stride[stream]}.")
-            return {}
-        
-        vert_array = np.frombuffer(
-                            buffer, 
-                            array_type, 
-                            mesh.vertex_count, 
-                            mesh.vertex_buffer_offset[stream],
-                        ).copy()
-        
-        streams[stream] = vert_array
-
-    if blend_space:
-        streams[0]['position'] = xiv_to_blend_space(streams[0]['position'])
-        streams[1]['normal']   = xiv_to_blend_space(streams[1]['normal'])
-
-    return streams
 
 def create_material(name: str, col_idx) -> Material:
     colours = { 
@@ -163,24 +76,6 @@ def create_material(name: str, col_idx) -> Material:
     material.use_backface_culling  = True
 
     return material
-
-def get_submesh_streams(streams: dict[int, NDArray], indices: NDArray) -> tuple[dict[int, NDArray], int]:
-
-    def submesh_vertex_range() -> tuple[int, int]:
-        min_idx = np.min(indices)
-        max_idx = np.max(indices)
-        
-        vert_start = min_idx
-        vert_count = max_idx - min_idx + 1
-        return vert_start, vert_count
-
-    submesh_streams        = {}
-    vert_start, vert_count = submesh_vertex_range()
-    
-    for stream, array in streams.items():
-        submesh_streams[stream] = array[vert_start: vert_start + vert_count]
-    
-    return submesh_streams, vert_start, vert_count
 
 def get_shapes(model: XIVModel, indices: NDArray, lod: int) -> dict[int, list[tuple[str, NDArray]]]:
     shapes = defaultdict(list)
@@ -462,4 +357,3 @@ class ModelImport:
         
         for v_group in empty_groups:
             obj.vertex_groups.remove(v_group)
-   

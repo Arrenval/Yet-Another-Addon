@@ -5,8 +5,8 @@ from bpy.types       import Operator, Context, Object, DataTransferModifier
 
 from ..props         import get_window_properties, get_outfit_properties, get_devkit_properties
 from ..mesh.weights  import remove_vertex_groups, restore_yas_groups
+from ..mesh.objects  import get_collection_obj, get_object_from_mesh
 from ..utils.typings import DevkitProps
-from ..utils.objects import get_collection_obj, get_object_from_mesh
 
 
 class RemoveEmptyVGroups(Operator):                         

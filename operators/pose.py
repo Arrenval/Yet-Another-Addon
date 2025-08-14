@@ -4,13 +4,13 @@ import json
 import gzip
 import base64
 
-from math            import pi
-from pathlib         import Path
-from ..props         import get_outfit_properties, get_window_properties
-from mathutils       import Quaternion
-from bpy.types       import Operator, PoseBone, Context, Modifier
-from bpy.props       import StringProperty, BoolProperty
-from ..utils.objects import visible_meshobj
+from math           import pi
+from pathlib        import Path
+from ..props        import get_outfit_properties, get_window_properties
+from mathutils      import Quaternion
+from bpy.types      import Operator, PoseBone, Context, Modifier
+from bpy.props      import StringProperty, BoolProperty
+from ..mesh.objects import visible_meshobj
 
 
 class PoseApply(Operator):
