@@ -3,12 +3,12 @@ import numpy as np
 import random
 
 from bpy.types        import Object, Mesh, Material
-from numpy            import ushort, single, byte, uint8
+from numpy            import ushort, byte, ubyte
 from numpy.typing     import NDArray
 from collections      import defaultdict
 
 from .streams         import get_submesh_streams, create_stream_arrays
-from ....mesh.weights import add_to_vgroup
+from .weights         import create_weight_matrix, set_weights
 from ...formats.model import XIVModel, Submesh
 from ..com.exceptions import XIVMeshError
 
@@ -77,7 +77,7 @@ def create_material(name: str, col_idx) -> Material:
 
     return material
 
-def get_shapes(model: XIVModel, indices: NDArray, lod: int) -> dict[int, list[tuple[str, NDArray]]]:
+def get_shapes(model: XIVModel, lod: int, indices: NDArray) -> dict[int, list[tuple[str, NDArray]]]:
     shapes = defaultdict(list)
     for shape in model.shapes:
         start_idx = shape.mesh_start_idx[lod]
@@ -102,6 +102,14 @@ def get_shapes(model: XIVModel, indices: NDArray, lod: int) -> dict[int, list[tu
     
     return shapes
 
+def analyze_face_data(model: XIVModel) -> None:
+    total_vert_count = 0
+    for lod_level, lod in enumerate(model.lods):
+        mesh_start = lod.mesh_idx
+        mesh_count = lod.mesh_count
+        total_vert_count += sum(mesh.vertex_count for mesh in model.meshes[mesh_start: mesh_start + mesh_count])
+    
+    
 class ModelImport:
 
     @classmethod
@@ -121,23 +129,24 @@ class ModelImport:
         lod_level     = 0
         mesh_count    = model.lods[lod_level].mesh_count
 
+
         indices = np.frombuffer(
-                        mdl_buffer,
-                        np.dtype(byte),
-                        self.model.header.idx_buffer_size[lod_level],
-                        self.model.header.idx_offset[lod_level]
-                    ).view(ushort)
+                            mdl_buffer,
+                            np.dtype(byte),
+                            self.model.header.idx_buffer_size[lod_level],
+                            self.model.header.idx_offset[lod_level]
+                        ).view(ushort)
 
         if indices.shape[0] == 0:
             print(f"Model has no vertex indices.")
             return
 
-        if len(self.model.submesh_bonemaps) < sum(submesh.bone_count for submesh in self.model.submeshes):
-            print("Correcting Bone Maps...")
-            bone_map_correction(self.model, mdl_buffer, indices, mesh_count)
+        # if len(self.model.submesh_bonemaps) < sum(submesh.bone_count for submesh in self.model.submeshes):
+        #     print("Correcting Bone Maps...")
+        #     bone_map_correction(self.model, mdl_buffer, indices, mesh_count)
 
         bpy.context.selected_objects.clear()
-        shapes = get_shapes(self.model, indices, lod_level)
+        shapes = get_shapes(self.model, lod_level, indices)
         for mesh_idx, mesh in enumerate(model.meshes[:mesh_count]):
             self.mesh_idx, self.mesh = mesh_idx, mesh
             if mesh.vertex_count == 0:
@@ -147,28 +156,31 @@ class ModelImport:
             streams = create_stream_arrays(mdl_buffer, mesh, model.vertex_declarations[mesh_idx], mesh_idx)
             if not streams:
                 continue
-            
-            material = create_material(self.model.materials[mesh.material_idx], mesh.material_idx)
-            submeshes = model.submeshes[mesh.submesh_index: mesh.submesh_index + mesh.submesh_count]
+            material    = create_material(self.model.materials[mesh.material_idx], mesh.material_idx)
+            submeshes   = model.submeshes[mesh.submesh_index: mesh.submesh_index + mesh.submesh_count]
+            mesh_shapes = shapes[mesh.start_idx] if mesh.start_idx in shapes else []
             for submesh_idx, submesh in enumerate(submeshes):
                 if submesh.idx_count == 0:
                     continue
                 self.submesh_idx, self.submesh = submesh_idx, submesh
                 
-                mesh_shapes = shapes[mesh.start_idx] if mesh.start_idx in shapes else []
                 try:
                     self.create_blend_obj(submesh, streams, indices, mesh_shapes, material)
                 except XIVMeshError as e:
-                    print(f"Mesh #{mesh_idx}.{submesh_idx}: {e}.")
+                    print(f"Mesh #{mesh_idx}.{submesh_idx}: {e}")
                     continue
     
     def create_blend_obj(self, submesh: Submesh, streams: dict[int, NDArray], indices: NDArray[ushort], shapes: list[tuple[str, NDArray]], material: Material):
+
+        def create_v_groups() -> list[int]:
+            for bone_idx in bone_table:
+                bone_name = self.model.bones[bone_idx]
+                new_obj.vertex_groups.new(name=bone_name)
 
         def create_shape_keys() -> None:
             for shape_name, shape_values in shapes:
                 shape_indices = indices[shape_values["base_indices_idx"]]
                 submesh_mask  = np.isin(shape_indices, submesh_indices)
-                
                 submesh_values        = shape_values[submesh_mask]
                 submesh_shape_indices = shape_indices[submesh_mask]
                 
@@ -178,14 +190,14 @@ class ModelImport:
                 if not new_obj.data.shape_keys:
                     new_obj.shape_key_add(name="Basis")
                 
-                positions = streams[0]["position"].copy()
+                po = streams[0]["position"].copy()
                 
-                new_pos = positions[submesh_values["replace_vert_idx"]]
-                positions[submesh_shape_indices] = new_pos
+                new_pos = po[submesh_values["replace_vert_idx"]]
+                po[submesh_shape_indices] = new_pos
                 
-                submesh_positions = positions[vert_start: vert_start + vert_count].flatten()
-                shape_key = new_obj.shape_key_add(name=shape_name)
-                shape_key.data.foreach_set("co", submesh_positions)
+                submesh_pos = po[vert_start: vert_start + vert_count].flatten()
+                shape_key   = new_obj.shape_key_add(name=shape_name)
+                shape_key.data.foreach_set("co", submesh_pos)
 
         def set_attributes(attribute_mask: int) -> None:
             while attribute_mask:
@@ -210,12 +222,18 @@ class ModelImport:
         blend_mesh.name = obj_name
         
         if all(field in submesh_streams[0].dtype.names for field in ("blend_weights", "blend_indices")):
-            self.resolve_weights(
-                        new_obj, 
-                        submesh_streams[0]["blend_weights"].astype(np.float32) / 255.0, 
-                        submesh_streams[0]["blend_indices"]
-                    )
+            bone_table = self.model.bone_tables[self.mesh.bone_table_idx].bone_idx
+            create_v_groups()
 
+            weight_matrix = create_weight_matrix(
+                                        new_obj, 
+                                        submesh_streams[0]["blend_weights"].astype(np.float32) / 255.0, 
+                                        submesh_streams[0]["blend_indices"],
+                                        bone_table
+                                    )
+            
+            set_weights(new_obj, weight_matrix)
+            
         create_shape_keys() 
         set_attributes(submesh.attribute_idx_mask)
         new_obj.data.materials.append(material)
@@ -258,7 +276,7 @@ class ModelImport:
     
     def sort_arrays(self, streams: dict[int, NDArray]) -> tuple[NDArray, NDArray, list[NDArray], list[NDArray]]:
 
-        def set_normal_array() -> NDArray | None:
+        def get_normal_array() -> NDArray | None:
             if "normal" not in arr_fields:
                 return None
             
@@ -269,16 +287,16 @@ class ModelImport:
             
             return normals[:, :3]
 
-        def set_uv_arrays() -> list[NDArray]:
+        def get_uv_arrays() -> list[NDArray]:
             uv_arrays = []
             if "uv0" in arr_fields:
                 uv0_data = streams[1]["uv0"].copy()
 
                 uv0_data[:, 1] = 1.0 - uv0_data[:, 1]  
-                uv0_data[:, 3] = 1.0 - uv0_data[:, 3]
-
                 uv_arrays.append(uv0_data[:, 0:2])
-                uv_arrays.append(uv0_data[:, 2:4])
+                if uv0_data.shape[1] == 4:
+                    uv0_data[:, 3] = 1.0 - uv0_data[:, 3]
+                    uv_arrays.append(uv0_data[:, 2:4])
 
             if "uv" in arr_fields:
                 uv1_data = streams[1]["uv1"].copy()
@@ -289,13 +307,13 @@ class ModelImport:
             
             return uv_arrays
 
-        def set_col_array() -> list[NDArray]:
+        def get_col_array() -> list[NDArray]:
             col_arrays = []
             if "colour0" in arr_fields:
-                col_arrays.append(streams[1]["colour0"].view(uint8) / 255.0)
+                col_arrays.append(streams[1]["colour0"].view(ubyte) / 255.0)
 
             if "colour1" in arr_fields:
-                col_arrays.append(streams[1]["colour1"].view(uint8) / 255.0)
+                col_arrays.append(streams[1]["colour1"].view(ubyte) / 255.0)
 
             return col_arrays
             
@@ -311,49 +329,11 @@ class ModelImport:
         if "position" in arr_fields:
             co_arr = streams[0]["position"].flatten()
         else:
-            raise XIVMeshError("No Position data")
+            raise XIVMeshError("No Position data.")
 
-        nor_arr    = set_normal_array()
-        uv_arrays  = set_uv_arrays()
-        col_arrays = set_col_array()
+        nor_arr    = get_normal_array()
+        uv_arrays  = get_uv_arrays()
+        col_arrays = get_col_array()
 
         return co_arr, nor_arr, uv_arrays, col_arrays
     
-    def resolve_weights(self, obj: Object, weight_array: NDArray, bone_indices: NDArray) -> None:
-        bone_table = self.model.bone_tables[self.mesh.bone_table_idx].bone_idx
-        bone_count = self.submesh.bone_count
-        start_idx  = self.submesh.bone_start_idx
-
-        bones: dict[int, str] = {}
-        for bone_idx in self.model.submesh_bonemaps[start_idx: start_idx + bone_count]:
-            bone_name = self.model.bones[bone_table[bone_idx]]
-            bones[bone_idx] = bone_name
-        
-        bone_names = [bones[idx] for idx in sorted(bones.keys())]
-        for name in bone_names:
-            obj.vertex_groups.new(name=name)
-        
-        weight_matrix  = np.zeros((len(obj.data.vertices), len(bones)), dtype=single)
-        mdl_indices    = np.array(sorted(bones.keys()), dtype=ushort)
-        matrix_indices = np.searchsorted(mdl_indices, bone_indices).flatten()
-
-        valid_indices = matrix_indices < len(mdl_indices)
-
-        num_verts, bone_count = bone_indices.shape
-        flat_indices    = np.repeat(np.arange(num_verts), bone_count)
-        flat_weights    = weight_array.flatten()   
-        nonzero_indices = np.flatnonzero(flat_weights)
-
-        valid_nonzero = nonzero_indices[valid_indices[nonzero_indices]]
-
-        weight_matrix[flat_indices[valid_nonzero], matrix_indices[valid_nonzero]] += flat_weights[valid_nonzero]
-        
-        empty_groups = []
-        for v_group in obj.vertex_groups:
-            if not np.any(weight_matrix[:, v_group.index]):
-                empty_groups.append(v_group)
-                continue
-            add_to_vgroup(weight_matrix, v_group)
-        
-        for v_group in empty_groups:
-            obj.vertex_groups.remove(v_group)

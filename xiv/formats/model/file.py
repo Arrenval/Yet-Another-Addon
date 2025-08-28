@@ -7,7 +7,9 @@ from dataclasses  import dataclass, field
 from numpy.typing import NDArray
  
 from .lod         import Lod, ExtraLod
+from .bbox        import BoundingBox
 from .mesh        import Mesh, Submesh, TerrainShadowMesh, TerrainShadowSubMesh
+from .face        import NeckMorph, ShadowNormal
 from .enums       import ModelFlags2
 from ..utils      import BinaryReader, write_padding
 from .shapes      import Shape, ShapeMesh
@@ -55,26 +57,6 @@ class BoneTable:
         return ((self.bone_count + 1) // 2) - 1
 
 @dataclass
-class BoundingBox:
-    min: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0])
-    max: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0])
-
-    @classmethod
-    def from_bytes(cls, reader: BinaryReader) -> 'BoundingBox':
-        box = cls()
-
-        box.min = reader.read_array(4, 'f')
-        box.max = reader.read_array(4, 'f')
-
-        return box
-    
-    def write(self, file: BytesIO) -> None:
-        for pos in self.min:
-            file.write(pack('<f', pos))
-        for pos in self.max:
-            file.write(pack('<f', pos))
-
-@dataclass
 class ElementID:
     element_id : int = 0
     parent_bone: int = 0
@@ -100,6 +82,7 @@ class ElementID:
             file.write(pack('<f', pos))
         for rot in self.rotate:
             file.write(pack('<f', rot))
+
 
 class XIVModel:
     V5               = 0x01000005
@@ -137,6 +120,8 @@ class XIVModel:
         self.shape_values            : NDArray[ushort]            = array([], dtype=shape_value_dtype)
 
         self.submesh_bonemaps        : list[int]                  = [] #ushort
+        self.neck_morphs             : list[NeckMorph]            = []
+        self.shadow_data             : list[ShadowNormal]         = []
 
         self.bounding_box                           = BoundingBox()
         self.mdl_bounding_box                       = BoundingBox()
@@ -144,9 +129,8 @@ class XIVModel:
         self.vertical_fog_bounding_box              = BoundingBox()
         self.bone_bounding_boxes: list[BoundingBox] = []
 
-        self.remaining_data: bytes = b''
+        self.buffers: bytes = b''
 
-    
     @classmethod
     def from_file(cls, file_path: str) -> 'XIVModel':
         with open(file_path, 'rb') as model:
@@ -245,6 +229,9 @@ class XIVModel:
         submesh_bonemap_size   = reader.read_uint32()
         model.submesh_bonemaps = reader.read_array(submesh_bonemap_size // 2, format_str='H')
 
+        model.neck_morphs      = [NeckMorph.from_bytes(reader) for _ in range (model.mesh_header.neck_morph_count)]
+        model.neck_morphs      = [ShadowNormal.from_bytes(reader) for _ in range (model.mesh_header.shadow_data_count)]
+
         padding     = reader.read_byte()
         reader.pos += padding
 
@@ -253,12 +240,9 @@ class XIVModel:
         model.water_bounding_box        = BoundingBox.from_bytes(reader)
         model.vertical_fog_bounding_box = BoundingBox.from_bytes(reader)
         model.bone_bounding_boxes       = [BoundingBox.from_bytes(reader) for _ in range(model.mesh_header.bone_count)]
-
-        runtime_padding = model._get_data_offset() - reader.pos
-        if runtime_padding > 0:
-            reader.read_bytes(runtime_padding)
-        
-        model.remaining_data = reader.read_bytes(len(reader.data) - reader.pos)
+    
+        reader.pos = data_offset
+        model.buffers = reader.read_bytes(len(reader.data) - reader.pos)
 
         return model
     
@@ -343,11 +327,7 @@ class XIVModel:
         for table in self.bone_tables:
             current_offset += table.write(file, current_offset)
         
-        post_tables = sum(
-            (table.bone_count + 1) if (table.bone_count & 1) == 1 else table.bone_count 
-            for table in self.bone_tables) * 2
- 
-        file.seek(post_tables, 1)
+        file.seek(self.mesh_header.bone_table_array_count_total * 2, 1)
 
         start_idx = len(self.bones) + len(self.attributes) + len(self.materials)
         for idx, shape in enumerate(self.shapes):
@@ -356,17 +336,21 @@ class XIVModel:
         for mesh in self.shape_meshes:
             mesh.write(file)
         file.write(self.shape_values.tobytes())
-        # for shp_value in self.shape_values:
-        #     shp_value.write(file)
         
         file.write(pack('<I', len(self.submesh_bonemaps) * 2))
         for bone in self.submesh_bonemaps:
             file.write(pack('<H', bone))
+        
+        for morph in self.neck_morphs:
+            morph.write(file)
+
+        for normal in self.shadow_data:
+            normal.write(file)
 
         padding = ((file.tell() + 1) & 0b111)
         if padding > 0:
             padding = 8 - padding
-        
+    
         file.write(pack('<B', padding))
         if padding > 0:
             magic = 0xDEADBEEFF00DCAFE
@@ -382,7 +366,7 @@ class XIVModel:
             box.write(file)
         
         total_size = file.tell()
-        file.write(self.remaining_data)
+        file.write(self.buffers)
 
         file.seek(0)
 
@@ -391,24 +375,32 @@ class XIVModel:
         self.header.write(file)
 
         file.seek(lod_pos)
-        for idx, lod in enumerate(self.lods):
+        for lod in self.lods:
             lod.write(file)
         
         return file.getvalue()
 
     def _update_offsets(self, total_size: int) -> None:
-        for i in range(3):
-            if i < self.header.lod_count:
-                self.header.vert_offset[i]      += total_size
-                self.header.idx_offset[i]       += total_size
-                self.lods[i].vertex_data_offset += total_size 
-                self.lods[i].idx_data_offset    += total_size 
-            else:
-                self.header.vert_offset[i]      = 0
-                self.header.idx_offset[i]       = 0
-                self.lods[i].vertex_data_offset = 0
-                self.lods[i].idx_data_offset    = 0
-                
+        for i in range(self.header.lod_count):
+            self.header.vert_offset[i]      += total_size
+            self.header.idx_offset[i]       += total_size
+            self.lods[i].vertex_data_offset += total_size 
+            self.lods[i].idx_data_offset    += total_size
+
+            self.lods[i].edge_geometry_data_offset += total_size 
+
+    def get_shape(self, name: str, create_missing: bool=False) -> Shape:
+        for shape in self.shapes:
+            if shape.name == name:
+                return shape
+        
+        if create_missing:
+            new_shape = Shape(name=name)
+            self.shapes.append(new_shape)
+            return new_shape
+        else:
+            raise ValueError("Shape name not found.")
+         
     def set_counts(self) -> None:
         self.header.vertex_declaration_count = len(self.vertex_declarations)
         self.header.material_count           = len(self.materials)
@@ -423,9 +415,16 @@ class XIVModel:
         self.mesh_header.shape_mesh_count    = len(self.shape_meshes)
         self.mesh_header.shape_value_count   = len(self.shape_values)
         self.mesh_header.element_id_count    = len(self.element_ids)
+        self.mesh_header.neck_morph_count    = len(self.neck_morphs)
+        self.mesh_header.shadow_data_count   = len(self.shadow_data)
 
         self.mesh_header.terrain_shadow_mesh_count    = len(self.terrain_shadow_meshes)
         self.mesh_header.terrain_shadow_submesh_count = len(self.terrain_shadow_submeshes)
+
+        self.mesh_header.bone_table_array_count_total = sum(
+                            (table.bone_count + 1) if (table.bone_count & 1) == 1 else table.bone_count 
+                            for table in self.bone_tables
+                        )
     
     def set_lod_count(self, count: int) -> None:
         self.header.lod_count      = count

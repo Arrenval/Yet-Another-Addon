@@ -1,7 +1,7 @@
 import numpy as np
 
 from io          import BytesIO
-from numpy       import short, ushort, half, single, byte, ubyte
+from numpy       import short, ushort, half, single, ubyte
 from struct      import pack
 from dataclasses import dataclass
 
@@ -23,7 +23,7 @@ def get_vert_struct(vertex_type: VertexType, vertex_usage: VertexUsage) -> tuple
         VertexType.SHORT2:  (short, 2),  
         VertexType.SHORT4:  (short, 4),  
         
-        VertexType.NBYTE4:  (byte, 4),   
+        VertexType.NBYTE4:  (ubyte, 4),   
         VertexType.NSHORT2: (short, 2),  
         VertexType.NSHORT4: (short, 4),  
         
@@ -42,6 +42,8 @@ class VertexElement:
     offset   : int         = 0
     type     : VertexType  = VertexType(0)
     usage    : VertexUsage = VertexUsage(0)
+
+    # The third uv and second colour channel have a usage_idx of 1
     usage_idx: int         = 0
     PADDING  : int         = 3
 
@@ -97,6 +99,17 @@ class VertexDeclaration:
         VertexElement(stream=255).write(file)
         file.seek((17 - 1 - len(self.vertex_elements)) * 8, 1)
 
+    def create_element(self, type: VertexType, usage: VertexUsage, stream: int, usage_idx: int=0) -> None:
+        element = VertexElement()
+        element.stream = stream
+        element.offset = self.stream_size(stream)
+        element.type   = type
+        element.usage  = usage 
+
+        element.usage_idx = usage_idx
+
+        self.vertex_elements.append(element)
+
     def stream_size(self, stream: int) -> int:
         size = 0
         for element in self.vertex_elements:
@@ -109,10 +122,27 @@ class VertexDeclaration:
         count = 0
         for element in self.vertex_elements:
             if element.usage == usage:
-                count += 1
+                if usage == VertexUsage.UV:
+                    count += int(element.type.name[-1]) // 2
+                else:
+                    count += 1 
         
         return count
     
+    def update_usage_type(self, usage: VertexUsage, new_type: VertexType) -> None:
+        for element in self.vertex_elements:
+            if element.usage == usage:
+                element.type = new_type
+        
+        self.update_offsets()
+    
+    def update_offsets(self) -> None:
+        stream_size = [0, 0, 0]
+        for element in self.vertex_elements:
+            stream = element.stream
+            element.offset = stream_size[stream]
+            stream_size[stream] += element.size
+
     def print_info(self) -> None:
         print("=" * 60)
         print("VERTEX DECLARATION")

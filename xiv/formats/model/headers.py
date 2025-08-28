@@ -4,7 +4,7 @@ from struct      import pack
 from typing      import List
 from dataclasses import dataclass, field
 
-from .enums      import ModelFlags1, ModelFlags2
+from .enums      import ModelFlags1, ModelFlags2, ModelFlags3
 from ..utils     import BinaryReader, write_padding
 
 
@@ -108,7 +108,7 @@ class FileHeader:
 @dataclass
 class MeshHeader:
     # All ints are ushorts unless specified
-    radius                      : float = 0.0            #from source model
+    radius                      : float = 1.0            
     mesh_count                  : int   = 0
     attribute_count             : int   = 0
     submesh_count               : int   = 0
@@ -123,18 +123,18 @@ class MeshHeader:
     element_id_count            : int   = 0
     terrain_shadow_mesh_count   : int   = 0              #byte
     flags2                              = ModelFlags2(0)
-    model_clip_distance         : float = 0.0            #from source model
-    shadow_clip_distance        : float = 0.0            #from source model
-    culling_grid_count          : int   = 0              #from source model
+    model_clip_distance         : float = 0.0           
+    shadow_clip_distance        : float = 0.0           
+    culling_grid_count          : int   = 0             
     terrain_shadow_submesh_count: int   = 0 
-    flags3                      : int   = 0              #from source model #byte
-    bg_change_material_idx      : int   = 0              #from source model #byte
-    bg_crest_change_material_idx: int   = 0              #from source model #byte
-    UNKOWN6                     : int   = 0              #from source model #byte
+    flags3                              = ModelFlags3(0)
+    bg_change_material_idx      : int   = 0              #byte
+    bg_crest_change_material_idx: int   = 0              #byte
+    neck_morph_count            : int   = 0              #byte
     bone_table_array_count_total: int   = 0 
-    UNKOWN8                     : int   = 0              #from source model
-    UNKOWN9                     : int   = 0              #from source model
-    PADDING                             = 6
+    UNKOWN8                     : int   = 0             
+    shadow_data_count           : int   = 0             
+    PADDING                             = 4
 
     @classmethod
     def from_bytes(cls, reader: BinaryReader) -> 'MeshHeader':
@@ -166,11 +166,11 @@ class MeshHeader:
         header.flags3                       = reader.read_byte()
         header.bg_change_material_idx       = reader.read_byte()
         header.bg_crest_change_material_idx = reader.read_byte()
-        header.UNKOWN6                      = reader.read_byte()
+        header.neck_morph_count             = reader.read_byte()
 
         header.bone_table_array_count_total = reader.read_uint16()
         header.UNKOWN8                      = reader.read_uint16()
-        header.UNKOWN9                      = reader.read_uint16()
+        header.shadow_data_count              = reader.read_uint32()
 
         reader.pos += header.PADDING
 
@@ -201,14 +201,14 @@ class MeshHeader:
         file.write(pack('<H', self.culling_grid_count))
         file.write(pack('<H', self.terrain_shadow_submesh_count))
 
-        file.write(pack('<B', self.flags3))
+        file.write(pack('<B', self.flags3.value))
         file.write(pack('<B', self.bg_change_material_idx))
         file.write(pack('<B', self.bg_crest_change_material_idx))
-        file.write(pack('<B', self.UNKOWN6))
+        file.write(pack('<B', self.neck_morph_count))
 
         file.write(pack('<H', self.bone_table_array_count_total))
         file.write(pack('<H', self.UNKOWN8))
-        file.write(pack('<H', self.UNKOWN9))
+        file.write(pack('<I', self.shadow_data_count))
 
         file.write(write_padding(self.PADDING))
 
@@ -233,6 +233,7 @@ class MeshHeader:
         print(f"  Shapes:                   {self.shape_count}")
         print(f"  Shape Meshes:             {self.shape_mesh_count}")
         print(f"  Shape Values:             {self.shape_value_count}")
+        print(f"  Morph Positions:          {self.neck_morph_count}")
         print()
         
         print("BONE DATA:")
@@ -247,6 +248,7 @@ class MeshHeader:
         print(f"  Terrain Shadow Submeshes: {self.terrain_shadow_submesh_count}")
         print(f"  BG Change Material:       {self.bg_change_material_idx}")
         print(f"  BG Crest Change Material: {self.bg_crest_change_material_idx}")
+        print(f"  Face Data:                {self.shadow_data_count}")
         print()
         
         print("ACTIVE FLAGS:")
@@ -256,9 +258,7 @@ class MeshHeader:
         
         print("RAW DATA:")
         print(f"  Flags3:                   {self.flags3}")
-        print(f"  Unknown6:                 {self.UNKOWN6}")
         print(f"  Unknown8:                 {self.UNKOWN8}")
-        print(f"  Unknown9:                 {self.UNKOWN9}")
 
     def _print_flags(self, label: str, flags: Flag) -> None:
         all_flags = list(flags.__class__)

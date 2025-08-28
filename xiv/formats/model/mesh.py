@@ -1,5 +1,6 @@
-from struct      import pack
+
 from io          import BytesIO
+from struct      import pack
 from typing      import List
 from dataclasses import dataclass, field
 

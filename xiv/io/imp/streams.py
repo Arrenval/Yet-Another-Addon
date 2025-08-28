@@ -2,8 +2,10 @@ import numpy as np
 
 from numpy.typing     import NDArray
 
-from ..com.accessor   import get_array_type
+from ..com.space      import xiv_to_blend_space
+from ..com.accessors  import get_array_type
 from ...formats.model import Mesh as XIVMesh, VertexDeclaration
+
 
 def get_submesh_streams(streams: dict[int, NDArray], indices: NDArray) -> tuple[dict[int, NDArray], int]:
 
@@ -24,16 +26,6 @@ def get_submesh_streams(streams: dict[int, NDArray], indices: NDArray) -> tuple[
     return submesh_streams, vert_start, vert_count
 
 def create_stream_arrays(buffer: bytes, mesh: XIVMesh, vert_decl: VertexDeclaration, mesh_idx: int, blend_space: bool=True) -> dict[int, NDArray]:
-
-    def xiv_to_blend_space(array: NDArray) -> NDArray:
-        y_axis = array[:, 1].copy()
-        z_axis = array[:, 2].copy()
-
-        array[:, 1] = -z_axis
-        array[:, 2] = y_axis
-
-        return array
-    
     array_types = get_array_type(vert_decl)
     streams     = {}
     for stream, array_type in array_types.items():
