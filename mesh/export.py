@@ -78,7 +78,7 @@ class FileExport:
                         self.logger.log(f"Converting to MDL...", 2)
                     consoletools_mdl(str(self.file_path))
             else:
-                ModelExport.export_scene(export_obj)
+                ModelExport.export_scene(export_obj, str(self.file_path) + ".mdl")
         
         except Exception as e:
             raise e

@@ -70,10 +70,10 @@ class BinaryReader:
     def read_float(self) -> float:
         return self.read_struct('<f')
     
-    def read_array(self, length: int, format_str: str='I') -> list[int | float]:
+    def read_array(self, length: int, format_str: str='I', endian: str='<') -> list[int | float]:
         array = []
         for _ in range(length):
-            array.append(self.read_struct(f'<{format_str}'))
+            array.append(self.read_struct(f'{endian}{format_str}'))
         
         return array
     

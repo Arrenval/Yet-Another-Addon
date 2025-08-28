@@ -16,5 +16,4 @@ def blend_to_xiv_space(array: NDArray) -> NDArray:
     array[:, 1] = z_axis
     array[:, 2] = -y_axis
 
-    return array 
-        
+    return array

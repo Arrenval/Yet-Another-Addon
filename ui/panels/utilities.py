@@ -32,10 +32,8 @@ class FileUtilities(Panel):
         if self.window.phyb_category:
             self.draw_phyb(main_col)
         if self.window.model_category:
-            row = main_col.split(factor=1.0, align=True).row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="Check back later.", icon='INFO')
-            # self.draw_mdl(main_col)
+            self.draw_mdl(main_col)
+
         if self.window.file_category:
             row = main_col.split(factor=1.0, align=True).row(align=True)
             row.alignment = "CENTER"
@@ -75,7 +73,7 @@ class FileUtilities(Panel):
 
         split = layout.split(factor=0.25, align=True)
         split.label(text="")
-        split.operator("ya.file_inspector", text="Load")
+        split.operator("ya.file_roundtrip", text="Load")
 
                
 CLASSES = [

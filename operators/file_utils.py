@@ -8,6 +8,7 @@ from bpy.props          import BoolProperty
 from ..props            import get_window_properties
 from ..xiv.io           import ModelImport 
 from ..xiv.formats.phyb import PhybFile
+from ..xiv.formats.model import XIVModel
 
 
 def compare_binaries(original_path: str, written_path: str, context_bytes: int=32):
@@ -61,26 +62,23 @@ def compare_binaries(original_path: str, written_path: str, context_bytes: int=3
                 
             print(f"0x{addr:06X}  {orig_hex:<31}  {written_hex:<31}{marker}")
 
-class FileInspector(Operator):
-    bl_idname = "ya.file_inspector"
+class FileRoundtrip(Operator):
+    bl_idname = "ya.file_roundtrip"
     bl_label = "Inspect"
     bl_options = {"UNDO", "REGISTER"}
-    bl_description = "Prints a binary comparison of the two files"
+    bl_description = "Compares the input file with directly written output"
 
     def execute(self, context):
         self.window = get_window_properties()
-        ModelImport.from_file(self.window.insp_file1, Path(self.window.insp_file1).name)
-        # path = str(Path(self.window.insp_file1).parent / "Test.mdl")
+        model = XIVModel.from_file(self.window.insp_file1)
+        path = str(Path(self.window.insp_file1).parent / "Roundtrip.mdl")
 
-        # for offset in model.header.vert_offset:
-        #     print(offset)
-
-        # model.to_file((path))
+        model.to_file((path))
    
-        # compare_binaries(
-        #     get_window_properties().insp_file1, 
-        #     path
-        #     )
+        compare_binaries(
+            get_window_properties().insp_file1, 
+            path
+            )
         
         return {'FINISHED'}
     
@@ -156,7 +154,7 @@ class CompareOutput(Operator):
     
     
 CLASSES = [
-    FileInspector,
+    FileRoundtrip,
     PhybAppend,
     CompareOutput
 ]
