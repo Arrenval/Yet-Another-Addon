@@ -169,19 +169,18 @@ class ModelImport:
                 new_obj.vertex_groups.new(name=bone_name)
 
         def create_shape_keys() -> None:
-            pos = streams[0]["position"].copy()
             for shape_name, shape_values in shapes:
                 shape_indices = indices[shape_values["base_indices_idx"]]
                 submesh_mask  = np.isin(shape_indices, submesh_indices)
                 submesh_values        = shape_values[submesh_mask]
                 submesh_shape_indices = shape_indices[submesh_mask]
-                
-                print(shape_indices)
+
                 if len(submesh_values) == 0:
                     continue
                 if not new_obj.data.shape_keys:
                     new_obj.shape_key_add(name="Basis")
 
+                pos     = streams[0]["position"].copy()
                 new_pos = pos[submesh_values["replace_vert_idx"]]
                 pos[submesh_shape_indices] = new_pos
                 
