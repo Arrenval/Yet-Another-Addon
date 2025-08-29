@@ -65,7 +65,7 @@ def update_database(db_path: str) -> None:
             conn.close()
 
 def consoletools_mdl(file_path: str):
-    textools      = Path(get_prefs().textools_directory)
+    textools      = Path(get_prefs().export.textools_dir)
     converter_dir = textools / "converters" / "fbx"
     fbx_path      = file_path + ".fbx"
     mdl_path      = file_path + ".mdl"

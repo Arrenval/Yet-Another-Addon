@@ -21,7 +21,7 @@ class CopyToModpacker(Operator):
         self.option:int
         prefs = get_prefs()
         props = get_window_properties()
-        export_dir = Path(prefs.export_dir)
+        export_dir = Path(prefs.export.output_dir)
         mod_groups: list[BlendModGroup] = props.pmp_mod_groups
 
         if len(mod_groups) > 0:

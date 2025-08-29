@@ -4,6 +4,7 @@ from pathlib         import Path
 
 from .objects        import visible_meshobj
 from ..xiv.io        import ModelExport, MeshHandler, consoletools_mdl
+from ..preferences   import get_prefs
 from ..utils.logging import YetAnotherLogger
 
 
@@ -49,13 +50,11 @@ class FileExport:
         self.logger      = logger
         self.file_format = file_format
         self.file_path   = file_path
+        self.tt_mdl      = get_prefs().export.mdl_export == 'TT' and file_format == 'MDL'
         self.batch       = batch
  
     def export_template(self):
         export_settings = self._get_export_settings()
-
-        if self.file_format == 'MDL':
-            visible = visible_meshobj(mesh_id=True)
     
         try:
             mesh_handler = MeshHandler(logger=self.logger, batch=self.batch)
@@ -71,7 +70,7 @@ class FileExport:
 
             if self.file_format == 'GLTF':
                 bpy.ops.export_scene.gltf(filepath=str(self.file_path) + ".gltf", **export_settings)
-            elif self.file_format == 'FBX':
+            elif self.file_format == 'FBX' or self.tt_mdl:
                 bpy.ops.export_scene.fbx(filepath=str(self.file_path) + ".fbx", **export_settings)
                 if self.file_format == 'MDL':
                     if self.logger:
@@ -84,9 +83,8 @@ class FileExport:
             raise e
 
         finally:
-            pass
-            # if mesh_handler:
-            #     mesh_handler.restore_meshes()
+            if mesh_handler:
+                mesh_handler.restore_meshes()
         
     def _get_export_settings(self) -> dict[str, str | int | bool]:
         if self.file_format == 'GLTF':
@@ -112,7 +110,7 @@ class FileExport:
                 "export_image_format": "NONE"
             }
         
-        else:
+        elif self.file_format == 'FBX' or self.tt_mdl:
             return {
                 "use_selection": False,
                 "use_active_collection": False,

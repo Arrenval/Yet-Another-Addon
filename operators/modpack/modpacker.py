@@ -55,8 +55,7 @@ class ModelConverter(Operator):
         return {"FINISHED"}
        
     def mdl_converter(self, context:Context) -> subprocess.Popen:
-        blender_dir           = Path(bpy.app.binary_path).parent
-        textools              = Path(self.prefs.textools_directory)
+        textools              = Path(self.prefs.export.textools_dir)
 
         to_convert: set[tuple[Path, str]] = set()
 

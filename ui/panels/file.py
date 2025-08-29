@@ -52,8 +52,14 @@ class FileManager(Panel):
             self.draw_modpack(layout)
 
     def draw_export(self, context:Context, layout: UILayout):
+        is_mdl = self.window_props.file_format == 'MDL'
+        if is_mdl:
+            check_tri_status = True
+        else:
+            check_tri_status = self.window_props.check_tris
+
         row = layout.row(align=True)
-        row.prop(self.prefs, "export_display_dir", text="")
+        row.prop(self.prefs.export, "display_dir", text="")
         row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
 
         row = layout.row(align=True)
@@ -80,18 +86,19 @@ class FileManager(Panel):
         layout.separator(type="LINE")
         
         row = layout.row(align=True)
+        
+        icon = get_conditional_icon(check_tri_status)
+        row.prop(self.window_props, "check_tris", text="Check Tris", icon=icon, emboss=not is_mdl)
         icon = get_conditional_icon(self.window_props.keep_shapekeys)
         row.prop(self.window_props, "keep_shapekeys", text="Shape Keys", icon=icon)
-        icon = get_conditional_icon(self.window_props.check_tris)
-        row.prop(self.window_props, "check_tris", text="Check Tris", icon=icon)
-        icon = get_conditional_icon((self.window_props.create_backfaces and self.window_props.check_tris))
-        row.prop(self.window_props, "create_backfaces", text="Backfaces", icon=icon, emboss=self.window_props.check_tris)
+        icon = get_conditional_icon((self.window_props.create_backfaces and check_tri_status))
+        row.prop(self.window_props, "create_backfaces", text="Backfaces", icon=icon, emboss=check_tri_status)
 
         layout.separator(type="LINE")
         
         aligned_row(layout, "IVCS/YAS:", "remove_yas", self.window_props)
         
-        if self.window_props.file_format == 'MDL':
+        if self.window_props.file_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
             body_slots = {
                 "Chest": "top",
                 "Hands": "glv",

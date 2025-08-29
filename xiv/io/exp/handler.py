@@ -9,6 +9,7 @@ from collections         import defaultdict
 from collections.abc     import Iterable 
 
 from ....props           import get_window_properties, get_devkit_properties         
+from ....preferences     import get_prefs        
 from ....mesh.shapes     import get_shape_mix
 from ....mesh.weights    import remove_vertex_groups
 from ..com.exceptions    import XIVMeshParentError
@@ -120,8 +121,9 @@ class MeshHandler:
         props                            = get_window_properties()
         self.depsgraph : Depsgraph       = depsgraph
         self.shapekeys : bool            = props.keep_shapekeys
-        self.backfaces : bool            = (props.create_backfaces and props.check_tris)
-        self.is_tris   : bool            = props.check_tris
+        self.xiv_mdl   : bool            = get_prefs().export.mdl_export == 'Blender' and props.file_format == 'MDL'
+        self.is_tris   : bool            = props.check_tris or self.xiv_mdl
+        self.backfaces : bool            = (props.create_backfaces and self.is_tris)
         self.yas_vag   : bool            = True
         self.remove_yas: str             = props.remove_yas
         self.batch     : bool            = batch
@@ -304,7 +306,7 @@ class MeshHandler:
         return fixed_transp
     
     def rename_object(self, obj: Object, old_name: str) -> None:
-        if re.search(r"^\d+.\d+\s", old_name):
+        if re.search(r"^\d+.\d+\s", old_name) and not self.xiv_mdl:
             name_parts = old_name.split(" ")
             obj.name = " ".join(name_parts[1:] + name_parts[0:1])
         else:

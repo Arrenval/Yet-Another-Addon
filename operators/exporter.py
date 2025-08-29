@@ -264,11 +264,12 @@ class YetAnotherExport(Operator):
 
     def invoke(self, context: Context, event):
         self.window      = get_window_properties()
-        self.export_dir  = Path(get_prefs().export_dir)
+        self.prefs       = get_prefs()
+        self.export_dir  = Path(get_prefs().export.output_dir)
         self.visible     = visible_meshobj()
         self.no_armature = verify_armature(self.visible)
 
-        if self.window.file_format == 'MDL':
+        if self.window.file_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
             if not self.window.valid_xiv_path:
                 self.report({'ERROR'}, "Please input a path to your target model.")
                 return {'CANCELLED'}
@@ -283,7 +284,7 @@ class YetAnotherExport(Operator):
             self.report({'ERROR'}, "No export directory selected.")
             return {'CANCELLED'}
         
-        if self.window.check_tris:
+        if self.window.check_tris or self.window.file_format == 'MDL':
             not_triangulated = check_triangulation()
             if not_triangulated:
                 self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}.")
