@@ -20,7 +20,7 @@ class ConsoleToolsDirectory(Operator):
 
     def invoke(self, context:Context, event):
         self.prefs = get_prefs()
-        textools   = self.prefs.textools_directory
+        textools   = self.prefs.export.textools_dir
 
         if event.alt and os.path.exists(textools):
             os.startfile(textools)
@@ -38,7 +38,7 @@ class ConsoleToolsDirectory(Operator):
 
         if selected_file.exists() and selected_file.name == "ConsoleTools.exe":
             textools_folder = str(selected_file.parent)
-            self.prefs.textools_directory = textools_folder
+            self.prefs.export.textools_dir = textools_folder
             setattr(self.prefs, "consoletools_status", True)
             self.report({'INFO'}, f"Directory selected: {textools_folder}")
         
@@ -53,14 +53,14 @@ class ConsoleTools(Operator):
     bl_description = "Checks for a valid TexTools install with ConsoleTools"
 
     def execute(self, context:Context):
-        self.prefs             = get_prefs()
+        self.prefs             = get_prefs().export
         consoletools, textools = self.console_tools_location(context)
 
         if os.path.exists(consoletools):
-            self.prefs.textools_directory  = textools
+            self.prefs.textools_dir = textools
             setattr(self.prefs, "consoletools_status", True)
         else:
-            self.prefs.property_unset("textools_directory")
+            self.prefs.property_unset("textools_dir")
             self.prefs.consoletools_status = False
         
         return {"FINISHED"}

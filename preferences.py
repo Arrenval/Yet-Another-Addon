@@ -2,11 +2,12 @@ import os
 import bpy
 import platform
 
-from typing    import TYPE_CHECKING
-from bpy.types import AddonPreferences, PropertyGroup, Context, UILayout
-from bpy.props import StringProperty, BoolProperty, CollectionProperty, EnumProperty, PointerProperty
-
-from .ui.draw  import aligned_row, get_conditional_icon, operator_button
+from typing         import TYPE_CHECKING
+from bpy.types      import AddonPreferences, PropertyGroup, Context, UILayout
+from bpy.props      import StringProperty, BoolProperty, CollectionProperty, EnumProperty, PointerProperty
+     
+from .ui.draw       import aligned_row, get_conditional_icon, operator_button
+from .utils.typings import BlendEnum
 
 
 class ModpackOptionPreset(PropertyGroup):
@@ -110,18 +111,79 @@ class MenuSelect(PropertyGroup):
         weight_menu : bool
         mod_button  : bool
 
-class YetAnotherPreference(AddonPreferences):
-    # This must match the add-on name, use `__package__`
-    # when defining this for add-on extensions or a sub-module of a python package.
+class ExportPrefs(PropertyGroup):
+    def update_directory(self, context: Context) -> None:
+        actual_prop =  "output_dir"
+        display_prop = "display_dir"
+
+        display_dir = getattr(self, display_prop, "")
+
+        if os.path.exists(display_dir):  
+            setattr(self, actual_prop, display_dir)
+
+    def _mdl_enum(self, context: Context) -> BlendEnum:
+        if platform.system() == 'Windows':
+            return [
+            ('BLENDER', "Blender", "Native Blender to .mdl export."),
+            ('TT', "TexTools", "Export as fbx and let Textools convert to .mdl."),
+            ]
+        
+        else:
+            return [
+            ('BLENDER', "Blender", "Native Blender to .mdl export."),
+            ]
+
+    display_dir: StringProperty(
+        name="Export Folder",
+        default="Select an export directory...",  
+        maxlen=255,
+        update=update_directory,
+        ) # type: ignore
     
+    output_dir: StringProperty(
+        name="",
+        default="Select an export directory...",
+        maxlen=255,
+        )  # type: ignore
+    
+    mdl_export: EnumProperty(
+        name="Option Presets",
+        description="Select a preset to apply to your mod group",
+        default=0,
+        items=_mdl_enum
+        ) # type: ignore
+    
+    textools_dir: StringProperty(
+        name="ConsoleTools Directory",
+        default="Select ConsoleTools.exe...", 
+        maxlen=255,
+        options={'HIDDEN'},
+        
+        )  # type: ignore
+    
+    consoletools_status: BoolProperty(
+        default=False,
+        )  # type: ignore
+    
+    if TYPE_CHECKING:
+        display_dir        : str
+        output_dir         : str
+        textools_dir       : str
+        consoletools_status: bool
+
+class YetAnotherPreference(AddonPreferences):
     bl_idname = __package__
 
     modpack_presets: CollectionProperty(
         type=ModpackOptionPreset,
         ) # type: ignore
     
-    menus: PointerProperty(
+    menus : PointerProperty(
         type=MenuSelect,
+        ) # type: ignore
+    
+    export: PointerProperty(
+        type=ExportPrefs,
         ) # type: ignore
     
     def get_preset_enums(self):
@@ -136,19 +198,7 @@ class YetAnotherPreference(AddonPreferences):
         items=lambda self, context: self.get_preset_enums()
         ) # type: ignore
     
-    textools_directory: StringProperty(
-        name="ConsoleTools Directory",
-        default="Select ConsoleTools.exe...", 
-        maxlen=255,
-        options={'HIDDEN'},
-        
-        )  # type: ignore
-    
-    consoletools_status: BoolProperty(
-        default=False,
-        )  # type: ignore
-    
-    def update_directory(self, context:Context, category:str) -> None:
+    def update_directory(self, context: Context, category: str) -> None:
         actual_prop = f"{category}_dir"
         display_prop = f"{category}_display_dir"
 
@@ -168,19 +218,6 @@ class YetAnotherPreference(AddonPreferences):
     modpack_output_dir: StringProperty(
         default="Select an output folder...",
         description="Mod export location", 
-        maxlen=255,
-        )  # type: ignore
-    
-    export_display_dir: StringProperty(
-        name="Export Folder",
-        default="Select an export directory...",  
-        maxlen=255,
-        update=lambda self, context: self.update_directory(context, 'export'),
-        ) # type: ignore
-    
-    export_dir: StringProperty(
-        name="",
-        default="Select an export directory...",
         maxlen=255,
         )  # type: ignore
     
@@ -217,14 +254,10 @@ class YetAnotherPreference(AddonPreferences):
     if TYPE_CHECKING:
         modpack_presets: ModpackOptionPreset
         menus          : MenuSelect
-
-        textools_directory : str
-        consoletools_status: bool
+        export         : ExportPrefs
 
         modpack_output_display_dir: str
         modpack_output_dir        : str
-        export_display_dir        : str
-        export_dir                : str
 
         auto_cleanup   : bool
         remove_nonmesh : bool
@@ -301,17 +334,26 @@ class YetAnotherPreference(AddonPreferences):
         layout.separator(type="LINE")
 
         if platform.system() == "Windows":
-            text = "✓  ConsoleTools Ready!" if self.consoletools_status else "X  ConsoleTools missing."
-            row = aligned_row(layout, "", text)
-            row.operator("ya.consoletools", text="Check")
-
-            col = layout.column(align=True)
-            row = aligned_row(col, "ConsoleTools:", "textools_directory", self)
-            row.operator("ya.consoletools_dir", text="", icon="FILE_FOLDER")
+            row   = layout.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="Model Export:")
+            subrow = split.row(align=True)
+            subrow.prop(self.export, "mdl_export", text="MDL", expand=True)
+            
+            if self.export.mdl_export == 'TT':
+                text = "✓  ConsoleTools Ready!" if self.export.consoletools_status else "X  ConsoleTools missing."
+                row  = aligned_row(layout, "", text)
+                row.operator("ya.consoletools", text="Check")
+                col = layout.column(align=True)
+                row = aligned_row(col, "ConsoleTools:", "textools_dir", self.export)
+                row.operator("ya.consoletools_dir", text="", icon="FILE_FOLDER")
+            else:
+                col = layout.column(align=True)
         else:
             col = layout.column(align=True)
 
-        row = aligned_row(col, "File Export:", "export_dir", self)
+        row = aligned_row(col, "File Output:", "output_dir", self.export)
         row.operator("ya.dir_selector", text="", icon="FILE_FOLDER")
 
         layout.separator(type='SPACE')
@@ -392,17 +434,19 @@ def register_menus() -> None:
     from .ui.panels.v_groups  import AddSymmetryGroups
     from .ui.menu             import menu_vertex_group_append, draw_modifier_options
 
-    if get_prefs().menus.outfit_panel:
+    menus = get_prefs().menus
+
+    if menus.outfit_panel:
         bpy.utils.register_class(OutfitStudio)
-    if get_prefs().menus.file_panel:
+    if menus.file_panel:
         bpy.utils.register_class(FileManager)
-    if get_prefs().menus.util_panel:
+    if menus.util_panel:
         bpy.utils.register_class(FileUtilities)
-    if get_prefs().menus.sym_panel:
+    if menus.sym_panel:
         bpy.utils.register_class(AddSymmetryGroups)
-    if get_prefs().menus.weight_menu:
+    if menus.weight_menu:
         bpy.types.MESH_MT_vertex_group_context_menu.append(menu_vertex_group_append)
-    if get_prefs().menus.mod_button:
+    if menus.mod_button:
         bpy.types.DATA_PT_modifiers.append(draw_modifier_options)
 
 def unregister_menus() -> None:
@@ -412,17 +456,19 @@ def unregister_menus() -> None:
     from .ui.panels.v_groups  import AddSymmetryGroups
     from .ui.menu             import menu_vertex_group_append, draw_modifier_options
 
-    if get_prefs().menus.outfit_panel:
+    menus = get_prefs().menus
+
+    if menus.outfit_panel:
         bpy.utils.unregister_class(OutfitStudio)
-    if get_prefs().menus.file_panel:
+    if menus.file_panel:
         bpy.utils.unregister_class(FileManager)
-    if get_prefs().menus.util_panel:
+    if menus.util_panel:
         bpy.utils.unregister_class(FileUtilities)
-    if get_prefs().menus.sym_panel:
+    if menus.sym_panel:
         bpy.utils.unregister_class(AddSymmetryGroups)
-    if get_prefs().menus.weight_menu:
+    if menus.weight_menu:
         bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_vertex_group_append)
-    if get_prefs().menus.mod_button:
+    if menus.mod_button:
         bpy.types.DATA_PT_modifiers.remove(draw_modifier_options)
 
 def get_prefs() -> YetAnotherPreference:
@@ -433,5 +479,6 @@ def get_prefs() -> YetAnotherPreference:
 CLASSES = [
     ModpackOptionPreset,
     MenuSelect,
+    ExportPrefs,
     YetAnotherPreference
 ]

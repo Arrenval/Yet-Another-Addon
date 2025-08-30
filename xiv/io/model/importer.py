@@ -2,15 +2,15 @@ import bpy
 import numpy as np
 import random
 
-from bpy.types        import Object, Mesh, Material
+from bpy.types        import Mesh, Material
 from numpy            import ushort, byte, ubyte
 from numpy.typing     import NDArray
 from collections      import defaultdict
 
-from .streams         import get_submesh_streams, create_stream_arrays
-from .weights         import create_weight_matrix, set_weights
+from .imp.streams     import get_submesh_streams, create_stream_arrays
+from .imp.weights     import create_weight_matrix, set_weights
+from .com.exceptions  import XIVMeshError
 from ...formats.model import XIVModel, Submesh
-from ..com.exceptions import XIVMeshError
 
     
 def bone_map_correction(model: XIVModel, buffer: bytes, indices: NDArray, mesh_count: int) -> None:
@@ -169,19 +169,18 @@ class ModelImport:
                 new_obj.vertex_groups.new(name=bone_name)
 
         def create_shape_keys() -> None:
-            pos = streams[0]["position"].copy()
             for shape_name, shape_values in shapes:
                 shape_indices = indices[shape_values["base_indices_idx"]]
                 submesh_mask  = np.isin(shape_indices, submesh_indices)
                 submesh_values        = shape_values[submesh_mask]
                 submesh_shape_indices = shape_indices[submesh_mask]
-                
-                print(shape_indices)
+
                 if len(submesh_values) == 0:
                     continue
                 if not new_obj.data.shape_keys:
                     new_obj.shape_key_add(name="Basis")
 
+                pos     = streams[0]["position"].copy()
                 new_pos = pos[submesh_values["replace_vert_idx"]]
                 pos[submesh_shape_indices] = new_pos
                 

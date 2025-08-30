@@ -8,7 +8,7 @@ from bpy.props          import StringProperty, IntProperty, EnumProperty, Collec
 from collections        import defaultdict
 
 from ...props           import get_window_properties
-from ...xiv.io          import ModelImport
+from ...xiv.io.model    import ModelImport
 from ...preferences     import get_prefs
 from ...utils.typings   import BlendEnum
 from ...props.modpack   import BlendModOption, BlendModGroup, ModFileEntry
@@ -275,8 +275,14 @@ class DirSelector(Operator):
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
-        actual_dir_prop = f"{self.category}_dir"
-        display_dir_prop = f"{self.category}_display_dir"
+        if self.category == "export":
+            actual_dir_prop = "output_dir"
+            display_dir_prop = "display_dir"
+            self.props = get_prefs().export
+        else:
+            actual_dir_prop = f"{self.category}_dir"
+            display_dir_prop = f"{self.category}_display_dir"
+            
         selected_file = Path(self.directory)  
 
         if selected_file.is_dir():

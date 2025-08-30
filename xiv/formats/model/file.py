@@ -230,7 +230,7 @@ class XIVModel:
         model.submesh_bonemaps = reader.read_array(submesh_bonemap_size // 2, format_str='H')
 
         model.neck_morphs      = [NeckMorph.from_bytes(reader) for _ in range (model.mesh_header.neck_morph_count)]
-        model.neck_morphs      = [ShadowNormal.from_bytes(reader) for _ in range (model.mesh_header.shadow_data_count)]
+        model.shadow_data      = [ShadowNormal.from_bytes(reader) for _ in range (model.mesh_header.shadow_data_count)]
 
         padding     = reader.read_byte()
         reader.pos += padding

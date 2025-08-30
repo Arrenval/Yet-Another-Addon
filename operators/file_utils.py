@@ -1,13 +1,13 @@
 import os
 import tempfile
 
-from pathlib            import Path
-from bpy.types          import Operator
-from bpy.props          import BoolProperty
-
-from ..props            import get_window_properties
-from ..xiv.io           import ModelImport 
-from ..xiv.formats.phyb import PhybFile
+from pathlib             import Path
+from bpy.types           import Operator
+from bpy.props           import BoolProperty
+ 
+from ..props             import get_window_properties
+from ..xiv.io.model      import ModelImport 
+from ..xiv.formats.phyb  import PhybFile
 from ..xiv.formats.model import XIVModel
 
 

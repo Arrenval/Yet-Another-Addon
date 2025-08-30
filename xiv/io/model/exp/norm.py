@@ -30,13 +30,13 @@ def normalised_int_array(float_array: NDArray) -> NDArray:
     
     base_values = np.floor(int_values).astype(np.int16)
     remainders  = 255 - base_values.sum(axis=1) 
-    fractional_parts = int_values - base_values    
+    fractions   = int_values - base_values    
 
     rows, cols  = float_array.shape
     row_indices = np.arange(rows)[:, None] 
     
     sorted_col_indices = np.argpartition(
-                                    -fractional_parts, 
+                                    -fractions, 
                                     kth=np.arange(cols), 
                                     axis=1
                                 )

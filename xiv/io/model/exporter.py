@@ -7,16 +7,15 @@ from numpy            import ushort, single, ubyte
 from numpy.typing     import NDArray
 from collections      import defaultdict
 
-from .weights         import sort_weights, normalise_weights
-from .streams         import create_stream_arrays, get_submesh_streams
-from .accessors       import get_weights
-from ..com.scene      import get_mesh_ids     
-from ..com.exceptions import XIVMeshError, XIVMeshIDError
+from .exp.weights     import sort_weights, normalise_weights
+from .exp.streams     import create_stream_arrays, get_submesh_streams
+from .exp.accessors   import get_weights
+from .com.scene       import get_mesh_ids     
+from .com.exceptions  import XIVMeshError, XIVMeshIDError
 from ...formats.model import (XIVModel, Mesh as XIVMesh, Submesh, BoneTable, Lod, 
                               ShapeMesh, BoundingBox, VertexDeclaration, 
                               VertexUsage, VertexType, ModelFlags1)
 
-from ....testing.time_func import get_time
 
 def sort_submeshes(export_obj: list[Object], model_attributes: list[str], lod_level: int) -> list[list[Object]]:
     mesh_dict: dict[int, dict[int, Object]] = defaultdict(dict)
@@ -151,8 +150,7 @@ class ModelExport:
         exporter = cls()
         exporter.create_model(export_obj, file_path)
 
-    @get_time
-    def create_model(self, export_obj: list[Object], file_path: str, max_lod: int=1) -> None:
+    def create_model(self, export_obj: list[Object], file_path: str, max_lod: int=1) -> dict[str, list[str]]:
         self.model      = XIVModel()
         self.model.lods = [Lod() for _ in range(3)]
         origin          = 0.0
@@ -171,6 +169,8 @@ class ModelExport:
         self.model.mesh_header.radius  = self.model.bounding_box.radius()
 
         self.model.to_file(file_path)
+
+        return self.export_stats
 
     def configure_lod(self, active_lod: Lod, lod_level:int, max_lod: int, sorted_meshes: list[list[Object]]):
 
@@ -471,6 +471,7 @@ class ModelExport:
                     continue
 
                 if vgroup.name not in self.model.bones:
+                    self.model.bone_bounding_boxes.append(BoundingBox())
                     self.model.bones.append(vgroup.name)
                 
                 if vgroup.name not in self.lod_bone_names:
@@ -581,9 +582,7 @@ class ModelExport:
         for bone_idx, bone_name in enumerate(self.model.bones):
             if bone_name not in self.lod_bone_names:
                 continue
-            while len(bone_bboxes) - 1 < bone_idx:
-                bone_bboxes.append(BoundingBox())
-           
+  
             table_idx    = self.lod_bone_names.index(bone_name)
             bone_indices = (blend_indices == table_idx) & nonzero_mask
             valid_verts  = np.any(bone_indices, axis=1)

@@ -1,6 +1,6 @@
 import re
 
-from bpy.types import Object
+from bpy.types   import Object
 
 from .exceptions import XIVMeshIDError
 

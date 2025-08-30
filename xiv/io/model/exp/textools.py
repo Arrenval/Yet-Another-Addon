@@ -3,10 +3,10 @@ import subprocess
 
 from pathlib           import Path
 
-from ....props        import get_window_properties
-from ..com.scene      import get_mesh_ids
-from ....preferences  import get_prefs
-from ....mesh.objects import visible_meshobj
+from .....props        import get_window_properties
+from ..com.scene       import get_mesh_ids
+from .....preferences  import get_prefs
+from .....mesh.objects import visible_meshobj
 
 
 def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
@@ -65,7 +65,7 @@ def update_database(db_path: str) -> None:
             conn.close()
 
 def consoletools_mdl(file_path: str):
-    textools      = Path(get_prefs().textools_directory)
+    textools      = Path(get_prefs().export.textools_dir)
     converter_dir = textools / "converters" / "fbx"
     fbx_path      = file_path + ".fbx"
     mdl_path      = file_path + ".mdl"
