@@ -274,9 +274,9 @@ class YetAnotherExport(Operator):
                 self.report({'ERROR'}, "Please input a path to your target model.")
                 return {'CANCELLED'}
             
-            if not get_prefs().consoletools_status:
+            if not get_prefs().export.consoletools_status:
                 bpy.ops.ya.consoletools("EXEC_DEFAULT")
-                if not get_prefs().consoletools_status:
+                if not get_prefs().export.consoletools_status:
                     self.report({'ERROR'}, "Verify that ConsoleTools is ready in the add-on preferences.")
                     return {'CANCELLED'} 
 
@@ -318,6 +318,8 @@ class YetAnotherExport(Operator):
                 else:
                     self.batch_export()
         finally:
+            for obj in self.visible:
+                obj.select_set(state=True)
             armature.hide_set(state=arm_vis)
             
         self.report({'INFO'}, "Export complete!")

@@ -3,10 +3,10 @@ import subprocess
 
 from pathlib           import Path
 
-from ....props        import get_window_properties
-from ..com.scene      import get_mesh_ids
-from ....preferences  import get_prefs
-from ....mesh.objects import visible_meshobj
+from .....props        import get_window_properties
+from ..com.scene       import get_mesh_ids
+from .....preferences  import get_prefs
+from .....mesh.objects import visible_meshobj
 
 
 def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:

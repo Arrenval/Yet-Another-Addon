@@ -3,16 +3,16 @@ import bpy
 import bmesh
 import numpy as np
 
-from bpy.types           import Object, Depsgraph, ShapeKey
-from bmesh.types         import BMFace, BMesh
-from collections         import defaultdict
-from collections.abc     import Iterable 
+from bpy.types            import Object, Depsgraph, ShapeKey
+from bmesh.types          import BMFace, BMesh
+from collections          import defaultdict
+from collections.abc      import Iterable 
 
 from ....props           import get_window_properties, get_devkit_properties         
 from ....preferences     import get_prefs        
 from ....mesh.shapes     import get_shape_mix
+from .com.exceptions     import XIVMeshParentError
 from ....mesh.weights    import remove_vertex_groups
-from ..com.exceptions    import XIVMeshParentError
 from ....utils.logging   import YetAnotherLogger
 from ....mesh.objects    import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
 from ....mesh.face_order import get_original_faces, sequential_faces

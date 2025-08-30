@@ -2,15 +2,15 @@ import bpy
 import numpy as np
 import random
 
-from bpy.types        import Object, Mesh, Material
+from bpy.types        import Mesh, Material
 from numpy            import ushort, byte, ubyte
 from numpy.typing     import NDArray
 from collections      import defaultdict
 
-from .streams         import get_submesh_streams, create_stream_arrays
-from .weights         import create_weight_matrix, set_weights
+from .imp.streams     import get_submesh_streams, create_stream_arrays
+from .imp.weights     import create_weight_matrix, set_weights
+from .com.exceptions  import XIVMeshError
 from ...formats.model import XIVModel, Submesh
-from ..com.exceptions import XIVMeshError
 
     
 def bone_map_correction(model: XIVModel, buffer: bytes, indices: NDArray, mesh_count: int) -> None:

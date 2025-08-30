@@ -3,7 +3,7 @@ import bpy
 from pathlib         import Path
 
 from .objects        import visible_meshobj
-from ..xiv.io        import ModelExport, MeshHandler, consoletools_mdl
+from ..xiv.io.model  import ModelExport, MeshHandler, consoletools_mdl
 from ..preferences   import get_prefs
 from ..utils.logging import YetAnotherLogger
 

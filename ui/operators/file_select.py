@@ -8,7 +8,7 @@ from bpy.props          import StringProperty, IntProperty, EnumProperty, Collec
 from collections        import defaultdict
 
 from ...props           import get_window_properties
-from ...xiv.io          import ModelImport
+from ...xiv.io.model    import ModelImport
 from ...preferences     import get_prefs
 from ...utils.typings   import BlendEnum
 from ...props.modpack   import BlendModOption, BlendModGroup, ModFileEntry
