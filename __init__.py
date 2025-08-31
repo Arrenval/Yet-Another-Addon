@@ -1,11 +1,11 @@
 import bpy
 
-from .          import props
-from .          import preferences
-from .handlers  import set_handlers, remove_handlers
+from .         import props
+from .         import preferences
+from .handlers import set_handlers, remove_handlers
 
-from pathlib    import Path
-from importlib  import import_module
+from pathlib   import Path
+from importlib import import_module
 
 SUBFOLDERS = [
     "operators",
@@ -57,7 +57,7 @@ def register():
     preferences.register_menus()
 
     set_handlers()
-    bpy.types.Scene.ya_addon_ver = (0, 21, 7)
+    bpy.types.Scene.ya_addon_ver = (0, 22, 0)
     
 
 def unregister():
