@@ -1,9 +1,10 @@
+import re
 import bpy
 import bmesh
 import numpy as np
 
-from bpy.types        import Object
 from numpy            import ushort, single, ubyte
+from bpy.types        import Object
 from numpy.typing     import NDArray
 from collections      import defaultdict
 
@@ -380,10 +381,12 @@ class ModelExport:
     def _get_material_idx(self, submesh: Object) -> int:
 
         def clean_material_name(name: str):
-            if not name.startswith("/"):
-                name = "/" + name
+            
+            name = re.sub(r'\.\d{3}$', "", name)
             if not name.endswith(".mtrl"):
                 name = name + ".mtrl"
+            if not name.startswith("/"):
+                name = "/" + name
             return name.strip()
         
         material_name = clean_material_name(submesh.material_slots[0].name)

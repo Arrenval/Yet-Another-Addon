@@ -58,39 +58,6 @@ class Mesh:
             file.write(pack('<B', stride))
         file.write(pack('<B', self.vertex_stream_count))
 
-    def print_info(self) -> None:
-        print("=" * 65)
-        print("MESH")
-        print("=" * 65)
-        
-        print("GEOMETRY:")
-        print(f"  Vertices:             {self.vertex_count:,}")
-        print(f"  Indices:              {self.idx_count:,}")
-        print(f"  Triangles:            {self.idx_count // 3:,}") 
-        print()
-        
-        print("RESOURCES:")
-        print(f"  Material Index:       {self.material_idx}")
-        print(f"  Bone Table Index:     {self.bone_table_idx}")
-        print(f"  Submesh Range:        {self.submesh_index} to {self.submesh_index + self.submesh_count - 1}")
-        print(f"  Submesh Count:        {self.submesh_count}")
-        print()
-        
-        print("BUFFER:")
-        print(f"  Index Start Position: {self.start_idx:,}")
-        print(f"  Active Streams:       {self.vertex_stream_count}")
-        print()
-        
-        print("VERTEX STREAM DETAILS:")
-        for i in range(3):
-            if i < self.vertex_stream_count:
-                print(f"  Stream {i}:")
-                print(f"    Buffer Offset:      {self.vertex_buffer_offset[i]:,} bytes")
-                print(f"    Vertex Stride:      {self.vertex_buffer_stride[i]} bytes per vertex")
-
-                stream_size = self.vertex_count * self.vertex_buffer_stride[i]
-                print(f"    Total Stream Size:  {stream_size:,} bytes")
-
 @dataclass
 class Submesh:
     idx_offset        : int = 0

@@ -1,5 +1,4 @@
 from io          import BytesIO
-from enum        import Flag
 from struct      import pack
 from typing      import List
 from dataclasses import dataclass, field
@@ -72,38 +71,7 @@ class FileHeader:
         file.write(pack('<?', self.enable_edge_geometry))
 
         file.write(write_padding(self.PADDING))
-        
-    def print_info(self) -> None:
-        print("=" * 60)
-        print("FILE HEADER INFORMATION")
-        print("=" * 60)
-        
-        print(f"Version:                    0x{self.version:08X} ({self.version})")
-        print(f"Stack Size:                 {self.stack_size:,} bytes")
-        print(f"Runtime Size:               {self.runtime_size:,} bytes")
-        print()
-        
-        print("STRUCTURE COUNTS:")
-        print(f"  Vertex Declarations:      {self.vertex_declaration_count}")
-        print(f"  Materials:                {self.material_count}")
-        print(f"  LOD Levels:               {self.lod_count}")
-        print()
-        
-        print("BUFFER LAYOUT:")
-        for i in range(3):
-            if i < self.lod_count:
-                print(f"  LOD {i}:")
-                print(f"    Vertex Offset:        {self.vert_offset[i]:,} bytes")
-                print(f"    Index Offset:         {self.idx_offset[i]:,} bytes") 
-                print(f"    Vertex Buffer Size:   {self.vert_buffer_size[i]:,} bytes")
-                print(f"    Index Buffer Size:    {self.idx_buffer_size[i]:,} bytes")
-            else:
-                print(f"  LOD {i}:                (unused)")
-        print()
-        
-        print("STREAMING FEATURES:")
-        print(f"  Index Buffer Streaming:   {'ENABLED' if self.enable_idx_buffer_stream else 'DISABLED'}")
-        print(f"  Edge Geometry:            {'ENABLED' if self.enable_edge_geometry else 'DISABLED'}")
+
 
 @dataclass
 class MeshHeader:
@@ -163,7 +131,7 @@ class MeshHeader:
         header.culling_grid_count           = reader.read_uint16()
         header.terrain_shadow_submesh_count = reader.read_uint16()
 
-        header.flags3                       = reader.read_byte()
+        header.flags3                       = ModelFlags3(reader.read_byte())
         header.bg_change_material_idx       = reader.read_byte()
         header.bg_crest_change_material_idx = reader.read_byte()
         header.neck_morph_count             = reader.read_byte()
@@ -211,60 +179,3 @@ class MeshHeader:
         file.write(pack('<I', self.shadow_data_count))
 
         file.write(write_padding(self.PADDING))
-
-    def print_info(self) -> None:
-        print("=" * 60)
-        print("MESH HEADER INFORMATION")
-        print("=" * 60)
-        
-        print("MODEL PROPERTIES:")
-        print(f"  Radius:                   {self.radius:.6f}")
-        print(f"  Model Clip Distance:      {self.model_clip_distance:.6f}")
-        print(f"  Shadow Clip Distance:     {self.shadow_clip_distance:.6f}")
-        print(f"  Culling Grid Count:       {self.culling_grid_count}")
-        print()
-        
-        print("GEOMETRY STRUCTURE:")
-        print(f"  Meshes:                   {self.mesh_count}")
-        print(f"  Submeshes:                {self.submesh_count}")
-        print(f"  LOD Count:                {self.lod_count}")
-        print(f"  Materials:                {self.material_count}")
-        print(f"  Attributes:               {self.attribute_count}")
-        print(f"  Shapes:                   {self.shape_count}")
-        print(f"  Shape Meshes:             {self.shape_mesh_count}")
-        print(f"  Shape Values:             {self.shape_value_count}")
-        print(f"  Morph Positions:          {self.neck_morph_count}")
-        print()
-        
-        print("BONE DATA:")
-        print(f"  Bones:                    {self.bone_count}")
-        print(f"  Bone Tables:              {self.bone_table_count}")
-        print(f"  Bone Table Array Total:   {self.bone_table_array_count_total}")
-        print()
-        
-        print("RENDERING FEATURES:")
-        print(f"  Element IDs:              {self.element_id_count}")
-        print(f"  Terrain Shadow Meshes:    {self.terrain_shadow_mesh_count}")
-        print(f"  Terrain Shadow Submeshes: {self.terrain_shadow_submesh_count}")
-        print(f"  BG Change Material:       {self.bg_change_material_idx}")
-        print(f"  BG Crest Change Material: {self.bg_crest_change_material_idx}")
-        print(f"  Face Data:                {self.shadow_data_count}")
-        print()
-        
-        print("ACTIVE FLAGS:")
-        self._print_flags("  Flags1", self.flags1)
-        self._print_flags("  Flags2", self.flags2)
-        print()
-        
-        print("RAW DATA:")
-        print(f"  Flags3:                   {self.flags3}")
-        print(f"  Unknown8:                 {self.UNKOWN8}")
-
-    def _print_flags(self, label: str, flags: Flag) -> None:
-        all_flags = list(flags.__class__)
-    
-        print(f"{label}:")
-        for flag in all_flags:
-            is_active = flag in flags
-            status = "O" if is_active else "X"
-            print(f"    {status} {flag.name}")

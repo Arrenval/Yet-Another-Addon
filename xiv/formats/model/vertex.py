@@ -10,9 +10,9 @@ from ..utils     import BinaryReader, write_padding
 
 
 def get_vert_struct(vertex_type: VertexType, vertex_usage: VertexUsage) -> tuple[np.dtype, int]:
-    # This will default to the endianness of your system, in Blender this should always default to little-endian
     weights = vertex_usage in (VertexUsage.BLEND_INDICES, VertexUsage.BLEND_WEIGHTS)
-
+    
+    # This will default to the endianness of your system, in Blender this should always default to little-endian
     type_mapping = {
         VertexType.SINGLE1: (single), 
         VertexType.SINGLE2: (single, 2), 

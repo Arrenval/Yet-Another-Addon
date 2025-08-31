@@ -73,7 +73,7 @@ class FileUtilities(Panel):
 
         split = layout.split(factor=0.25, align=True)
         split.label(text="")
-        split.operator("ya.file_roundtrip", text="Load")
+        split.operator("ya.file_roundtrip", text="Roundtrip")
 
                
 CLASSES = [

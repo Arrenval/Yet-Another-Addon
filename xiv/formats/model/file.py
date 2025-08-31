@@ -200,7 +200,9 @@ class XIVModel:
             lod = Lod.from_bytes(reader)
             if i < model.header.lod_count: 
                 lod.vertex_data_offset -= data_offset 
-                lod.idx_data_offset    -= data_offset 
+                lod.idx_data_offset    -= data_offset
+                if lod.edge_geometry_data_offset:
+                    lod.edge_geometry_data_offset -= data_offset 
             
             model.lods.append(lod)
 
