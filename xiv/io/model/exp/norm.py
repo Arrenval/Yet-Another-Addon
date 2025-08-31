@@ -31,9 +31,7 @@ def normalised_int_array(float_array: NDArray) -> NDArray:
     base_values = np.floor(int_values).astype(np.int16)
     remainders  = 255 - base_values.sum(axis=1) 
     fractions   = int_values - base_values    
-
-    rows, cols  = float_array.shape
-    row_indices = np.arange(rows)[:, None] 
+    cols        = float_array.shape[1]
     
     sorted_col_indices = np.argpartition(
                                     -fractions, 
@@ -46,7 +44,7 @@ def normalised_int_array(float_array: NDArray) -> NDArray:
     
     result    = base_values.copy()
     incr_pos  = sorted_col_indices[incr_mask]
-    incr_rows = np.repeat(row_indices.ravel(), remainders)
+    incr_rows = np.where(incr_mask)[0]
     
     np.add.at(result, (incr_rows, incr_pos), 1)
     
