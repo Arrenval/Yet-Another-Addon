@@ -552,18 +552,24 @@ class ModelExport:
 
         mesh_idx_offset = self.mesh_idx_count
         for shape_name, pos in shapes.items():
-            self.model.get_shape(shape_name, create_missing=True)
-
             abs_diff      = np.abs(pos - submesh_streams[0]["position"])
             vert_mask     = np.any(abs_diff > threshold, axis=1)
             vert_count    = np.sum(vert_mask)
+
+            if vert_count == 0:
+                continue
+            
             shape_indices = np.where(vert_mask)[0]
+            indices_mask  = np.isin(indices, shape_indices)
+            indices_idx   = np.where(indices_mask)[0]
+
+            if len(indices_idx) == 0:
+                continue
+
             shape_streams = create_stream_arrays(vert_count, vert_decl)
             set_shape_stream_values(shape_streams, submesh_streams)
-            
-            indices_mask = np.isin(indices, shape_indices)
-            indices_idx  = np.where(indices_mask)[0]
-        
+            self.model.get_shape(shape_name, create_missing=True)
+
             if indices_idx.max() + mesh_idx_offset > ushort_limit:
                 raise XIVMeshError(f"Mesh #{self.mesh_idx} exceeds the {ushort_limit} indices limit for shape keys.")
             
