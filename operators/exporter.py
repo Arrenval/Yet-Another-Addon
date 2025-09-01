@@ -319,7 +319,10 @@ class YetAnotherExport(Operator):
                     self.batch_export()
         finally:
             for obj in self.visible:
-                obj.select_set(state=True)
+                try:
+                    obj.select_set(state=True)
+                except:
+                    pass
             armature.hide_set(state=arm_vis)
             
         self.report({'INFO'}, "Export complete!")
