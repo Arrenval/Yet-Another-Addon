@@ -317,7 +317,7 @@ class ModelExport:
 
                     end_offset = shape_value_offset + len(values)
                     mesh_shape_values[shape_value_offset: end_offset] = values
-                    shape_value_offset += end_offset
+                    shape_value_offset = end_offset
 
                 self.shape_meshes[name][self.mesh_idx] = (mesh_shape_values)
                 self.mdl_shape_value_count += shape_value_count
