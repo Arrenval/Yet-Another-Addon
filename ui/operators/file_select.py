@@ -56,7 +56,7 @@ class PMPSelector(Operator):
             os.startfile(str(actual_file))
 
         elif event.ctrl and event.type == "LEFTMOUSE" and actual_file.is_file():
-            self.props.loaded_pmp_groups.clear()
+            self.props.pmp_mod_groups.clear()
             self.props.property_unset("modpack_dir") 
 
         else :
