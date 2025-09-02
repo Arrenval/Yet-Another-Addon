@@ -116,10 +116,10 @@ def create_vert_declaration(submeshes: list[Object]) -> VertexDeclaration:
     uv_count  = 0
     for obj in submeshes:
         col_count = max(col_count, len([layer for layer in obj.data.color_attributes 
-                                        if layer.name.startswith("vc")]))
+                                        if layer.name.lower().startswith("vc")]))
         
         uv_count  = max(uv_count, len([layer for layer in obj.data.uv_layers 
-                                       if layer.name.startswith("uv")]))
+                                       if layer.name.lower().startswith("uv")]))
 
     col_count = min(col_count, 2)
     uv_count  = min(uv_count, 3)

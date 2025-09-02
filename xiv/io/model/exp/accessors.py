@@ -41,7 +41,7 @@ def get_shape_co(obj: Object, vert_count: int) -> dict[str, NDArray]:
 def get_uvs(obj: Object, indices: NDArray, vert_count: int, loop_count: int, uv_count: int) -> tuple[list[NDArray], NDArray]:
     uv_arrays: list[NDArray]    = []
     for uv_layer in obj.data.uv_layers[:uv_count]:
-        if not uv_layer.name.startswith("uv"):
+        if not uv_layer.name.lower().startswith("uv"):
             continue
         loop_uvs = np.zeros(loop_count * 2, single)
         vert_uvs = np.zeros((vert_count, 2), single)
@@ -58,7 +58,7 @@ def get_uvs(obj: Object, indices: NDArray, vert_count: int, loop_count: int, uv_
 def get_col_attributes(obj: Object, indices: NDArray, vert_count: int, loop_count: int, col_count: int) -> list[NDArray]:
     col_arrays: list[NDArray] = []
     for layer in obj.data.color_attributes[:col_count]:
-        if not layer.name.startswith("vc"):
+        if not layer.name.lower().startswith("vc"):
             continue
         if layer.name == "vc0":
             loop_col = np.zeros(loop_count * 4, single)
