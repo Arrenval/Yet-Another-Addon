@@ -8,7 +8,8 @@ from bpy.types        import Object
 from numpy.typing     import NDArray
 from collections      import defaultdict
 
-from .exp.weights     import sort_weights, normalise_weights
+from .exp.norm        import normalised_int_array 
+from .exp.weights     import sort_weights, normalise_weights, empty_vertices
 from .exp.streams     import create_stream_arrays, get_submesh_streams
 from .exp.accessors   import get_weights
 from .com.scene       import get_mesh_ids     
@@ -507,13 +508,15 @@ class ModelExport:
         bone_limit  = min(8, sorted_weights.shape[1])
         top_indices = sorted_indices[:, :bone_limit]
 
-        weight_sums, final_weights    = normalise_weights(sorted_weights, bone_limit) 
-        blend_weights[:, :bone_limit] = final_weights
+        weight_sums, norm_weights     = normalise_weights(sorted_weights, bone_limit) 
+        empty_verts                   = empty_vertices(norm_weights, top_indices)
+        blend_weights[:, :bone_limit] = normalised_int_array(norm_weights)
 
         nonzero = blend_weights[:, :bone_limit] > 0
         idx_with_weights = set(np.unique(top_indices[nonzero]))
 
         vgroup_to_table = vgroup_to_bone_list(idx_with_weights)
+    
         bonemap         = submesh_to_model_bone_idx()
 
         self._bone_bounding_box(
@@ -529,6 +532,8 @@ class ModelExport:
         exceeds_limit = np.sum(bone_per_vert > 8)
         normalised    = np.sum((weight_sums < 0.99) | (weight_sums > 1.01))
 
+        if empty_verts:
+            self.export_stats[obj.name].append(f"{empty_verts} empty vertices had major corrections.")
         if normalised:
             self.export_stats[obj.name].append(f"{normalised} vertices had weight corrections.")
         if exceeds_limit:

@@ -2,10 +2,8 @@ import numpy as np
 
 from numpy.typing import NDArray
 
-from .norm        import normalised_int_array   
 
-
-def sort_weights(weight_matrix: NDArray, empty_groups: list[int]):
+def sort_weights(weight_matrix: NDArray, empty_groups: list[int]) -> tuple[NDArray, NDArray, NDArray]:
     vert_count, group_count = weight_matrix.shape
     
     valid_group_mask = np.ones(group_count, dtype=bool)
@@ -19,20 +17,25 @@ def sort_weights(weight_matrix: NDArray, empty_groups: list[int]):
     
     return masked_weights, sorted_weights, sorted_indices
     
-def normalise_weights(sorted_weights:NDArray, bone_limit: int, threshold: float=1e-6):
+def normalise_weights(sorted_weights:NDArray, bone_limit: int, threshold: float=1e-6) -> tuple[NDArray, NDArray] :
     top_weights = np.where(
                         sorted_weights > threshold, 
                         sorted_weights, 
                         0
                     )[:, :bone_limit]
     
-    nonzero_mask = top_weights > 0
-    weight_sums  = np.sum(top_weights * nonzero_mask, axis=1, keepdims=True)
+    weight_sums  = np.sum(top_weights, axis=1, keepdims=True)
+    norm_weights = np.where(
+                        (weight_sums != 1.0) & (weight_sums > 0),
+                        top_weights / weight_sums,
+                        top_weights
+                    )
     
-    normalised_weights = np.where(
-                                weight_sums != 1.0,
-                                top_weights / weight_sums,
-                                top_weights
-                            ) * nonzero_mask
+    return weight_sums, norm_weights
 
-    return weight_sums, normalised_int_array(normalised_weights)
+def empty_vertices(blend_weights: NDArray, blend_indices: NDArray) -> int:
+    empty_vertices = np.all(blend_weights == 0, axis=1)
+    blend_indices[empty_vertices, 0] = 0
+    blend_weights[empty_vertices, 0] = 1.0
+
+    return np.sum(empty_vertices)
