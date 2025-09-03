@@ -114,7 +114,6 @@ class SimpleCleanUp(Operator):
 
     def update_material(self) -> None:
         for obj in self.selected:
-            bpy.context.view_layer.objects.active = obj
             if obj.type == "MESH":
                 material = obj.active_material
                 material.surface_render_method = "BLENDED"
@@ -134,9 +133,7 @@ class SimpleCleanUp(Operator):
                 continue
             if obj.parent == armature:
                 continue
-            bpy.ops.object.select_all(action="DESELECT")
             bpy.context.view_layer.objects.active = obj
-            obj.select_set(state=True)
             bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
             if armature:
                 obj.parent = armature
@@ -161,7 +158,6 @@ class SimpleCleanUp(Operator):
         
     def rename_import(self) -> None:
         for obj  in self.selected:
-            bpy.context.view_layer.objects.active = obj
             if obj.type == "MESH":
                 if re.search(r"^\d+.\d+\s", obj.name):
                     id_index = 1
