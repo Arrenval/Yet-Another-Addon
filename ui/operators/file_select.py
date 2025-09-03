@@ -7,7 +7,7 @@ from bpy.types          import Operator, PropertyGroup, Context
 from bpy.props          import StringProperty, IntProperty, EnumProperty, CollectionProperty
 from collections        import defaultdict
 
-from ...props           import get_window_properties
+from ...props           import get_window_properties, get_file_properties
 from ...xiv.io.model    import ModelImport
 from ...preferences     import get_prefs
 from ...utils.typings   import BlendEnum
@@ -56,7 +56,7 @@ class PMPSelector(Operator):
             os.startfile(str(actual_file))
 
         elif event.ctrl and event.type == "LEFTMOUSE" and actual_file.is_file():
-            self.props.pmp_mod_groups.clear()
+            get_file_properties().loaded_pmp_groups.clear()
             self.props.property_unset("modpack_dir") 
 
         else :
