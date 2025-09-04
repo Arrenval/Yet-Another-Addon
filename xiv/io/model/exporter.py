@@ -72,7 +72,9 @@ def remove_loose_verts(obj: Object) -> None:
 
 def split_seams(obj: Object):
     bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
+    if obj.data.shape_keys:
+        obj.active_shape_key_index = 0
+
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.reveal(select=False)
     bpy.ops.mesh.select_all(action='SELECT')
@@ -103,7 +105,7 @@ def get_attributes(obj: Object) -> list[str]:
         if attr.startswith("heels_offset") and obj[attr]:
             attributes.append(attr.strip())   
 
-    return attributes 
+    return attributes
 
 def create_vert_declaration(submeshes: list[Object]) -> VertexDeclaration:
 
@@ -213,6 +215,7 @@ class ModelExport:
             self.create_mesh(blend_objs, lod_level)
 
             active_lod.mesh_count            += 1
+            # Vanilla models increment these even when not used.
             active_lod.water_mesh_idx        += 1
             active_lod.shadow_mesh_idx       += 1
             active_lod.vertical_fog_mesh_idx += 1
@@ -283,12 +286,12 @@ class ModelExport:
             self.model.shape_values = np.resize(self.model.shape_values, self.mdl_shape_value_count)
 
         current_count = arr_offset
-        for shape in self.model.shapes:
-            shape_mesh_arrays               = self.shape_meshes[shape.name]
+        for shape_name, arrays in self.shape_meshes.items():
+            shape = self.model.get_shape(shape_name, create_missing=True)
             shape.mesh_start_idx[lod_level] = len(self.model.shape_meshes)
             
             shape_mesh_count = 0
-            for mesh_idx, shape_values in shape_mesh_arrays.items():
+            for mesh_idx, shape_values in arrays.items():
                 shape_mesh = ShapeMesh()
                 shape_mesh.mesh_idx_offset    = self.model.meshes[mesh_idx].start_idx
                 shape_mesh.shape_value_offset = current_count
@@ -310,32 +313,32 @@ class ModelExport:
             for name, arrays in shape_arrays.items():
                 shape_value_count  = sum(len(values) for values, streams in arrays)
                 mesh_shape_values  = np.zeros(shape_value_count, dtype=self.model.shape_values.dtype)
-                shape_value_offset = 0
+
+                arr_offset = 0
                 for values, streams in arrays:
                     mesh.vertex_count += len(streams[0])
                     if mesh.vertex_count > ushort_limit:
                         raise XIVMeshError(f"Mesh #{self.mesh_idx} exceeds the {ushort_limit} vertices limit due to extra shape keys.")
                     
                     values["replace_vert_idx"] += vert_offset + shape_verts
-                    
                     mesh_geo.append(streams[0])
                     mesh_tex.append(streams[1])
 
-                    end_offset = shape_value_offset + len(values)
-                    mesh_shape_values[shape_value_offset: end_offset] = values
+                    end_offset = arr_offset + len(values)
+                    mesh_shape_values[arr_offset: end_offset] = values
                     shape_verts       += len(streams[0])
-                    shape_value_offset = end_offset
-                    
+                    arr_offset = end_offset
+
                 self.shape_meshes[name][self.mesh_idx] = (mesh_shape_values)
                 self.mdl_shape_value_count += shape_value_count
-            
+
         def calc_bbox(pos: NDArray) -> None:
             mesh_bbox = BoundingBox.from_array(pos)
             if not self.model.mdl_bounding_box:
-                self.model.mdl_bounding_box     = mesh_bbox
+                self.model.mdl_bounding_box = mesh_bbox
             else:
                 self.model.mdl_bounding_box.merge(mesh_bbox)
-        
+
         mesh              = XIVMesh()
         ushort_limit      = np.iinfo(ushort).max
         mesh.vertex_count = sum(len(obj.data.vertices) for obj in blend_objs)
@@ -348,13 +351,13 @@ class ModelExport:
         
         vert_decl = create_vert_declaration(blend_objs)
         self.model.vertex_declarations.append(vert_decl)
-    
+
+        mesh_geo: list[NDArray] = []
+        mesh_tex: list[NDArray] = []
+        
         vert_offset           = 0
-        self.mesh_idx_count   = 0
         self.mesh_bone_limit  = 4
-        self.mesh_geo: list[NDArray] = []
-        self.mesh_tex: list[NDArray] = []
-        self.mesh_idx_buffer         = b''
+        self.mesh_idx_buffer  = b''
         self.shape_arrays: dict[str, list[tuple[NDArray, dict[int, NDArray]]]] = defaultdict(list)
         for submesh_idx, obj in enumerate(blend_objs):
             if submesh_idx == 0:
@@ -362,22 +365,23 @@ class ModelExport:
             if len(obj.data.vertices) == 0:
                 continue
 
-            self.create_submesh(obj, vert_decl, vert_offset, ushort_limit)
+            self.create_submesh(obj, mesh, vert_decl, vert_offset, mesh_geo, mesh_tex, ushort_limit)
             vert_offset        += len(obj.data.vertices)
             mesh.submesh_count += 1
 
-        mesh.idx_count = self.mesh_idx_count
+        if self.mdl_shape_value_count > ushort_limit:
+            raise XIVMeshError(f"Model exceeds the {ushort_limit} shape values limit. Consider removing unneeded shape keys.")
+        
         self.indices_buffers.append(self.mesh_idx_buffer)
-         
         if self.mesh_bone_limit < 5:
             vert_decl.update_usage_type(VertexUsage.BLEND_WEIGHTS, VertexType.UBYTE4)
             vert_decl.update_usage_type(VertexUsage.BLEND_INDICES, VertexType.UBYTE4)
         
         if self.shape_arrays:
-            sort_shape_arrays(self.shape_arrays, self.mesh_geo, self.mesh_tex)
+            sort_shape_arrays(self.shape_arrays, mesh_geo, mesh_tex)
 
         mesh_streams = create_stream_arrays(mesh.vertex_count, vert_decl)
-        self._mesh_streams(mesh, mesh_streams, self.mesh_geo, self.mesh_tex)
+        self._mesh_streams(mesh, mesh_streams, mesh_geo, mesh_tex)
 
         calc_bbox(mesh_streams[0]["position"])
         self.vertex_buffers.append(mesh_streams[0])
@@ -407,13 +411,13 @@ class ModelExport:
 
     def _mesh_streams(self, mesh: XIVMesh, mesh_streams: dict[int, NDArray], mesh_geo: list[NDArray], mesh_tex: list[NDArray]) -> None:
         
-        def update_geo_stream(mesh_geo_stream: NDArray):
+        def update_geo_stream(mesh_geo_stream: NDArray, submesh_geo_stream: NDArray):
             if self.mesh_bone_limit < 5:
                 for field in geo_stream.dtype.names:
                     if field in ["blend_weights", "blend_indices"]:
-                        mesh_geo_stream[field][:] = geo_stream[field][:, :4]
+                        mesh_geo_stream[field][:] = submesh_geo_stream[field][:, :4]
                     else:
-                        mesh_geo_stream[field][:] = geo_stream[field]
+                        mesh_geo_stream[field][:] = submesh_geo_stream[field]
             else:
                 mesh_geo_stream[:] = geo_stream
 
@@ -425,13 +429,13 @@ class ModelExport:
             
         offset = 0
         for geo_stream, tex_stream in zip(mesh_geo, mesh_tex):
-            update_geo_stream(mesh_streams[0][offset: offset + len(geo_stream)])
+            update_geo_stream(mesh_streams[0][offset: offset + len(geo_stream)], geo_stream)
             mesh_streams[1][offset: offset + len(tex_stream)] = tex_stream
             offset += len(geo_stream)
 
-    def create_submesh(self, obj: Object, vert_decl: VertexDeclaration, vert_offset: int, ushort_limit: int) -> None:
+    def create_submesh(self, obj: Object, mesh: XIVMesh, vert_decl: VertexDeclaration, vert_offset: int, mesh_geo: list[NDArray], mesh_tex: list[NDArray], ushort_limit: int) -> None:
 
-        def attribute_bitmask() -> int:
+        def attribute_bitmask(obj: Object) -> int:
             bitmask = 0
             for idx, attr in enumerate(self.model.attributes):
                 if attr in obj.keys() and obj[attr]:
@@ -441,7 +445,7 @@ class ModelExport:
         
         submesh = Submesh()
         indices, submesh_streams, shapes = get_submesh_streams(obj, vert_decl)
-        submesh.attribute_idx_mask       = attribute_bitmask()
+        submesh.attribute_idx_mask       = attribute_bitmask(obj)
 
         if obj.vertex_groups:
             bonemap = self._get_blend_arrays(obj, submesh_streams)
@@ -449,19 +453,19 @@ class ModelExport:
             submesh.bone_count     = len(bonemap)
         
         if shapes:
-            self._get_shape_arrays(shapes, submesh_streams, indices, vert_decl, ushort_limit)
-            
+            self._get_shape_arrays(shapes, submesh_streams, indices, vert_decl, mesh, ushort_limit)
+    
         self.mesh_idx_buffer += (indices + vert_offset).tobytes()
 
         submesh.idx_offset       = self.submesh_idx_offset
         submesh.idx_count        = len(indices)
-        self.mesh_idx_count     += len(indices)
+        mesh.idx_count          += len(indices)
         self.submesh_idx_offset += len(indices)
 
+        mesh_geo.append(submesh_streams[0])
+        mesh_tex.append(submesh_streams[1]) 
         self.model.submeshes.append(submesh)
-        self.mesh_geo.append(submesh_streams[0])
-        self.mesh_tex.append(submesh_streams[1]) 
-     
+        
     def _get_blend_arrays(self, obj: Object, streams: dict[int, NDArray], ) -> tuple[int, int]:
 
         def check_empty() -> list[int]:
@@ -521,7 +525,6 @@ class ModelExport:
         idx_with_weights = set(np.unique(top_indices[nonzero]))
 
         vgroup_to_table = vgroup_to_bone_list(idx_with_weights)
-    
         bonemap         = submesh_to_model_bone_idx()
 
         self._bone_bounding_box(
@@ -550,7 +553,7 @@ class ModelExport:
 
         return bonemap
     
-    def _get_shape_arrays(self, shapes: dict[str, NDArray], submesh_streams: dict[int, NDArray], indices: NDArray, vert_decl: VertexDeclaration, ushort_limit: int, threshold: int=1e-6) -> None:
+    def _get_shape_arrays(self, shapes: dict[str, NDArray], submesh_streams: dict[int, NDArray], indices: NDArray, vert_decl: VertexDeclaration, mesh: XIVMesh, ushort_limit: int, threshold: int=1e-6) -> None:
         
         def set_shape_stream_values(shape_streams: dict[int, NDArray], submesh_streams: dict[int, NDArray]) -> None:
             for stream_idx, stream in submesh_streams.items():
@@ -560,7 +563,6 @@ class ModelExport:
                     else:
                         shape_streams[stream_idx][field_name] = stream[field_name][vert_mask]
 
-        mesh_idx_offset = self.mesh_idx_count
         for shape_name, pos in shapes.items():
             abs_diff      = np.abs(pos - submesh_streams[0]["position"])
             vert_mask     = np.any(abs_diff > threshold, axis=1)
@@ -578,16 +580,15 @@ class ModelExport:
 
             shape_streams = create_stream_arrays(vert_count, vert_decl)
             set_shape_stream_values(shape_streams, submesh_streams)
-            self.model.get_shape(shape_name, create_missing=True)
 
-            if indices_idx.max() + mesh_idx_offset > ushort_limit:
+            if indices_idx.max() + mesh.idx_count > ushort_limit:
                 raise XIVMeshError(f"Mesh #{self.mesh_idx} exceeds the {ushort_limit} indices limit for shape keys.")
             
             vert_map = np.full(len(submesh_streams[0]), -1, dtype=np.int32)
             vert_map[shape_indices] = np.arange(len(shape_indices))
 
             shape_values = np.zeros(len(indices_idx), dtype=self.model.shape_values.dtype)
-            shape_values["base_indices_idx"] = indices_idx + mesh_idx_offset
+            shape_values["base_indices_idx"] = indices_idx + mesh.idx_count
             shape_values["replace_vert_idx"] = vert_map[indices[indices_idx]]
 
             self.shape_arrays[shape_name].append((shape_values, shape_streams))

@@ -18,7 +18,7 @@ def average_vert_normals(indices:NDArray, loop_normals: NDArray):
     vert_nor = np.zeros((len(unique_verts), 3), dtype=np.float32)
 
     for axis in range(3):
-        nor_sums   = np.bincount(inverse_indices, weights=loop_normals[:, axis])
+        nor_sums = np.bincount(inverse_indices, weights=loop_normals[:, axis])
         vert_nor[:, axis] = nor_sums / counts
     
     vert_nor = normalise_vectors(vert_nor)
