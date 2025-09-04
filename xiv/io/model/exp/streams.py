@@ -46,9 +46,12 @@ def create_stream_arrays(vert_count: int, vert_decl: VertexDeclaration) -> dict[
     array_types = get_array_type(vert_decl)
     streams     = {}
     for stream, array_type in array_types.items():
-
         vert_array = np.zeros(vert_count, array_type)
-        
+        if "colour0" in vert_array.dtype.names:
+            vert_array["colour0"][:]    = -1
+        if "colour1" in vert_array.dtype.names:
+            vert_array["colour0"][:, 3] = -1
+            
         streams[stream] = vert_array
 
     return streams

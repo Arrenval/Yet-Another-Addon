@@ -60,13 +60,10 @@ def get_col_attributes(obj: Object, indices: NDArray, vert_count: int, loop_coun
     for layer in obj.data.color_attributes[:col_count]:
         if not layer.name.lower().startswith("vc"):
             continue
-        if layer.name == "vc0":
-            loop_col = np.zeros(loop_count * 4, single)
-        else:
-            loop_col = np.ones(loop_count * 4, single)
-            loop_col[3::4] = 0
-
+        
+        loop_col = np.zeros(loop_count * 4, single)
         layer.data.foreach_get("color", loop_col)
+        loop_col = loop_col.clip(0.0, 1.0)
         loop_col = loop_col.reshape(-1, 4) * 255
 
         vert_col = loop_to_vert(loop_col, indices, vert_count, 4)
