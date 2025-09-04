@@ -3,24 +3,26 @@ import bpy
 import bmesh
 import numpy as np
 
-from numpy            import ushort, single, ubyte
-from bpy.types        import Object
-from numpy.typing     import NDArray
-from collections      import defaultdict
-
-from .exp.norm        import normalised_int_array 
-from .exp.weights     import sort_weights, normalise_weights, empty_vertices
-from .exp.streams     import create_stream_arrays, get_submesh_streams
-from .exp.accessors   import get_weights
-from .com.scene       import get_mesh_ids     
-from .com.exceptions  import XIVMeshError, XIVMeshIDError
-from ...formats.model import (XIVModel, Mesh as XIVMesh, Submesh, BoneTable, Lod, 
+from numpy               import ushort, single, ubyte
+from bpy.types           import Object
+from numpy.typing        import NDArray
+from collections         import defaultdict
+   
+from .exp.norm           import normalised_int_array 
+from .exp.weights        import sort_weights, normalise_weights, empty_vertices
+from .exp.streams        import create_stream_arrays, get_submesh_streams
+from .exp.accessors      import get_weights
+from .com.scene          import get_mesh_ids     
+from .com.exceptions     import XIVMeshError, XIVMeshIDError
+from ...formats.model    import (XIVModel, Mesh as XIVMesh, Submesh, BoneTable, Lod, 
                               ShapeMesh, BoundingBox, VertexDeclaration, 
                               VertexUsage, VertexType, ModelFlags1)
 
+from ....mesh.transforms import apply_transforms
+
 
 def sort_submeshes(export_obj: list[Object], model_attributes: list[str], lod_level: int) -> list[list[Object]]:
-
+ 
     mesh_dict: dict[int, dict[int, Object]] = defaultdict(dict)
     for obj in export_obj:
         if len(obj.data.vertices) == 0:
@@ -31,7 +33,6 @@ def sort_submeshes(export_obj: list[Object], model_attributes: list[str], lod_le
             continue
 
         group, part = get_mesh_ids(obj)
-        
         if part in mesh_dict[group]:
             raise XIVMeshIDError(f'{obj.name}: Submesh already exists as "{mesh_dict[group][part].name}".')
         
@@ -40,6 +41,7 @@ def sort_submeshes(export_obj: list[Object], model_attributes: list[str], lod_le
                 continue
             model_attributes.append(attr)
 
+        apply_transforms(obj)
         remove_loose_verts(obj)
         split_seams(obj)
         mesh_dict[group][part] = obj
