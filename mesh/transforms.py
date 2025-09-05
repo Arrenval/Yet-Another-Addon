@@ -5,8 +5,12 @@ from bpy.types import Object
 from mathutils import Matrix
 
 
-def apply_transforms(obj: Object):
+def apply_transforms(obj: Object, clear_parent: bool=False):
         world_transform = obj.matrix_world.copy()
+
+        if clear_parent:
+            obj.parent = None
+            
         if world_transform == Matrix.Identity(4):
             return
         

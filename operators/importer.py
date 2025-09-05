@@ -1,11 +1,12 @@
 import re
 import bpy
 
-from ..props        import get_file_properties, get_window_properties
-from bpy.types      import Operator, ArmatureModifier, Context
-from bpy.props      import StringProperty
-from ..preferences  import get_prefs
-from ..mesh.objects import safe_object_delete
+from ..props           import get_file_properties, get_window_properties
+from bpy.types         import Operator, ArmatureModifier, Context
+from bpy.props         import StringProperty
+from ..preferences     import get_prefs
+from ..mesh.objects    import safe_object_delete
+from ..mesh.transforms import apply_transforms
 
 
 class SimpleImport(Operator):
@@ -133,18 +134,17 @@ class SimpleCleanUp(Operator):
                 continue
             if obj.parent == armature:
                 continue
-            bpy.context.view_layer.objects.active = obj
-            bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
+
+            apply_transforms(obj, clear_parent=True)
             if armature:
                 obj.parent = armature
-            bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
-            
-            if armature:
                 for modifier in obj.modifiers:
-                    if modifier.type == "ARMATURE":
-                        modifier: ArmatureModifier
-                        modifier.object = armature
-                        modifier.name = "Armature"
+                    if modifier.type != "ARMATURE":
+                        continue
+
+                    modifier: ArmatureModifier
+                    modifier.object = armature
+                    modifier.name = "Armature"
 
     def remove(self):
         for obj in self.selected:
@@ -166,7 +166,7 @@ class SimpleCleanUp(Operator):
                 else:
                     obj.name = self.window.rename_import
                     continue
-                split = obj.name.split()
+                split = obj.name.strip().split()
                 split[id_index] = self.window.rename_import
                 obj.name = " ".join(split)
 
