@@ -7,6 +7,7 @@ from collections       import defaultdict
 
 from .norm             import normalised_int_array 
 from .weights          import sort_weights, normalise_weights, empty_vertices
+from ...logging        import YetAnotherLogger
 from .streams          import create_stream_arrays, get_submesh_streams
 from .accessors        import get_weights
 from .validators       import clean_material_name  
@@ -19,11 +20,12 @@ from ....formats.model import (XIVModel, Mesh as XIVMesh, Submesh,
 USHORT_LIMIT = np.iinfo(ushort).max
 
 class MeshHandler:
-    
-    def __init__(self, model: XIVModel, lod_bones: list[str], mesh_idx: int=0, idx_offset: int=0, stream_offset: int=0, shape_value_count: int=0):
+
+    def __init__(self, model: XIVModel, lod_bones: list[str], mesh_idx: int=0, idx_offset: int=0, stream_offset: int=0, shape_value_count: int=0, logger: YetAnotherLogger=None):
         self.model     = model
         self.idx       = mesh_idx
         self.lod_bones = lod_bones
+        self.logger    = logger
 
         self.mesh = XIVMesh()
         self.bbox = BoundingBox()
@@ -58,24 +60,32 @@ class MeshHandler:
         vert_offset = 0
         self.shape_arrays: dict[str, list[tuple[NDArray, dict[int, NDArray]]]] = defaultdict(list)
         for submesh_idx, obj in enumerate(blend_objs):
+            if self.logger:
+                self.logger.last_item = f"{obj.name}"
+                self.logger.log(f"Processing {obj.name}...", 4)
+
             if submesh_idx == 0:
                 self.mesh.material_idx = self._get_material_idx(obj)
             if len(obj.data.vertices) == 0:
                 continue
 
             self._create_submesh(obj, vert_decl, vert_offset, mesh_geo, mesh_tex)
-            vert_offset        += len(obj.data.vertices)
+            vert_offset += len(obj.data.vertices)
             self.mesh.submesh_count += 1
-
-        if self.shape_value_count > USHORT_LIMIT:
-            raise XIVMeshError(f"Model exceeds the {USHORT_LIMIT} shape values limit. Consider removing unneeded shape keys.")
         
+        if self.logger:
+            self.logger.last_item = f"Mesh #{self.idx}"
+            self.logger.log(f"Finalising Mesh #{self.idx}...", 3)
+
         if self.bone_limit < 5:
             vert_decl.update_usage_type(VertexUsage.BLEND_WEIGHTS, VertexType.UBYTE4)
             vert_decl.update_usage_type(VertexUsage.BLEND_INDICES, VertexType.UBYTE4)
         
         if self.shape_arrays:
             self._sort_shape_arrays(self.shape_arrays, mesh_geo, mesh_tex, vert_offset)
+        
+        if self.shape_value_count > USHORT_LIMIT:
+            raise XIVMeshError(f"Model exceeds the {USHORT_LIMIT} shape values limit. Consider removing unneeded shape keys.")
 
         mesh_streams = create_stream_arrays(self.mesh.vertex_count, vert_decl)
         self._mesh_streams(mesh_streams, mesh_geo, mesh_tex)
@@ -119,10 +129,11 @@ class MeshHandler:
 
                 end_offset = arr_offset + len(values)
                 mesh_shape_values[arr_offset: end_offset] = values
-                shape_verts       += len(streams[0])
-                arr_offset = end_offset
 
-            self.shape_meshes[name] = (mesh_shape_values)
+                shape_verts += len(streams[0])
+                arr_offset   = end_offset
+
+            self.shape_meshes[name] = mesh_shape_values
             self.shape_value_count += shape_value_count
 
     def _mesh_streams(self, mesh_streams: dict[int, NDArray], mesh_geo: list[NDArray], mesh_tex: list[NDArray]) -> None:

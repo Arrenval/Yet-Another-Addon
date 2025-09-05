@@ -1,12 +1,12 @@
 import bpy
 
-from pathlib         import Path
+from pathlib          import Path
 
-from .objects        import visible_meshobj
-from ..preferences   import get_prefs
-from ..xiv.io.model  import ModelExport, SceneHandler, consoletools_mdl
-from ..props.getters import get_window_properties
-from ..utils.logging import YetAnotherLogger
+from .objects         import visible_meshobj
+from ..preferences    import get_prefs
+from ..xiv.io.model   import ModelExport, SceneHandler, consoletools_mdl
+from ..props.getters  import get_window_properties
+from ..xiv.io.logging import YetAnotherLogger
 
 
 def check_triangulation() -> list[str]:
@@ -82,7 +82,9 @@ class FileExport:
                             get_window_properties().export_xiv_path.strip()
                         )
             else:
-                ModelExport.export_scene(export_obj, str(self.file_path) + ".mdl")
+                if self.logger:
+                    self.logger.log(f"Converting to MDL...", 2)
+                ModelExport.export_scene(export_obj, str(self.file_path) + ".mdl", self.logger)
         
         except Exception as e:
             raise e

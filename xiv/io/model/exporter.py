@@ -4,6 +4,7 @@ from bpy.types        import Object
 from numpy.typing     import NDArray
 from collections      import defaultdict
 
+from ..logging        import YetAnotherLogger
 from .exp.mesh        import MeshHandler
 from .exp.scene       import prepare_submeshes
 from ...formats.model import XIVModel, Mesh as XIVMesh, BoneTable, Lod, ShapeMesh, ModelFlags1
@@ -11,21 +12,25 @@ from ...formats.model import XIVModel, Mesh as XIVMesh, BoneTable, Lod, ShapeMes
 
 class ModelExport:
     
-    def __init__(self):
-        self.model = XIVModel()
+    def __init__(self, logger: YetAnotherLogger=None):
+        self.model  = XIVModel()
+        self.logger = logger
         self.shape_value_count = 0
         
         self.export_stats: dict[str, list[str]] = defaultdict(list)
 
     @classmethod
-    def export_scene(cls, export_obj: list[Object], file_path: str) -> None:
-        exporter = cls()
-        exporter.create_model(export_obj, file_path)
+    def export_scene(cls, export_obj: list[Object], file_path: str, logger: YetAnotherLogger=None) -> dict[str, list[str]]:
+        exporter = cls(logger=logger)
+        return exporter.create_model(export_obj, file_path)
 
     def create_model(self, export_obj: list[Object], file_path: str, max_lod: int=1) -> dict[str, list[str]]:
         origin = 0.0
 
         for lod_level, active_lod in enumerate(self.model.lods[:max_lod]):
+            if self.logger:
+                self.logger.last_item = f"LOD{lod_level}"
+                self.logger.log("Configuring LOD0...", 2)
             sorted_meshes       = prepare_submeshes(export_obj, self.model.attributes, lod_level)
             active_lod.mesh_idx = len(self.model.meshes)
             
@@ -74,13 +79,18 @@ class ModelExport:
         lod_bones: list[str] = []
         for mesh_idx, blend_objs in enumerate(sorted_meshes):
             mesh_idx = active_lod.mesh_idx + mesh_idx
-            handler = MeshHandler(
+            if self.logger:
+                self.logger.last_item = f"Mesh #{mesh_idx}"
+                self.logger.log(f"Processing Mesh #{mesh_idx}...", 3)
+                
+            handler  = MeshHandler(
                             self.model, 
                             lod_bones, 
                             mesh_idx, 
                             submesh_idx_offset,
                             stream_offset,
-                            self.shape_value_count
+                            self.shape_value_count,
+                            self.logger
                         )
             
             handler.create_mesh(blend_objs, lod_level)
@@ -103,6 +113,8 @@ class ModelExport:
                 self.model.mdl_bounding_box.merge(handler.bbox)
             else:
                 self.model.mdl_bounding_box = handler.bbox
+
+            self.export_stats.update(**handler.export_stats)
 
             active_lod.mesh_count            += 1
             # Vanilla models increment these even when not used.
@@ -129,6 +141,9 @@ class ModelExport:
             for submesh in self.model.submeshes[start: start + count]:
                 submesh.idx_offset += padding
 
+        if self.logger:
+            self.logger.last_item = f"LOD{lod_level} buffers"
+
         header = self.model.header
         current_offset = len(self.model.buffers)
         lod_buffer     = b''
@@ -154,7 +169,7 @@ class ModelExport:
         for mesh_idx, mesh_buffer in enumerate(indices_buffers):
             mesh = self.model.meshes[mesh_start + mesh_idx]
             mesh.start_idx = idx_buffer_size // 2
-            
+
             if added_padding:
                 update_submesh_offsets(mesh, added_padding // 2)
 
@@ -173,6 +188,9 @@ class ModelExport:
         return lod_buffer
 
     def _create_shape_meshes(self, lod_level: int, shape_meshes: dict[str, list[tuple[int, NDArray]]]) -> None:
+        if self.logger:
+            self.logger.last_item = f"LOD{lod_level} shape meshes"
+
         arr_offset = len(self.model.shape_values)
         if arr_offset < self.shape_value_count:
             self.model.shape_values = np.resize(self.model.shape_values, self.shape_value_count)
