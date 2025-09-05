@@ -246,9 +246,9 @@ class ModPackager(Operator):
         for option in self.blend_group.mod_options:
             self.validate_container(option)
 
-            new_option             = self.create_option(option, mod_group)
+            new_option             = self.create_option(option, mod_group, combining_group)
             new_option.Description = old_options[option] if option in old_options and not option.description.strip() else ""
-
+            
             container.append(new_option)
 
             container_indices  = [
@@ -387,10 +387,13 @@ class ModPackager(Operator):
         
         return base_phybs, new_phybs
         
-    def create_option(self, option: BlendModOption, mod_group: ModGroup) -> GroupOption:
+    def create_option(self, option: BlendModOption, mod_group: ModGroup, combining: bool) -> GroupOption:
         new_option               = GroupOption()
         new_option.Name          = option.name
         new_option.Description   = option.description
+        if not combining:
+            new_option.Files         = {}
+            new_option.Manipulations = []
 
         new_option.Priority = option.priority if mod_group.Type == "Multi" else None
 
