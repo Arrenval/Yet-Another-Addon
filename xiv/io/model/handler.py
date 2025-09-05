@@ -105,7 +105,7 @@ def _get_backfaces(bm: BMesh, bf_idx: int) -> list[BMFace]:
     return backfaces
     
 
-class MeshHandler:
+class SceneHandler:
     """
     This class takes all visible meshes in a Blender scene and runs various logic on them to retain/add properties needed for XIV models. 
     It's designed to work with my export operators to save and restore the Blender scene when the class is done with its operations.

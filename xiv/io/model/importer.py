@@ -13,34 +13,6 @@ from .com.exceptions  import XIVMeshError
 from ...formats.model import XIVModel, Submesh
 
     
-def bone_map_correction(model: XIVModel, buffer: bytes, indices: NDArray, mesh_count: int) -> None:
-    submesh_bonemaps = []
-    for mesh_idx, mesh in enumerate(model.meshes[:mesh_count]):
-        if mesh.vertex_count == 0:
-            continue
-
-        streams = create_stream_arrays(buffer, mesh, model.vertex_declarations[mesh_idx], mesh_idx)
-        if not streams:
-            continue
-
-        submeshes = model.submeshes[mesh.submesh_index: mesh.submesh_index + mesh.submesh_count]
-        for submesh in submeshes:
-            if submesh.idx_count == 0:
-                continue
-
-            submesh_indices = indices[submesh.idx_offset: submesh.idx_offset + submesh.idx_count]
-            submesh_streams, vert_start, vert_count = get_submesh_streams(streams, submesh_indices)
-
-            nonzero_mask = submesh_streams[0]["blend_weights"].nonzero()
-            bone_indices = np.unique(submesh_streams[0]["blend_indices"][nonzero_mask])
-            
-            submesh.bone_start_idx = len(submesh_bonemaps)
-            submesh.bone_count     = len(bone_indices)
-            
-            submesh_bonemaps.extend(bone_indices.tolist())
-    
-    model.submesh_bonemaps = submesh_bonemaps
-
 def create_material(name: str, col_idx) -> Material:
     colours = { 
                 0: (0.03, 0.15, 0.3, 1.0),   # indigo  
@@ -161,7 +133,7 @@ class ModelImport:
                     print(f"Mesh #{mesh_idx}.{submesh_idx}: {e}")
                     continue
     
-    def create_blend_obj(self, submesh: Submesh, streams: dict[int, NDArray], indices: NDArray[ushort], shapes: list[tuple[str, NDArray]], material: Material):
+    def _create_blend_obj(self, submesh: Submesh, streams: dict[int, NDArray], indices: NDArray[ushort], shapes: list[tuple[str, NDArray]], material: Material):
 
         def create_v_groups() -> list[int]:
             for bone_idx in bone_table:
@@ -228,7 +200,7 @@ class ModelImport:
         bpy.context.collection.objects.link(new_obj)
         new_obj.select_set(True)
 
-    def create_blend_mesh(self, streams, submesh_indices: NDArray, vert_count: int) -> Mesh:
+    def _create_blend_mesh(self, streams, submesh_indices: NDArray, vert_count: int) -> Mesh:
         co_arr, no_arr, uv_arrays, col_arrays = self.sort_arrays(streams)
         new_mesh = bpy.data.meshes.new("temp_name")
 
@@ -262,7 +234,7 @@ class ModelImport:
       
         return new_mesh
     
-    def sort_arrays(self, streams: dict[int, NDArray]) -> tuple[NDArray, NDArray, list[NDArray], list[NDArray]]:
+    def _sort_arrays(self, streams: dict[int, NDArray]) -> tuple[NDArray, NDArray, list[NDArray], list[NDArray]]:
 
         def get_normal_array() -> NDArray | None:
             if "normal" not in arr_fields:

@@ -3,6 +3,7 @@ import numpy as np
 from io          import BytesIO
 from numpy       import short, ushort, half, single, ubyte
 from struct      import pack
+from bpy.types   import Object
 from dataclasses import dataclass
 
 from .enums      import VertexType, VertexUsage
@@ -89,6 +90,46 @@ class VertexDeclaration:
 
         # The file always reserves space for 17 declarations. We skip ahead equal to what we didn't have to read.
         reader.pos += 17 * 8 - (len(decl.vertex_elements) + 1) * 8
+
+        return decl
+    
+    @classmethod
+    def from_blend_mesh(cls, submeshes: list[Object]) -> 'VertexDeclaration':
+        decl = cls()
+
+        decl.create_element(VertexType.SINGLE3, VertexUsage.POSITION, 0)
+        decl.create_element(VertexType.USHORT4, VertexUsage.BLEND_WEIGHTS, 0)
+        decl.create_element(VertexType.USHORT4, VertexUsage.BLEND_INDICES, 0)
+
+        decl.create_element(VertexType.SINGLE3, VertexUsage.NORMAL, 1)
+        decl.create_element(VertexType.NBYTE4, VertexUsage.TANGENT, 1)
+
+        col_count = 0
+        uv_count  = 0
+        for obj in submeshes:
+            col_count = max(col_count, len([layer for layer in obj.data.color_attributes 
+                                            if layer.name.lower().startswith("vc")]))
+            
+            uv_count  = max(uv_count, len([layer for layer in obj.data.uv_layers 
+                                        if layer.name.lower().startswith("uv")]))
+
+        col_count = min(col_count, 2)
+        uv_count  = min(uv_count, 3)
+
+        for i in range(col_count):
+            if i > 1:
+                break
+            decl.create_element(VertexType.NBYTE4, VertexUsage.COLOUR, 1, i)
+
+        for i in range(uv_count):
+            if uv_count == 1:
+                decl.create_element(VertexType.SINGLE2, VertexUsage.UV, 1)
+            elif i == 0:
+                decl.create_element(VertexType.SINGLE4, VertexUsage.UV, 1)
+            elif i == 2:
+                decl.create_element(VertexType.SINGLE2, VertexUsage.UV, 1, 1)
+            elif i > 2:
+                break
 
         return decl
     

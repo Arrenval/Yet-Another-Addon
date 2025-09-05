@@ -1,6 +1,6 @@
 import numpy as np
 
-from numpy        import single, byte
+from numpy        import single, byte, ubyte
 from bpy.types    import Object
 from numpy.typing import NDArray
 
@@ -8,7 +8,7 @@ from .norm        import average_vert_normals
 from ..com.space  import blend_to_xiv_space
 
 
-def loop_to_vert(loop_arr: NDArray, indices: NDArray, vert_count: int, shape: int) -> NDArray:
+def _loop_to_vert(loop_arr: NDArray, indices: NDArray, vert_count: int, shape: int) -> NDArray:
     unique_verts, first_indices = np.unique(indices, return_index=True)
 
     temp_arr = loop_arr[first_indices]
@@ -16,6 +16,12 @@ def loop_to_vert(loop_arr: NDArray, indices: NDArray, vert_count: int, shape: in
     vert_arr[unique_verts] = temp_arr
 
     return vert_arr
+
+def _tangent_bytes(float_tangents: NDArray) -> NDArray:
+    clamped_tan = np.clip(float_tangents, -1.0, 1.0)
+    compressed  = (clamped_tan + 1) * (255.0 * 0.5)
+    
+    return compressed.round().astype(ubyte)
 
 def get_space_data(obj: Object, indices: NDArray, vert_count: int, loop_count: int) -> tuple[NDArray]:
     pos = np.zeros(vert_count * 3, single)
@@ -50,7 +56,7 @@ def get_uvs(obj: Object, indices: NDArray, vert_count: int, loop_count: int, uv_
         loop_uvs = loop_uvs.reshape(-1, 2)
         loop_uvs[:, 1] = 1 - loop_uvs[:, 1]
 
-        vert_uvs = loop_to_vert(loop_uvs, indices, vert_count, 2)
+        vert_uvs = _loop_to_vert(loop_uvs, indices, vert_count, 2)
         uv_arrays.append(vert_uvs)
     
     return uv_arrays
@@ -66,10 +72,41 @@ def get_col_attributes(obj: Object, indices: NDArray, vert_count: int, loop_coun
         loop_col = loop_col.clip(0.0, 1.0)
         loop_col = loop_col.reshape(-1, 4) * 255
 
-        vert_col = loop_to_vert(loop_col, indices, vert_count, 4)
+        vert_col = _loop_to_vert(loop_col, indices, vert_count, 4)
         col_arrays.append(vert_col.astype(byte))
     
     return col_arrays
+
+def get_bitangents(obj: Object, indices: NDArray, loop_count: NDArray, uv_layer: str) -> NDArray:
+    obj.data.calc_tangents(uvmap=uv_layer)
+
+    loop_bitan = np.zeros(loop_count * 3, single)
+    obj.data.loops.foreach_get("bitangent", loop_bitan)
+    loop_bitan = blend_to_xiv_space(loop_bitan.reshape(-1, 3))
+
+    loop_bi_sign = np.zeros(loop_count, single)
+    obj.data.loops.foreach_get("bitangent_sign", loop_bi_sign)
+    loop_bi_sign = np.where(loop_bi_sign < 0, 0, -1)
+
+    # Broadcast loop values based on our indices back into the vertex array.
+    # Note that this requires that any UV seams and sharp edges were split earlier.
+    unique_verts, first_indices = np.unique(indices, return_index=True)
+
+    temp_vert_bitan  = loop_bitan[first_indices]
+    temp_vert_bisign = loop_bi_sign[first_indices]
+    
+    num_vertices = len(obj.data.vertices)
+    vert_tan     = np.zeros((num_vertices, 3), dtype=single)
+    vert_bisign  = np.zeros(num_vertices, dtype=single)
+    
+    vert_tan[unique_verts]    = temp_vert_bitan
+    vert_bisign[unique_verts] = temp_vert_bisign
+
+    byte_tan = np.zeros((len(vert_tan), 4), dtype=ubyte)
+    byte_tan[:, :3] = _tangent_bytes(vert_tan)  
+    byte_tan[:, 3]  = vert_bisign.astype(ubyte)
+
+    return byte_tan
 
 def get_weights(obj: Object, vert_count: int, group_count: int) -> NDArray:
     weight_matrix = np.zeros((vert_count, group_count), dtype=np.float32)

@@ -3,8 +3,9 @@ import bpy
 from pathlib         import Path
 
 from .objects        import visible_meshobj
-from ..xiv.io.model  import ModelExport, MeshHandler, consoletools_mdl
 from ..preferences   import get_prefs
+from ..xiv.io.model  import ModelExport, SceneHandler, consoletools_mdl
+from ..props.getters import get_window_properties
 from ..utils.logging import YetAnotherLogger
 
 
@@ -57,7 +58,7 @@ class FileExport:
         export_settings = self._get_export_settings()
     
         try:
-            mesh_handler = MeshHandler(logger=self.logger, batch=self.batch)
+            mesh_handler = SceneHandler(logger=self.logger, batch=self.batch)
 
             mesh_handler.prepare_meshes()
             export_obj = mesh_handler.process_meshes()
@@ -75,7 +76,11 @@ class FileExport:
                 if self.file_format == 'MDL':
                     if self.logger:
                         self.logger.log(f"Converting to MDL...", 2)
-                    consoletools_mdl(str(self.file_path))
+                    consoletools_mdl(
+                            str(self.file_path), 
+                            get_prefs().export.textools_dir,
+                            get_window_properties().export_xiv_path.strip()
+                        )
             else:
                 ModelExport.export_scene(export_obj, str(self.file_path) + ".mdl")
         

@@ -3,22 +3,13 @@ import subprocess
 
 from pathlib           import Path
 
-from .....props        import get_window_properties
-from ..com.scene       import get_mesh_ids
-from .....preferences  import get_prefs
+from .scene            import get_mesh_ids
+from .validators       import clean_material_name
 from .....mesh.objects import visible_meshobj
 
 
 def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
-        
-        def clean_material_name(name: str):
-            if not name.startswith("/"):
-                name = "/" + name
-            if not name.endswith(".mtrl"):
-                name = name + ".mtrl"
-            return name.strip()
-        
-        visible = visible_meshobj()
+        visible    = visible_meshobj()
         attributes = {}
         materials  = {}
 
@@ -64,8 +55,8 @@ def update_database(db_path: str) -> None:
         if conn:
             conn.close()
 
-def consoletools_mdl(file_path: str):
-    textools      = Path(get_prefs().export.textools_dir)
+def consoletools_mdl(file_path: str, textools_dir: str, export_xiv_path: str):
+    textools      = Path(textools_dir)
     converter_dir = textools / "converters" / "fbx"
     fbx_path      = file_path + ".fbx"
     mdl_path      = file_path + ".mdl"
@@ -85,7 +76,7 @@ def consoletools_mdl(file_path: str):
             "/wrap",
             db_path,  
             mdl_path, 
-            get_window_properties().export_xiv_path.strip(),
+            export_xiv_path,
             "/mats",
             "/attributes"
         ],

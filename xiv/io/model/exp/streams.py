@@ -3,9 +3,8 @@ import numpy as np
 from bpy.types         import Object
 from numpy.typing      import NDArray
  
-from .tangents         import get_bitangents
 from .accessors        import *
-from ..com.accessors   import get_array_type
+from ..com.schema      import get_array_type
 from ....formats.model import VertexDeclaration, VertexUsage
 
 

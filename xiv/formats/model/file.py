@@ -106,7 +106,7 @@ class XIVModel:
 
         self.vertex_declarations     : list[VertexDeclaration]    = []
         self.element_ids             : list[ElementID]            = []
-        self.lods                    : list[Lod]                  = []
+        self.lods                    : list[Lod]                  = [Lod() for _ in range(3)]
         self.extra_lods              : list[ExtraLod]             = []
         self.meshes                  : list[Mesh]                 = []
         self.terrain_shadow_meshes   : list[TerrainShadowMesh]    = []
