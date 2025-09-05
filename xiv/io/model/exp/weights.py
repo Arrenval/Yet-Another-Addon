@@ -24,12 +24,12 @@ def normalise_weights(sorted_weights:NDArray, bone_limit: int, threshold: float=
                         0
                     )[:, :bone_limit]
     
-    weight_sums  = np.sum(top_weights, axis=1, keepdims=True)
-    norm_weights = np.where(
-                        (weight_sums != 1.0) & (weight_sums > 0),
-                        top_weights / weight_sums,
-                        top_weights
-                    )
+    weight_sums    = np.sum(top_weights, axis=1, keepdims=True)
+    norm_weights   = top_weights.copy()
+    normalise_mask = (weight_sums != 1.0) & (weight_sums > 0)
+    if np.any(normalise_mask):
+        mask = normalise_mask.squeeze()
+        norm_weights[mask] = top_weights[mask] / weight_sums[mask]
     
     return weight_sums, norm_weights
 
