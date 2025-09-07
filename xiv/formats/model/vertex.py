@@ -10,6 +10,9 @@ from .enums      import VertexType, VertexUsage
 from ..utils     import BinaryReader, write_padding
 
 
+XIV_UV  = ("uv")
+XIV_COL = ("vc", "_ffxiv_color")
+
 def get_vert_struct(vertex_type: VertexType, vertex_usage: VertexUsage) -> tuple[np.dtype, int]:
     weights = vertex_usage in (VertexUsage.BLEND_INDICES, VertexUsage.BLEND_WEIGHTS)
     
@@ -104,32 +107,28 @@ class VertexDeclaration:
         decl.create_element(VertexType.SINGLE3, VertexUsage.NORMAL, 1)
         decl.create_element(VertexType.NBYTE4, VertexUsage.TANGENT, 1)
 
-        col_count = 0
-        uv_count  = 0
+        col_count = 1
+        uv_count  = 1
         for obj in submeshes:
             col_count = max(col_count, len([layer for layer in obj.data.color_attributes 
-                                            if layer.name.lower().startswith("vc")]))
+                                            if layer.name.lower().startswith(XIV_COL)]))
             
             uv_count  = max(uv_count, len([layer for layer in obj.data.uv_layers 
-                                        if layer.name.lower().startswith("uv")]))
+                                        if layer.name.lower().startswith(XIV_UV)]))
 
         col_count = min(col_count, 2)
         uv_count  = min(uv_count, 3)
 
         for i in range(col_count):
-            if i > 1:
-                break
             decl.create_element(VertexType.NBYTE4, VertexUsage.COLOUR, 1, i)
+        
+        if uv_count > 1:
+            decl.create_element(VertexType.SINGLE4, VertexUsage.UV, 1)
+        else:
+            decl.create_element(VertexType.SINGLE2, VertexUsage.UV, 1)
 
-        for i in range(uv_count):
-            if uv_count == 1:
-                decl.create_element(VertexType.SINGLE2, VertexUsage.UV, 1)
-            elif i == 0:
-                decl.create_element(VertexType.SINGLE4, VertexUsage.UV, 1)
-            elif i == 2:
-                decl.create_element(VertexType.SINGLE2, VertexUsage.UV, 1, 1)
-            elif i > 2:
-                break
+        if uv_count == 3:
+            decl.create_element(VertexType.SINGLE2, VertexUsage.UV, 1, 1)
 
         return decl
     
