@@ -34,7 +34,7 @@ def get_submesh_streams(obj: Object, vert_decl: VertexDeclaration) -> tuple[NDAr
         for uv_idx, uvs in enumerate(uv_arrays):
             if uv_idx < 2:
                 start = uv_idx * 2
-                stop  = (uv_idx*2) + 2
+                stop  = start + 2
                 streams[1]["uv0"][:, start: stop] = uvs
             elif uv_idx == 2:
                 streams[1]["uv1"] = uvs
@@ -49,7 +49,7 @@ def create_stream_arrays(vert_count: int, vert_decl: VertexDeclaration) -> dict[
         if "colour0" in vert_array.dtype.names:
             vert_array["colour0"][:]    = -1
         if "colour1" in vert_array.dtype.names:
-            vert_array["colour0"][:, 3] = -1
+            vert_array["colour1"][:, 3] = -1
             
         streams[stream] = vert_array
 

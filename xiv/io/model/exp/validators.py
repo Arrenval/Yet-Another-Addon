@@ -2,8 +2,8 @@ import re
 import bpy
 import bmesh
 
-from bpy.types           import Object
-   
+from bpy.types import Object
+
 
 def clean_material_name(name: str):
     name = re.sub(r'\.\d{3}$', "", name.strip())

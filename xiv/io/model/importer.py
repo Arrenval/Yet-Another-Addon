@@ -128,7 +128,7 @@ class ModelImport:
                 self.submesh_idx, self.submesh = submesh_idx, submesh
                 
                 try:
-                    self.create_blend_obj(submesh, streams, indices, mesh_shapes, material)
+                    self._create_blend_obj(submesh, streams, indices, mesh_shapes, material)
                 except XIVMeshError as e:
                     print(f"Mesh #{mesh_idx}.{submesh_idx}: {e}")
                     continue
@@ -175,7 +175,7 @@ class ModelImport:
         submesh_streams, vert_start, vert_count = get_submesh_streams(streams, submesh_indices)
 
         obj_name   = f"{self.mesh_idx}.{self.submesh_idx} {self.obj_name}"
-        blend_mesh = self.create_blend_mesh(submesh_streams, submesh_indices - vert_start, vert_count)
+        blend_mesh = self._create_blend_mesh(submesh_streams, submesh_indices - vert_start, vert_count)
         new_obj    = bpy.data.objects.new(
                             name=obj_name, 
                             object_data=blend_mesh
@@ -201,7 +201,7 @@ class ModelImport:
         new_obj.select_set(True)
 
     def _create_blend_mesh(self, streams, submesh_indices: NDArray, vert_count: int) -> Mesh:
-        co_arr, no_arr, uv_arrays, col_arrays = self.sort_arrays(streams)
+        co_arr, no_arr, uv_arrays, col_arrays = self._sort_arrays(streams)
         new_mesh = bpy.data.meshes.new("temp_name")
 
         new_mesh.vertices.add(vert_count)
@@ -258,7 +258,7 @@ class ModelImport:
                     uv0_data[:, 3] = 1.0 - uv0_data[:, 3]
                     uv_arrays.append(uv0_data[:, 2:4])
 
-            if "uv" in arr_fields:
+            if "uv1" in arr_fields:
                 uv1_data = streams[1]["uv1"].copy()
 
                 uv1_data = 1.0 - uv1_data
