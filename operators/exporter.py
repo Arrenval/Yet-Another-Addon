@@ -10,7 +10,7 @@ from ..props          import get_file_properties, get_devkit_properties, get_win
 from ..utils          import SceneOptimiser
 from ..ui.draw        import aligned_row, show_ui_button
 from ..preferences    import get_prefs
-from ..mesh.export    import check_triangulation, get_export_path, export_result
+from ..mesh.export    import check_triangulation, get_export_path, export_result, get_export_stats
 from ..mesh.objects   import visible_meshobj
 from ..xiv.io.logging import YetAnotherLogger
 
@@ -325,8 +325,11 @@ class YetAnotherExport(Operator):
                 except:
                     pass
             armature.hide_set(state=arm_vis)
-            
-        self.report({'INFO'}, "Export complete!")
+
+        if self.window.file_format == 'MDL' and self.prefs.export.mdl_export == 'BLENDER':
+            get_export_stats(context)
+        else:
+            self.report({'INFO'}, "Export complete!")
         return {'FINISHED'}
     
     def draw(self, context):

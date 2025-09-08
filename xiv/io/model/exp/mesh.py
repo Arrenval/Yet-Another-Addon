@@ -282,11 +282,11 @@ class MeshHandler:
         normalised    = np.sum((weight_sums < 0.99) | (weight_sums > 1.01))
 
         if empty_verts:
-            self.export_stats[obj.name].append(f"{empty_verts} empty vertices had major corrections.")
+            self.export_stats[obj.name].append(f"{empty_verts} empty vertices had major weight corrections.")
         if normalised:
             self.export_stats[obj.name].append(f"{normalised} vertices had weight corrections.")
         if exceeds_limit:
-            self.export_stats[obj.name].append(f"Corrected {exceeds_limit} vertices for exceeding bone limt.")
+            self.export_stats[obj.name].append(f"Corrected {exceeds_limit} vertices that exceeded the bone limt.")
 
         self.bone_limit = max(self.bone_limit, np.max(np.sum(nonzero, axis=1)))
 

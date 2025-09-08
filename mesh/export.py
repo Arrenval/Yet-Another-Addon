@@ -1,6 +1,7 @@
 import bpy
 
 from pathlib          import Path
+from bpy.types        import Context, UILayout
 
 from .objects         import visible_meshobj
 from ..preferences    import get_prefs
@@ -8,6 +9,8 @@ from ..xiv.io.model   import ModelExport, SceneHandler, consoletools_mdl
 from ..props.getters  import get_window_properties
 from ..xiv.io.logging import YetAnotherLogger
 
+
+_export_stats: dict[str, list[str]] = {}
 
 def check_triangulation() -> list[str]:
     visible = visible_meshobj()
@@ -41,10 +44,27 @@ def get_export_path(directory: Path, file_name: str, subfolder: bool, body_slot:
 
     return export_path
 
-def export_result(file_path: Path, file_format: str, logger: YetAnotherLogger=None, batch=False):
+def export_result(file_path: Path, file_format: str, logger: YetAnotherLogger=None, batch=False) -> None:
     bpy.context.evaluated_depsgraph_get().update()
     export = FileExport(file_path, file_format, logger=logger, batch=batch)
     export.export_template()
+
+def get_export_stats(context: Context) -> None:
+    global _export_stats
+
+    def draw_popup(self, context: Context):
+            layout: UILayout = self.layout
+            for obj_name, messages in export_stats.items():
+                layout.label(text=obj_name, icon='OUTLINER_OB_MESH')
+                layout.separator(type='LINE')
+                for message in messages:
+                    layout.label(text=message, icon='INFO')
+                layout.separator(type='SPACE', factor=2)
+
+    if _export_stats:
+        export_stats  = _export_stats.copy()
+        _export_stats = {}
+        context.window_manager.popup_menu(draw_popup, title=f"Model created succesfully!", icon='CHECKMARK')
 
 class FileExport:
     def __init__(self, file_path: Path, file_format: str, logger: YetAnotherLogger=None, batch=False):
@@ -55,6 +75,7 @@ class FileExport:
         self.batch       = batch
  
     def export_template(self):
+        global _export_stats
         export_settings = self._get_export_settings()
     
         try:
@@ -84,7 +105,7 @@ class FileExport:
             else:
                 if self.logger:
                     self.logger.log(f"Converting to MDL...", 2)
-                ModelExport.export_scene(export_obj, str(self.file_path) + ".mdl", self.logger)
+                _export_stats = ModelExport.export_scene(export_obj, str(self.file_path) + ".mdl", self.logger)
         
         except Exception as e:
             raise e
