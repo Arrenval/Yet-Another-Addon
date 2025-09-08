@@ -52,7 +52,6 @@ def get_uvs(obj: Object, indices: NDArray, vert_count: int, loop_count: int, uv_
         if not uv_layer.name.lower().startswith(XIV_UV):
             continue
         loop_uvs = np.zeros(loop_count * 2, single)
-        vert_uvs = np.zeros((vert_count, 2), single)
 
         uv_layer.uv.foreach_get("vector", loop_uvs)
         loop_uvs = loop_uvs.reshape(-1, 2)
@@ -68,21 +67,16 @@ def get_col_attributes(obj: Object, indices: NDArray, vert_count: int, loop_coun
     for layer in obj.data.color_attributes[:col_count]:
         if not layer.name.lower().startswith(XIV_COL):
             continue
-        rows     = loop_count if layer.domain == "CORNER" else vert_count
-        arr_type = single if layer.data_type == "FLOAT_COLOR" else byte
+        count   = loop_count if layer.domain == "CORNER" else vert_count
+        col_arr = np.zeros(count * 4, single)
 
-        col_arr  = np.zeros(rows * 4, arr_type)
         layer.data.foreach_get("color", col_arr)
-
-        if layer.data_type == "FLOAT_COLOR":
-            col_arr = (col_arr.clip(0.0, 1.0) * 255.0).astype(byte)
-
+        col_arr = col_arr.clip(0.0, 1.0) * 255.0
         col_arr = col_arr.reshape(-1, 4) 
-
         if layer.domain == "CORNER":
             col_arr = _loop_to_vert(col_arr, indices, vert_count, 4)
 
-        col_arrays.append(col_arr)
+        col_arrays.append(col_arr.round().astype(byte))
     
     return col_arrays
 
