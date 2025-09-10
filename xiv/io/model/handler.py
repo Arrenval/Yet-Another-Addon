@@ -121,7 +121,7 @@ class SceneHandler:
         props                            = get_window_properties()
         self.depsgraph : Depsgraph       = depsgraph
         self.shapekeys : bool            = props.keep_shapekeys
-        self.xiv_mdl   : bool            = get_prefs().export.mdl_export == 'Blender' and props.file_format == 'MDL'
+        self.xiv_mdl   : bool            = get_prefs().export.mdl_export == 'BLENDER' and props.file_format == 'MDL'
         self.is_tris   : bool            = props.check_tris or self.xiv_mdl
         self.backfaces : bool            = (props.create_backfaces and self.is_tris)
         self.yas_vag   : bool            = True
