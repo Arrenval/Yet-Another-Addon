@@ -1,194 +1,42 @@
 import bpy
 import platform
 
-from typing          import TYPE_CHECKING
+from typing          import TYPE_CHECKING, Literal
 from bpy.types       import PropertyGroup, Object, Context
-from bpy.props       import StringProperty, EnumProperty, CollectionProperty, BoolProperty, IntProperty
+from bpy.props       import StringProperty, EnumProperty, CollectionProperty, BoolProperty, IntProperty, PointerProperty
 from collections.abc import Iterable
 
-from .getters        import get_outfit_properties, get_file_properties
+from .getters        import get_studio_props, get_file_props
 from .modpack        import BlendModGroup, modpack_data
 from ..utils.typings import BlendEnum
 
 
-class YAWindowProps(PropertyGroup):
-    
-    ui_buttons_list = [
-        ("backfaces",   "expand",     "Opens the category"),
-        ("modifiers",   "expand",     "Opens the category"),
-        ("transp",      "expand",     "Opens the category"),
-        ("yas_man",     "expand",     "Opens the category"),
-        
-        ]
-    
-    extra_options = [
-        ("overview", "category",    True,   "Enables part overview"),
-        ("shapes",   "category",    False,  "Enables shape transfer menu"),
-        ("mesh",     "category",    False,  "Enables mesh editing menu"),
-        ("weights",  "category",    False,  "Enables weight editing menu"),
-        ("armature", "category",    False,  "Enables animation playback and pose/scaling menu"),
+class StudioWindow(PropertyGroup):
 
-        ("file",     "category",    True,  "General file utilities"),
-        ("phyb",     "category",    False,  "Phyb file utilities"),
-        ("model",    "category",    False,  "Model file utilities"),
-
-        ("filter",   "vgroups",     True,   "Switches between showing all vertex groups or just YAS groups"),
-        ("create",   "backfaces",   True,   "Creates backface meshes on export. Meshes need to be triangulated"),
-        ("check",    "tris",        True,   "Verify that the meshes are triangulated"),
-        ("keep",     "shapekeys",   True,   "Preserves game ready shape keys"),
-        ("create",   "subfolder",   True,   "Creates a folder in your export directory for your exported body part"),
-        ("rue",      "export",      True,   "Controls whether Rue is exported as a standalone body and variant, or only as a variant for Lava/Masc"),
-        ("body",     "names",       False,  "Always add body names on exported files or depending on how many bodies you export"),
-        ("chest",    "g_category",  False,  "Changes gamepath category"),
-        ("hands",    "g_category",  False,  "Changes gamepath category"),
-        ("legs",     "g_category",  False,  "Changes gamepath category"),
-        ("feet",     "g_category",  False,  "Changes gamepath category"),
-        ("scaling",   "armature",   False,   "Applies scaling to armature"),
-        ("keep",      "modifier",   False,   "Keeps the modifier after applying. Unable to keep Data Transfers"),
-        ("all",       "keys",       False,   "Transfers all shape keys from source to target"),
-        ("existing",  "only",       False,   "Only updates deforms of shape keys that already exist on the target"),
-        ("adjust",    "overhang",   False,   "Tries to adjust for clothing that hangs off of the breasts"),
-        ("add",       "shrinkwrap", False,   "Applies a shrinkwrap modifier when deforming the mesh. Remember to exclude parts of the mesh overlapping with the body"),
-        ("seam",      "waist",      False,   "Applies the selected seam shape key to your mesh"),
-        ("seam",      "wrist",      False,   "Applies the selected seam shape key to your mesh"),
-        ("seam",      "ankle",      False,   "Applies the selected seam shape key to your mesh"),
-        ("sub",       "shape_keys", False,   """Includes minor shape keys without deforms:
-        - Squeeze
-        - Push-Up
-        - Omoi
-        - Sag
-        - Nip Nops"""),
-    ]
-
-    @staticmethod
-    def set_extra_options() -> None:
-        for (name, category, default, description) in YAWindowProps.extra_options:
-            category_lower = category.lower()
-            name_lower = name.lower()
-            
-            prop_name = f"{name_lower}_{category_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=default, 
-                )
-            setattr(YAWindowProps, prop_name, prop)
-
-    pmp_mod_groups: CollectionProperty(
-        type=BlendModGroup
-        ) # type: ignore
-    
-    export_prefix: StringProperty(
-        name="",
-        description="This will be prefixed to all your exported filenames",
-        maxlen=255,
-        )  # type: ignore
-
-    file_man_ui: EnumProperty(
-        name= "",
-        description= "Select a manager",
-        items= [
-            ("IMPORT", "Import", "Import Files", "IMPORT", 0),
-            ("EXPORT", "Export", "Export models", "EXPORT", 1),
-            ("MODPACK", "Modpack", "Package mods", "NEWFOLDER", 2),
-        ]
-        )  # type: ignore
-
-    yas_storage: EnumProperty(
-        name="",
-        description="Select what vertex groups to store",
-        items=[
-            ('ALL', "All Weights", "Store all YAS weights"),
-            ('PHYS', "Physics", "Store all thigh/butt physics related weights"),
-            ('GEN', "Genitalia", "Store all genitalia related weights")
-        ]
-        ) # type: ignore
-    
-    export_body_slot: EnumProperty(
-        name= "",
-        description= "Select a body slot",
-        items= [
-            ("Chest", "Chest", "Chest export options.", "MOD_CLOTH", 0),
-            ("Legs", "Legs", "Leg export options.", "BONE_DATA", 1),
-            ("Hands", "Hands", "Hand export options.", "VIEW_PAN", 2),
-            ("Feet", "Feet", "Feet export options.", "VIEW_PERSPECTIVE", 3),
-            ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.", "ARMATURE_DATA", 4)]
-        )  # type: ignore
-
-    remove_yas: EnumProperty(
-        name= "",
-        description= "Decides what modded bones to keep",
-        items= [
-            ("KEEP", "Keep", "Retains all modded bones"),
-            ("NO_GEN", "No Genitalia", "Removes non-clothing related genitalia weights"),
-            ("REMOVE", "Remove", "Removes all IVCS/YAS bones"),
-        ]
-        
-        )  # type: ignore
-
-    def _get_formats(self, context) -> None:
-        if self.file_man_ui == 'IMPORT' or platform.system() == 'Windows':
-            return [
-            ('MDL', "MDL", "Export FBX and convert to MDL."),
-            ('FBX', "FBX", "Export FBX."),
-            ('GLTF', "GLTF", "Export GLTF"),
-            ]
-        
-        else:
-            return [
-            ('FBX', "FBX", "Export FBX."),
-            ('GLTF', "GLTF", "Export GLTF"),
-            ]
-        
-    file_format: EnumProperty(
-        name="",
-        description="Switch file format", 
-        items=_get_formats
-        ) # type: ignore
-
-    def check_gamepath_category(self, context) -> None:
-        if self.valid_xiv_path:
-            category = self.export_xiv_path.split("_")[-1].split(".")[0]
-            return category
-    
-    def _check_valid_path(self, context):
-        path: str        = self.export_xiv_path
-        self.valid_xiv_path = path.startswith("chara") and path.endswith(".mdl")
-
-    export_xiv_path: StringProperty(
-                            default="Paste path here...", 
-                            name="", 
-                            description="Path to the in-game model you want to replace", 
-                            update=_check_valid_path
-                        ) # type: ignore
-    
-    valid_xiv_path: BoolProperty(default=False) # type: ignore
-    
-    def update_ui(self, context:Context):
-        for area in context.screen.areas:
-            area.tag_redraw()
-
-    waiting_import: BoolProperty(default=False, options={"SKIP_SAVE"}, update=update_ui) # type: ignore
-
-    def get_deform_modifiers(self, context:Context) -> BlendEnum:
-        modifiers = get_outfit_properties().shape_modifiers_group
+    def get_deform_modifiers(self, context: Context) -> BlendEnum:
+        modifiers = get_studio_props().shape_modifiers_group
         if not modifiers:
             return [("None", "No Valid Modifiers", "")]
         return [(modifier.name, modifier.name, "", modifier.icon, index) for index, modifier in enumerate(modifiers)]
-
+ 
     shape_modifiers: EnumProperty(
-        name= "",
-        description= "Select a deform modifier",
-        items=get_deform_modifiers
-        )  # type: ignore
+    name= "",
+    description= "Select a deform modifier",
+    items=get_deform_modifiers
+    )  # type: ignore
+
+    def _shapes_type_validate(self, context) -> None:
+        if not self.include_deforms and self.shapes_type == 'SINGLE':
+            self.shapes_type = 'EXISTING'
     
-    rename_import: StringProperty(
-        name="",
-        description="Renames the prefix of the selected meshes",
-        default="",
-        maxlen=255,
-        )  # type: ignore
-    
+    def _set_shape_enums(self, context):
+        props = get_studio_props()
+
+        if self.shapes_type == 'SINGLE':
+            self.include_deforms = True
+            props.validate_shapes_source_enum(context)
+            props.validate_shapes_target_enum(context)
+  
     shapes_method: EnumProperty(
         name= "",
         description= "Select an overview",
@@ -200,18 +48,6 @@ class YAWindowProps(PropertyGroup):
         ]
         )  # type: ignore
     
-    def _shapes_type_validate(self, context) -> None:
-        if not self.include_deforms and self.shapes_type == 'SINGLE':
-            self.shapes_type = 'EXISTING'
-    
-    def _set_shape_enums(self, context):
-        props = get_outfit_properties()
-
-        if self.shapes_type == 'SINGLE':
-            self.include_deforms = True
-            props.validate_shapes_source_enum(context)
-            props.validate_shapes_target_enum(context)
-
     shapes_type: EnumProperty(
         name= "",
         description= "Select which keys to transfer",
@@ -274,13 +110,13 @@ class YAWindowProps(PropertyGroup):
     shapes_source_enum: EnumProperty(
         name= "",
         description= "Select a shape key",
-        items=lambda self, context: self.get_shape_key_enum(context, bpy.context.scene.ya_outfit_props.shapes_source)
+        items=lambda self, context: self.get_shape_key_enum(context, bpy.context.scene.ya_studio_props.shapes_source)
         )  # type: ignore
     
     shapes_target_enum: EnumProperty(
         name= "",
         description= "Select a shape key",
-        items=lambda self, context: self.get_shape_key_enum(context, bpy.context.scene.ya_outfit_props.shapes_target, new=True)
+        items=lambda self, context: self.get_shape_key_enum(context, bpy.context.scene.ya_studio_props.shapes_target, new=True)
         )  # type: ignore
 
     shapes_corrections: EnumProperty(
@@ -302,16 +138,15 @@ class YAWindowProps(PropertyGroup):
     obj_vertex_groups: EnumProperty(
         name= "",
         description= "Select a group to pin, it will be ignored by any smoothing corrections",
-        items=lambda self, context: self.get_vertex_groups(context, bpy.context.scene.ya_outfit_props.shapes_target)
+        items=lambda self, context: self.get_vertex_groups(context, get_studio_props().shapes_target)
         )  # type: ignore
     
     exclude_vertex_groups: EnumProperty(
         name= "",
         description= "Select a group to exclude from shrinkwrapping",
-        items=lambda self, context: self.get_vertex_groups(context, bpy.context.scene.ya_outfit_props.shapes_target)
+        items=lambda self, context: self.get_vertex_groups(context, get_studio_props().shapes_target)
         )  # type: ignore
     
-
     def animation_frames(self, context:Context) -> None:
         if context.screen.is_animation_playing:
             return None
@@ -325,13 +160,111 @@ class YAWindowProps(PropertyGroup):
         update=lambda self, context: self.animation_frames(context),
     ) # type: ignore
 
-    ui_size_category: StringProperty(
+    yas_storage: EnumProperty(
         name="",
+        description="Select what vertex groups to store",
+        items=[
+            ('ALL', "All Weights", "Store all YAS weights"),
+            ('PHYS', "Physics", "Store all thigh/butt physics related weights"),
+            ('GEN', "Genitalia", "Store all genitalia related weights")
+        ]
+        ) # type: ignore
+    
+    if TYPE_CHECKING:
+        shapes_method        : Literal['Select', 'Chest', 'Legs', "Seams"]
+        shapes_type          : Literal['EXISTING', 'ALL', 'SINGLE']
+        shape_leg_base       : Literal['Melon', 'Skull', 'Yanilla', 'Mini', 'Lavabod', 'Masc']
+        shape_seam_base      : Literal['LARGE', 'Lavabod', 'Yanilla', 'Masc', 'Mini']
+        shapes_corrections   : Literal['None', 'Smooth', 'Aggressive']
+
+        shape_modifiers      : str
+        include_deforms      : bool
+        shapes_source_enum   : str
+        shapes_target_enum   : str
+        obj_vertex_groups    : str
+        exclude_vertex_groups: str
+        animation_frame      : int 
+        yas_storage          : str
+
+class IOWindow(PropertyGroup):
+
+    def check_gamepath_category(self, context) -> None:
+        if self.valid_xiv_path:
+            category = self.export_xiv_path.split("_")[-1].split(".")[0]
+            return category
+    
+    def _check_valid_path(self, context):
+        path: str        = self.export_xiv_path
+        self.valid_xiv_path = path.startswith("chara") and path.endswith(".mdl")
+
+    export_xiv_path: StringProperty(
+                            default="Paste path here...", 
+                            name="", 
+                            description="Path to the in-game model you want to replace", 
+                            update=_check_valid_path
+                        ) # type: ignore
+    
+    valid_xiv_path: BoolProperty(default=False) # type: ignore
+    
+    def update_ui(self, context:Context):
+        for area in context.screen.areas:
+            area.tag_redraw()
+
+    waiting_import: BoolProperty(default=False, options={"SKIP_SAVE"}, update=update_ui) # type: ignore
+
+    rename_import: StringProperty(
+        name="",
+        description="Renames the prefix of the selected meshes",
+        default="",
         maxlen=255,
         )  # type: ignore
 
+    export_prefix: StringProperty(
+        name="",
+        description="This will be prefixed to all your exported filenames",
+        maxlen=255,
+        )  # type: ignore
+
+    export_body_slot: EnumProperty(
+        name= "",
+        description= "Select a body slot",
+        items= [
+            ("Chest", "Chest", "Chest export options.", "MOD_CLOTH", 0),
+            ("Legs", "Legs", "Leg export options.", "BONE_DATA", 1),
+            ("Hands", "Hands", "Hand export options.", "VIEW_PAN", 2),
+            ("Feet", "Feet", "Feet export options.", "VIEW_PERSPECTIVE", 3),
+            ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.", "ARMATURE_DATA", 4)]
+        )  # type: ignore
+
+    remove_yas: EnumProperty(
+        name= "",
+        description= "Decides what modded bones to keep",
+        items= [
+            ("KEEP", "Keep", "Retains all modded bones"),
+            ("NO_GEN", "No Genitalia", "Removes non-clothing related genitalia weights"),
+            ("REMOVE", "Remove", "Removes all IVCS/YAS bones"),
+        ]
+        
+        )  # type: ignore
+    
+    if TYPE_CHECKING:
+        export_body_slot: Literal['Chest', 'Legs', 'Hands', 'Feet', 'Chest & Legs']
+        remove_yas      : Literal['KEEP', 'NO_GEN', 'REMOVE']
+
+        rename_import   : str
+        export_xiv_path : str
+        valid_xiv_path  : bool
+        waiting_import  : bool
+        export_prefix   : str
+          
+class ModpackWindow(PropertyGroup):
+
+    pmp_mod_groups: CollectionProperty(
+        type=BlendModGroup
+        ) # type: ignore
+       
     def update_mod_enums(self, context):
-        file = get_file_properties()
+        file = get_file_props()
         if self.modpack_replace:
             modpack_data()
 
@@ -375,33 +308,131 @@ class YAWindowProps(PropertyGroup):
         maxlen=255,
         )  # type: ignore
 
-    modpack_rename_group: StringProperty(
-        name="",
-        default="",
-        description="Choose a name for the target group. Can be left empty if replacing an existing one", 
-        maxlen=255,
-        )  # type: ignore
+    if TYPE_CHECKING:
+        pmp_mod_groups  : Iterable[BlendModGroup]
+
+        modpack_replace      : bool
+        modpack_display_dir  : str
+        modpack_dir          : str
+        modpack_version      : str
+        modpack_author       : str
+        
+class FileWindow(PropertyGroup):
+    io: PointerProperty(
+        type=IOWindow
+        ) # type: ignore
     
-    new_mod_name: StringProperty(
-        name="",
-        default="",
-        description="The name of your mod", 
-        maxlen=255,
-        )  # type: ignore
+    modpack: PointerProperty(
+        type=ModpackWindow
+        ) # type: ignore
     
-    new_mod_version: StringProperty(
+    def _get_formats(self, context) -> None:
+        if self.ui_tab == 'IMPORT' or platform.system() == 'Windows':
+            return [
+            ('MDL', "MDL", "Export FBX and convert to MDL."),
+            ('FBX', "FBX", "Export FBX."),
+            ('GLTF', "GLTF", "Export GLTF"),
+            ]
+        
+        else:
+            return [
+            ('FBX', "FBX", "Export FBX."),
+            ('GLTF', "GLTF", "Export GLTF"),
+            ]
+    
+    model_format: EnumProperty(
         name="",
-        default="0.0.0",
-        description="Use semantic versioning", 
-        maxlen=255,
-        )  # type: ignore
+        description="Switch file format", 
+        items=_get_formats
+        ) # type: ignore
    
-    author_name: StringProperty(
-        name="",
-        default="",
-        description="Some cool person", 
-        maxlen=255,
+    ui_tab: EnumProperty(
+        name= "",
+        description= "Select a manager",
+        items= [
+            ("IMPORT", "Import", "Import Files", "IMPORT", 0),
+            ("EXPORT", "Export", "Export models", "EXPORT", 1),
+            ("MODPACK", "Modpack", "Package mods", "NEWFOLDER", 2),
+        ]
         )  # type: ignore
+    
+    if TYPE_CHECKING:
+        io     : IOWindow
+        modpack: ModpackWindow
+
+        model_format: str
+        ui_tab      : str
+ 
+class YAWindowProps(PropertyGroup):
+    
+    studio: PointerProperty(
+        type=StudioWindow
+        ) # type: ignore
+    
+    file: PointerProperty(
+        type=FileWindow
+        ) # type: ignore
+    
+    ui_buttons_list = [
+            ("backfaces",   "expand",     "Opens the category"),
+            ("modifiers",   "expand",     "Opens the category"),
+            ("transp",      "expand",     "Opens the category"),
+            ("yas_man",     "expand",     "Opens the category"),
+        ]
+    
+    extra_options = [
+            ("overview", "category",    True,   "Enables model overview"),
+            ("shapes",   "category",    False,  "Enables shape transfer menu"),
+            ("mesh",     "category",    False,  "Enables mesh editing menu"),
+            ("weights",  "category",    False,  "Enables weight editing menu"),
+            ("armature", "category",    False,  "Enables animation playback and pose/scaling menu"),
+
+            ("file",     "category",    True,   "General file utilities"),
+            ("phyb",     "category",    False,  "Phyb file utilities"),
+            ("model",    "category",    False,  "Model file utilities"),
+
+            ("create",   "backfaces",   True,   "Creates backface meshes on export. Meshes need to be triangulated"),
+            ("check",    "tris",        True,   "Verify that the meshes are triangulated"),
+            ("keep",     "shapekeys",   True,   "Preserves game ready shape keys"),
+            ("create",   "subfolder",   True,   "Creates a folder in your export directory for your exported body part"),
+            ("rue",      "export",      True,   "Controls whether Rue is exported as a standalone body and variant, or only as a variant for Lava/Masc"),
+            ("body",     "names",       False,  "Always add body names on exported files or depending on how many bodies you export"),
+            ("chest",    "g_category",  False,  "Changes gamepath category"),
+            ("hands",    "g_category",  False,  "Changes gamepath category"),
+            ("legs",     "g_category",  False,  "Changes gamepath category"),
+            ("feet",     "g_category",  False,  "Changes gamepath category"),
+
+            ("filter",   "vgroups",     True,   "Switches between showing all vertex groups or just YAS groups"),
+            ("scaling",   "armature",   False,  "Applies scaling to armature"),
+            ("keep",      "modifier",   False,  "Keeps the modifier after applying. Unable to keep Data Transfers"),
+            ("all",       "keys",       False,  "Transfers all shape keys from source to target"),
+            ("existing",  "only",       False,  "Only updates deforms of shape keys that already exist on the target"),
+            ("adjust",    "overhang",   False,  "Tries to adjust for clothing that hangs off of the breasts"),
+            ("add",       "shrinkwrap", False,  "Applies a shrinkwrap modifier when deforming the mesh. Remember to exclude parts of the mesh overlapping with the body"),
+            ("seam",      "waist",      False,  "Applies the selected seam shape key to your mesh"),
+            ("seam",      "wrist",      False,  "Applies the selected seam shape key to your mesh"),
+            ("seam",      "ankle",      False,  "Applies the selected seam shape key to your mesh"),
+            ("sub",       "shape_keys", False,  """Includes minor shape keys without deforms:
+            - Squeeze
+            - Push-Up
+            - Omoi
+            - Sag
+            - Nip Nops"""),
+        ]
+
+    @staticmethod
+    def set_extra_options() -> None:
+        for (name, category, default, description) in YAWindowProps.extra_options:
+            category_lower = category.lower()
+            name_lower = name.lower()
+            
+            prop_name = f"{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
+                )
+            setattr(YAWindowProps, prop_name, prop)
 
     insp_file1: StringProperty(
         name="",
@@ -432,7 +463,6 @@ class YAWindowProps(PropertyGroup):
         )  # type: ignore
     
 
-
     @staticmethod
     def ui_buttons() -> None:
         for (name, category, description) in YAWindowProps.ui_buttons_list:
@@ -452,40 +482,13 @@ class YAWindowProps(PropertyGroup):
             setattr(YAWindowProps, prop_name, prop)
 
     if TYPE_CHECKING:
-        pmp_mod_groups   : Iterable[BlendModGroup]
-        
-        yas_storage     : str
-        file_man_ui     : str
-        export_body_slot: str
-        shape_modifiers : str
-        waiting_import  : bool
-        shape_source    : Object
-        file_format     : str
-        export_prefix   : str
-        remove_yas      : str
-        export_xiv_path : str
-        valid_xiv_path  : bool
+        studio          : StudioWindow
+        file            : FileWindow
 
-        obj_vertex_groups    : str
-        exclude_vertex_groups: str
-        shapes_source_enum   : str
-        shapes_target_enum   : str
-        shapes_corrections   : str
-        shapes_method        : str
-        shapes_type          : str
-        shape_leg_base       : str
-        shape_seam_base      : str
-        modpack_replace      : bool
-        modpack_display_dir  : str
-        modpack_dir          : str
-        modpack_version      : str
-        modpack_author       : str
-        modpack_rename_group : str
-        new_mod_name         : str
-        new_mod_version      : str
-        author_name          : str
-        animation_frame      : int  
-        include_deforms : bool
+        insp_file1 : str
+        insp_file2 : str
+        sym_group_l: str
+        sym_group_r: str
  
         # Created at registration
         overview_category: bool
@@ -516,7 +519,6 @@ class YAWindowProps(PropertyGroup):
         hands_g_category: bool
         legs_g_category : bool
         feet_g_category : bool
-        ui_size_category: str
         rename_import   : str
    
         scaling_armature: bool
@@ -528,10 +530,11 @@ class YAWindowProps(PropertyGroup):
         seam_ankle      : bool
         sub_shape_keys  : bool
 
-        sym_group_l: str
-        sym_group_r: str
-
 
 CLASSES = [
+    StudioWindow,
+    IOWindow,
+    ModpackWindow,
+    FileWindow,
     YAWindowProps,
 ]

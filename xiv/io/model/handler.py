@@ -9,7 +9,7 @@ from collections          import defaultdict
 from collections.abc      import Iterable 
 
 from ..logging           import YetAnotherLogger
-from ....props           import get_window_properties, get_devkit_properties         
+from ....props           import get_window_props, get_devkit_props         
 from ....preferences     import get_prefs        
 from ....mesh.shapes     import get_shape_mix
 from .com.exceptions     import XIVMeshParentError
@@ -118,16 +118,16 @@ class SceneHandler:
     """
 
     def __init__(self, logger: YetAnotherLogger=None, depsgraph: Depsgraph=None, batch=False):
-        props                            = get_window_properties()
+        props                            = get_window_props()
         self.depsgraph : Depsgraph       = depsgraph
         self.shapekeys : bool            = props.keep_shapekeys
-        self.xiv_mdl   : bool            = get_prefs().export.mdl_export == 'BLENDER' and props.file_format == 'MDL'
+        self.xiv_mdl   : bool            = get_prefs().export.mdl_export == 'BLENDER' and props.file.model_format == 'MDL'
         self.is_tris   : bool            = props.check_tris or self.xiv_mdl
         self.backfaces : bool            = (props.create_backfaces and self.is_tris)
         self.yas_vag   : bool            = True
-        self.remove_yas: str             = props.remove_yas
+        self.remove_yas: str             = props.file.io.remove_yas
         self.batch     : bool            = batch
-        self.torso     : bool            = self.batch and "Chest" in get_window_properties().export_body_slot
+        self.torso     : bool            = self.batch and "Chest" in props.file.io.export_body_slot
         self.delete    : list[Object]    = []
         self.tri_method: tuple[str, str] = ("BEAUTY", "BEAUTY")
 
@@ -145,7 +145,7 @@ class SceneHandler:
         self.rue    = False
         self.buff   = False
         self.torso  = False
-        self.devkit = get_devkit_properties()
+        self.devkit = get_devkit_props()
 
         if self.devkit:
             self.devkit_checks(visible_obj)
@@ -186,7 +186,7 @@ class SceneHandler:
                 self.rue = True 
             if not self.buff and (buff_key and buff_key.mute == False and buff_key.value == 1.0):
                 self.buff = True
-            if not self.torso and obj == get_devkit_properties().yam_torso:
+            if not self.torso and obj == get_devkit_props().yam_torso:
                 self.torso = True
 
     def sort_shape_keys(self, obj: Object) -> list[ShapeKey]:

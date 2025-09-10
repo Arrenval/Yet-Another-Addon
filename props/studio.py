@@ -7,7 +7,7 @@ from bpy.props       import StringProperty, EnumProperty, CollectionProperty, Po
 from collections.abc import Iterable
 
 from .window         import YAWindowProps
-from .getters        import get_window_properties, get_devkit_properties
+from .getters        import get_window_props, get_devkit_props
 from ..utils.typings import BlendEnum
 
 
@@ -74,7 +74,7 @@ class ShapeModifiers(PropertyGroup):
         name: str
         icon: str
        
-class YAOutfitProps(PropertyGroup):
+class YAStudioProps(PropertyGroup):
 
     shape_modifiers_group: CollectionProperty(type=ShapeModifiers) # type: ignore
 
@@ -180,7 +180,7 @@ class YAOutfitProps(PropertyGroup):
     
 
     def _chest_controller_update(self, context: Context) -> None:
-        key_blocks = get_devkit_properties().yam_shapes.data.shape_keys.key_blocks
+        key_blocks = get_devkit_props().yam_shapes.data.shape_keys.key_blocks
         for key in key_blocks:
             key.mute = True
 
@@ -205,7 +205,7 @@ class YAOutfitProps(PropertyGroup):
         return armature_actions
     
     def set_action(self, context: Context) -> None:
-        window = get_window_properties()
+        window = get_window_props()
         if not self.outfit_armature:
             return
         if self.actions == "None":
@@ -249,11 +249,11 @@ class YAOutfitProps(PropertyGroup):
             setattr(prop, actual_prop, display_directory)
 
     def validate_shapes_source_enum(self, context) -> None:
-        window = get_window_properties()
+        window = get_window_props().studio
         window.shapes_source_enum = self.shapes_source.data.shape_keys.key_blocks[0].name if self.shapes_source else "None"
 
     def validate_shapes_target_enum(self, context) -> None:
-        window = get_window_properties()
+        window = get_window_props().studio
         window.shapes_target_enum = "None"
 
     shapes_source: PointerProperty(
@@ -309,7 +309,7 @@ class YAOutfitProps(PropertyGroup):
 
     def set_yas_ui_vgroups(self, context):
         obj = self.yas_source
-        window = get_window_properties()
+        window = get_window_props()
         update_groups = (window.weights_category and window.filter_vgroups and obj)
 
         if update_groups:
@@ -330,7 +330,7 @@ class YAOutfitProps(PropertyGroup):
 
     def set_modifiers(self, context):
         obj    = self.mod_shape_source
-        window = get_window_properties()
+        window = get_window_props()
 
         update_modifiers = (window.mesh_category and window.button_modifiers_expand and obj)
 
@@ -350,8 +350,8 @@ class YAOutfitProps(PropertyGroup):
                                     "MOD_MESHDEFORM" if "DEFORM" in modifier.type else \
                                     f"MOD_{modifier.type}"
             
-            if self.shape_modifiers_group and window.shape_modifiers == "":
-                window.shape_modifiers = self.shape_modifiers_group[0].name
+            if self.shape_modifiers_group and window.studio.shape_modifiers == "":
+                window.studio.shape_modifiers = self.shape_modifiers_group[0].name
 
         else:
             self.shape_modifiers_group.clear()
@@ -391,9 +391,7 @@ class YAOutfitProps(PropertyGroup):
         shape_modifiers_group  : Iterable[ShapeModifiers]
         
         pose_display_directory : str
-        
         shape_chest_base       : str
-        
         actions                : str
         
         shapes_source          : Object
@@ -407,16 +405,11 @@ class YAOutfitProps(PropertyGroup):
         mod_shapes_source: Object
 
 
-
 CLASSES = [    
     YASUIList,
     YASWeights,
     YASGroup,
     YASStorage,
     ShapeModifiers,
-    YAOutfitProps
+    YAStudioProps
 ]
-
-
-
-

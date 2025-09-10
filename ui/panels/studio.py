@@ -4,22 +4,22 @@ import bpy
 from bpy.types       import Panel, UILayout, Context, Object
 
 from ..draw          import aligned_row, get_conditional_icon, ui_category_buttons
-from ...props        import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ...props        import get_studio_props, get_devkit_props, get_window_props, get_devkit_win_props
 from ...mesh.objects import visible_meshobj
 
 
-class OutfitStudio(Panel):
-    bl_idname = "VIEW3D_PT_YA_OutfitStudio"
+class MeshStudio(Panel):
+    bl_idname = "VIEW3D_PT_YA_MeshStudio"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "XIV Kit"
-    bl_label = "Outfit Studio"
+    bl_label = "Mesh Studio"
     bl_order = 1
 
     def draw(self, context:Context):
-        self.outfit_props = get_outfit_properties()
-        self.window_props = get_window_properties()
-        self.devkit_props = get_devkit_properties()
+        self.outfit_props = get_studio_props()
+        self.window_props = get_window_props()
+        self.devkit_props = get_devkit_props()
         self.devkit_win   = get_devkit_win_props()
         layout = self.layout
 
@@ -194,37 +194,37 @@ class OutfitStudio(Panel):
         row.label(text="Shapes", icon=self.options["Shapes"])
 
         col = box.column(align=True)
-        aligned_row(col, "Method:", "shapes_method", self.window_props, "", attr_icon='OBJECT_DATA')
+        aligned_row(col, "Method:", "shapes_method", self.window_props.studio, "", attr_icon='OBJECT_DATA')
         col.separator(type="LINE", factor=2)
 
-        if not self.devkit_props and self.window_props.shapes_method != "Selected":
+        if not self.devkit_props and self.window_props.studio.shapes_method != "Selected":
             row = col.row(align=True)
             row.alignment = "CENTER"
             row.label(text="Yet Another Devkit required.", icon="INFO")
 
         else:
 
-            row = aligned_row(col, "Smoothing:", "shapes_corrections", self.window_props, "")
+            row = aligned_row(col, "Smoothing:", "shapes_corrections", self.window_props.studio, "")
             row.separator()
             row.prop(self.window_props, "add_shrinkwrap", text="Shrinkwrap")
 
-            if self.window_props.shapes_corrections != "None" or self.window_props.add_shrinkwrap:
+            if self.window_props.studio.shapes_corrections != "None" or self.window_props.add_shrinkwrap:
                 col.separator()
 
-            if self.window_props.shapes_corrections != "None":
-                aligned_row(col, "Pin:", "obj_vertex_groups", self.window_props, "", attr_icon='GROUP_VERTEX')
+            if self.window_props.studio.shapes_corrections != "None":
+                aligned_row(col, "Pin:", "obj_vertex_groups", self.window_props.studio, "", attr_icon='GROUP_VERTEX')
 
             if self.window_props.add_shrinkwrap:
-                aligned_row(col, "Exclude:", "exclude_vertex_groups", self.window_props, "", attr_icon='GROUP_VERTEX')
+                aligned_row(col, "Exclude:", "exclude_vertex_groups", self.window_props.studio, "", attr_icon='GROUP_VERTEX')
 
-            if self.window_props.shapes_method == "Selected":
+            if self.window_props.studio.shapes_method == "Selected":
                 col.separator(type="LINE", factor=2)
 
-                row = aligned_row(col, "Options:", "shapes_type", self.window_props, "")
+                row = aligned_row(col, "Options:", "shapes_type", self.window_props.studio, "")
                 row.separator()
                 row.prop(self.window_props, "include_deforms", text="Deforms")
 
-            if self.window_props.shapes_method == "Chest":
+            if self.window_props.studio.shapes_method == "Chest":
                 col.separator(type="LINE", factor=2)
                 
                 row = aligned_row(col, "Options:", "sub_shape_keys", self.window_props, "Sub Keys")
@@ -250,12 +250,12 @@ class OutfitStudio(Panel):
                               icon="HIDE_OFF" if visible  else "HIDE_ON", 
                               depress=visible)
             
-            if self.window_props.shapes_method == "Legs":
+            if self.window_props.studio.shapes_method == "Legs":
                 col.separator(type="LINE", factor=2)
 
-                aligned_row(col, "Base:", "shape_leg_base", self.window_props, "", attr_icon='SHAPEKEY_DATA')
+                aligned_row(col, "Base:", "shape_leg_base", self.window_props.studio, "", attr_icon='SHAPEKEY_DATA')
             
-            if self.window_props.shapes_method == "Chest":
+            if self.window_props.studio.shapes_method == "Chest":
                 col.separator(type="LINE", factor=2)
 
                 
@@ -281,7 +281,7 @@ class OutfitStudio(Panel):
 
                 self.dynamic_column_buttons(3, col, self.devkit_win, labels, slot, button_type)
 
-            if self.window_props.shapes_method == "Legs":
+            if self.window_props.studio.shapes_method == "Legs":
 
                 col.separator(type="LINE", factor=2)
 
@@ -301,7 +301,7 @@ class OutfitStudio(Panel):
                 
                 self.dynamic_column_buttons(2, col, self.devkit_win, labels, slot, button_type)
 
-            if self.window_props.shapes_method == "Seams":
+            if self.window_props.studio.shapes_method == "Seams":
 
                 col.separator(type="LINE", factor=2)
 
@@ -315,15 +315,15 @@ class OutfitStudio(Panel):
 
             col.separator(type="LINE", factor=2)
 
-            if self.window_props.shapes_method == "Selected":
+            if self.window_props.studio.shapes_method == "Selected":
                 row = aligned_row(col, "Source:", "shapes_source", self.outfit_props, "")
-                if self.window_props.shapes_method == "Selected" and self.window_props.shapes_type == 'SINGLE' and self.window_props.include_deforms:
-                    row.prop(self.window_props, "shapes_source_enum", text="")
+                if self.window_props.studio.shapes_method == "Selected" and self.window_props.studio.shapes_type == 'SINGLE' and self.window_props.studio.include_deforms:
+                    row.prop(self.window_props.studio, "shapes_source_enum", text="")
 
             row = col.row(align=True)
             row = aligned_row(col, "Target:", "shapes_target", self.outfit_props, "")
-            if self.window_props.shapes_method == "Selected" and self.window_props.shapes_type == 'SINGLE' and self.window_props.include_deforms:
-                row.prop(self.window_props, "shapes_target_enum", text="")
+            if self.window_props.studio.shapes_method == "Selected" and self.window_props.studio.shapes_type == 'SINGLE' and self.window_props.studio.include_deforms:
+                row.prop(self.window_props.studio, "shapes_target_enum", text="")
             
             col.separator(type="LINE", factor=2)
 
@@ -368,13 +368,13 @@ class OutfitStudio(Panel):
             if obj.modifiers and obj.data.shape_keys:
                 row = box.row(align=True)
                 split = row.split(factor=0.75, align=True)
-                split.prop(self.window_props, "shape_modifiers")
+                split.prop(self.window_props.studio, "shape_modifiers")
                 split.operator("ya.apply_modifier", text="Apply")
                 icon = "PINNED" if self.window_props.keep_modifier else "UNPINNED"
                 row.prop(self.window_props, "keep_modifier", text="", icon=icon)
-                if self.window_props.shape_modifiers == "None" or self.window_props.shape_modifiers == "":
+                if self.window_props.studio.shape_modifiers == "None" or self.window_props.studio.shape_modifiers == "":
                     pass
-                elif  obj.modifiers[self.window_props.shape_modifiers].type == "DATA_TRANSFER":
+                elif  obj.modifiers[self.window_props.studio.shape_modifiers].type == "DATA_TRANSFER":
                     row = box.row(align=True)
                     row.alignment = "CENTER"
                     row.label(text="Will be applied to mix of current shape keys.", icon="INFO")
@@ -396,7 +396,7 @@ class OutfitStudio(Panel):
             elif not obj.data.shape_keys:
                 row.alignment = "CENTER"
                 row.label(text="Object has no shape keys.", icon="INFO")
-            if obj.type == 'MESH' and self.window_props.shape_modifiers == 'None':
+            if obj.type == 'MESH' and self.window_props.studio.shape_modifiers == 'None':
                 row = box.row(align=True)
                 row.operator("wm.call_menu", text="Add Modifier", icon="ADD").name = "OBJECT_MT_modifier_add"
         elif button:
@@ -477,14 +477,14 @@ class OutfitStudio(Panel):
             }
             row = box.row(align=True)
             split = row.split(factor=0.33, align=True)
-            split.prop(self.window_props, 'yas_storage', text="")
+            split.prop(self.window_props.studio, 'yas_storage', text="")
 
             details = split.row(align=True)
             icon, text = self.yas_status()
             details.label(text=text, icon=icon)
-            if not group_bool[self.window_props.yas_storage]:
+            if not group_bool[self.window_props.studio.yas_storage]:
                 op = details.operator("ya.yas_manager", text="", icon='FILE_TICK')
-                op.mode = self.window_props.yas_storage
+                op.mode = self.window_props.studio.yas_storage
                 op.target = 'ACTIVE'
             if obj.yas.v_groups:
                 op = details.operator("ya.yas_manager", text="", icon='FILE_PARENT')
@@ -607,7 +607,7 @@ class OutfitStudio(Panel):
                 icon = get_conditional_icon(getattr(section_prop, prop_name))
                 
                 col_index = index % columns 
-                emboss = False if (slot == "Legs" and name == self.window_props.shape_leg_base) or (slot == "Chest" and key == self.outfit_props.shape_chest_base) else True
+                emboss = False if (slot == "Legs" and name == self.window_props.studio.shape_leg_base) or (slot == "Chest" and key == self.outfit_props.shape_chest_base) else True
                 columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon if emboss else "SHAPEKEY_DATA", emboss=emboss)
             else:
                 # print(f"{name} has no assigned property!")
@@ -616,5 +616,5 @@ class OutfitStudio(Panel):
 
 
 CLASSES = [
-    OutfitStudio,
+    MeshStudio,
 ]   

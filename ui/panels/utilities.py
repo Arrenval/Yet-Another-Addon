@@ -1,7 +1,7 @@
 from bpy.types import Context, Panel, UILayout
 
 from ..draw    import aligned_row, ui_category_buttons
-from ...props  import get_window_properties
+from ...props  import get_window_props
 
 
 class FileUtilities(Panel):
@@ -14,7 +14,7 @@ class FileUtilities(Panel):
     bl_order = 4
 
     def draw(self, context:Context):
-        self.window = get_window_properties()
+        self.window = get_window_props()
         layout = self.layout
 
         self.options ={

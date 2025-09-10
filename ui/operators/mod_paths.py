@@ -2,7 +2,7 @@ from pathlib          import Path
 from bpy.types        import Operator, Context
 from bpy.props        import StringProperty, IntProperty
 
-from ...props         import get_window_properties
+from ...props         import get_window_props
 from ...preferences   import get_prefs
 from ...props.modpack import BlendModGroup, BlendModOption, CorrectionEntry
  
@@ -20,9 +20,9 @@ class CopyToModpacker(Operator):
         self.group:int
         self.option:int
         prefs = get_prefs()
-        props = get_window_properties()
+        props = get_window_props()
         export_dir = Path(prefs.export.output_dir)
-        mod_groups: list[BlendModGroup] = props.pmp_mod_groups
+        mod_groups: list[BlendModGroup] = props.file.modpack.pmp_mod_groups
 
         if len(mod_groups) > 0:
             mod_group = mod_groups[self.group]
@@ -56,12 +56,12 @@ class GamepathCategory(Operator):
         self.group: int
         self.option: int
         self.entry: int
-        self.props = get_window_properties()
+        self.props = get_window_props()
 
         if self.category == "EXPORT":
-            game_path: str = self.props.export_xiv_path
+            game_path: str = self.props.file.io.export_xiv_path
             game_path      = self.change_category(game_path)
-            setattr(self.props, "export_xiv_path", game_path)
+            setattr(self.props.file.io, "export_xiv_path", game_path)
         else:
             self.modpack_path()
 
@@ -70,8 +70,8 @@ class GamepathCategory(Operator):
         return {'FINISHED'}
     
     def modpack_path(self):
-        mod_groups: list[BlendModGroup] = self.props.pmp_mod_groups
-        mod_group: BlendModGroup = self.props.pmp_mod_groups[self.group]
+        mod_groups: list[BlendModGroup] = self.props.file.modpack.pmp_mod_groups
+        mod_group: BlendModGroup = self.props.file.modpack.pmp_mod_groups[self.group]
         
         if self.category.endswith("COMBI"):
             group_options:list[CorrectionEntry] = mod_group.corrections

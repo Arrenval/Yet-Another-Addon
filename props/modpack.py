@@ -6,7 +6,7 @@ from bpy.types         import PropertyGroup, Context
 from bpy.props         import StringProperty, EnumProperty, CollectionProperty, BoolProperty, IntProperty
 from collections.abc   import Iterable
 
-from .getters          import get_file_properties, get_window_properties
+from .getters          import get_file_props, get_window_props
 from ..utils.typings   import BlendEnum
 from ..xiv.formats.pmp import Modpack
 
@@ -32,12 +32,12 @@ class RacialCodes(Enum):
     Viera_F  = '1801'
 
 def modpack_data() -> None:
-    window = get_window_properties()
-    props  = get_file_properties()
+    window = get_window_props()
+    props  = get_file_props()
     props.loaded_pmp_groups.clear()
 
-    blender_groups = window.pmp_mod_groups
-    modpack_path = Path(window.modpack_dir)
+    blender_groups = window.file.modpack.pmp_mod_groups
+    modpack_path = Path(window.file.modpack.modpack_dir)
 
     if modpack_path.is_file():
         modpack = Modpack.from_archive(modpack_path)
@@ -52,8 +52,8 @@ def modpack_data() -> None:
         new_option.group_page = group.Page
         new_option.group_priority = group.Priority
 
-    window.modpack_author  = modpack.meta.Author
-    window.modpack_version = modpack.meta.Version
+    window.file.modpack.modpack_author  = modpack.meta.Author
+    window.file.modpack.modpack_version = modpack.meta.Version
 
     name_to_idx = {group.Name: str(idx) for idx, group in enumerate(modpack.groups)}
     for blend_group in blender_groups:
@@ -141,7 +141,7 @@ class ModpackHelper(PropertyGroup):
 
     def check_valid_path(self):
         path: str       = self.game_path
-        self.valid_path = path.startswith("chara") and path.endswith(tuple(get_file_properties().GAME_SUFFIX))
+        self.valid_path = path.startswith("chara") and path.endswith(tuple(get_file_props().GAME_SUFFIX))
 
     def get_subfolder(self) -> BlendEnum:
         group_folder = Path(self.folder_path)
@@ -232,8 +232,8 @@ class ModFileEntry(ModpackHelper):
 class CorrectionEntry(ModpackHelper):
 
     def get_possible_corrections(self, context: Context):
-        props                = get_window_properties()
-        group: BlendModGroup = props.pmp_mod_groups[self.group_idx]
+        props                = get_window_props()
+        group: BlendModGroup = props.file.modpack.pmp_mod_groups[self.group_idx]
         total_options        = [option.name for option in group.mod_options[:8]]
         combinations         = [[]]
     
@@ -390,7 +390,7 @@ class BlendModGroup(ModpackHelper):
     
     def get_files(self, context):
         folder = Path(self.folder_path)
-        suffix = get_file_properties().GAME_SUFFIX if self.group_type != "Phyb" else ".phyb"
+        suffix = get_file_props().GAME_SUFFIX if self.group_type != "Phyb" else ".phyb"
         if self.group_type == "Phyb":
             existing = {file.path: file.category for file in self.group_files}
             files    = [file for file in folder.glob("*") if file.is_file() and file.suffix in suffix]
@@ -413,9 +413,9 @@ class BlendModGroup(ModpackHelper):
                 new_file.path = str(file)
 
     def _set_group_values(self, context):
-        props   = get_file_properties()
-        window  = get_window_properties()
-        replace = window.modpack_replace
+        props   = get_file_props()
+        window  = get_window_props()
+        replace = window.file.modpack.modpack_replace
 
         modpack: list[LoadedModpackGroup] = props.loaded_pmp_groups
         
@@ -439,7 +439,7 @@ class BlendModGroup(ModpackHelper):
             self.description = ""
 
     def _get_modpack_groups(self, context: Context) -> BlendEnum:
-        props   = get_file_properties()
+        props   = get_file_props()
         modpack = props.loaded_pmp_groups
         groups  = [("", "New:", ""), ("New", "New Group", "")]
         page    = 0
@@ -453,7 +453,7 @@ class BlendModGroup(ModpackHelper):
         return groups
 
     def _get_groups_page(self, context: Context) -> BlendEnum:
-        props = get_file_properties()
+        props = get_file_props()
         pages = set([option.group_page for option in props.loaded_pmp_groups])
 
         if len(pages) >= 1:
@@ -468,7 +468,7 @@ class BlendModGroup(ModpackHelper):
             self.get_files(context)
 
     def _set_name(self, context):
-        props = get_file_properties()
+        props = get_file_props()
         self.name: str
         scene_groups: list[LoadedModpackGroup] = props.loaded_pmp_groups
 

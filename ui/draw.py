@@ -1,6 +1,7 @@
 from typing    import Literal  
 from bpy.types import UILayout
 
+
 def show_ui_button(layout: UILayout, prop, attr: str, label: str) -> tuple[bool, UILayout]:
     button = getattr(prop, attr)
     icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'

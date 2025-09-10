@@ -6,7 +6,7 @@ from typing           import Any
 from bpy.types        import Operator, Context
 from bpy.props        import StringProperty, EnumProperty, BoolProperty, IntProperty
 
-from ...props         import get_window_properties
+from ...props         import get_window_props
 from ...utils         import RNAPropertyIO
 from ...ui.draw       import aligned_row, get_conditional_icon
 from ...preferences   import get_prefs
@@ -24,7 +24,7 @@ class RefreshFolder(Operator):
 
     def execute(self, context:Context):
         self.group: int
-        get_window_properties().pmp_mod_groups[self.group].get_files(context)
+        get_window_props().file.modpack.pmp_mod_groups[self.group].get_files(context)
         return {'FINISHED'}
 
 class MovePropertyItem(Operator):
@@ -40,7 +40,7 @@ class MovePropertyItem(Operator):
     option: IntProperty(default=0, options={"SKIP_SAVE"}) # type: ignore
 
     def execute(self, context):
-        mod_groups = get_window_properties().pmp_mod_groups
+        mod_groups = get_window_props().file.modpack.pmp_mod_groups
         group: BlendModGroup = mod_groups[self.group]
 
         if self.category == "GROUP":
@@ -112,8 +112,8 @@ class ModpackManager(Operator):
             return {'FINISHED'}
                 
         self.prefs = get_prefs()
-        self.props = get_window_properties()
-        self.mod_groups = self.props.pmp_mod_groups
+        self.props = get_window_props()
+        self.mod_groups = self.props.file.modpack.pmp_mod_groups
 
         if self.category in ("ENTRY", "COMBI_ENTRY"):
             if event.shift and event.alt:
@@ -142,8 +142,8 @@ class ModpackManager(Operator):
 
     def execute(self, context: Context):
         self.prefs = get_prefs()
-        self.props = get_window_properties()
-        self.mod_groups = self.props.pmp_mod_groups
+        self.props = get_window_props()
+        self.mod_groups = self.props.file.modpack.pmp_mod_groups
 
         if self.category == "ENTRY":
             self.category = self.user_input
@@ -259,9 +259,9 @@ class ModpackPresets(Operator):
             return {"FINISHED"}
         
         self.prefs  = get_prefs()
-        self.props  = get_window_properties()
+        self.props  = get_window_props()
         self.format = "modpack"
-        self.mod_group: BlendModGroup = self.props.pmp_mod_groups[self.group]
+        self.mod_group: BlendModGroup = self.props.file.modpack.pmp_mod_groups[self.group]
 
         if len(self.prefs.modpack_presets) == 0:
             self.new_preset = True

@@ -2,7 +2,7 @@ from pathlib          import Path
 from bpy.types        import Panel, UILayout, Context
   
 from ..draw           import aligned_row, get_conditional_icon, operator_button
-from ...props         import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ...props         import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
 from ...preferences   import get_prefs
 from ...props.modpack import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_racial_name
 
@@ -18,9 +18,9 @@ class FileManager(Panel):
 
     def draw(self, context:Context):
         self.prefs        = get_prefs()
-        self.window_props = get_window_properties()
-        self.file_props   = get_file_properties()
-        self.devkit_props = get_devkit_properties()
+        self.window_props = get_window_props()
+        self.file_props   = get_file_props()
+        self.devkit_props = get_devkit_props()
         self.devkit_win   = get_devkit_win_props()
 
         layout = self.layout
@@ -33,14 +33,14 @@ class FileManager(Panel):
 
         box = layout.box()
         row = box.row(align=True)
-        row.label(icon=options[self.window_props.file_man_ui])
-        row.label(text=f"  {self.window_props.file_man_ui.capitalize()}")
+        row.label(icon=options[self.window_props.file.ui_tab])
+        row.label(text=f"  {self.window_props.file.ui_tab.capitalize()}")
         button_row = row.row(align=True)
         
-        button_row.prop(self.window_props, "file_man_ui", expand=True, text="")
+        button_row.prop(self.window_props.file, "ui_tab", expand=True, text="")
 
         # IMPORT
-        button = self.window_props.file_man_ui
+        button = self.window_props.file.ui_tab
         if button == "IMPORT":
             self.draw_import(layout)
 
@@ -52,7 +52,7 @@ class FileManager(Panel):
             self.draw_modpack(layout)
 
     def draw_export(self, context:Context, layout: UILayout):
-        is_mdl = self.window_props.file_format == 'MDL'
+        is_mdl = self.window_props.file.model_format == 'MDL'
         if is_mdl:
             check_tri_status = True
         else:
@@ -73,7 +73,7 @@ class FileManager(Panel):
         subrow = row.row()
         subrow.alignment = "RIGHT"
         subrow.scale_x = 0.20
-        subrow.prop(self.window_props, "file_format", text=self.window_props.file_format, expand=True)
+        subrow.prop(self.window_props.file, "model_format", text=self.window_props.file.model_format, expand=True)
 
         if context.space_data.shading.type in ("MATERIAL", "RENDERED"):
             row = layout.row(align=True)
@@ -96,9 +96,9 @@ class FileManager(Panel):
 
         layout.separator(type="LINE")
         
-        aligned_row(layout, "IVCS/YAS:", "remove_yas", self.window_props)
+        aligned_row(layout, "IVCS/YAS:", "remove_yas", self.window_props.file.io)
         
-        if self.window_props.file_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
+        if self.window_props.file.model_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
             body_slots = {
                 "Chest": "top",
                 "Hands": "glv",
@@ -106,10 +106,10 @@ class FileManager(Panel):
                 "Feet":  "sho"
             }
 
-            row = aligned_row(layout, "XIV Path:", "export_xiv_path", self.window_props)
-            row.label(text="", icon=get_conditional_icon(self.window_props.valid_xiv_path))
+            row = aligned_row(layout, "XIV Path:", "export_xiv_path", self.window_props.file.io)
+            row.label(text="", icon=get_conditional_icon(self.window_props.file.io.valid_xiv_path))
 
-            if self.window_props.valid_xiv_path:
+            if self.window_props.file.io.valid_xiv_path:
                 row = layout.row(align=True)
                 split = row.split(factor=0.25, align=True)
                 split.alignment = "RIGHT"
@@ -118,7 +118,7 @@ class FileManager(Panel):
                 for key, value in body_slots.items():
                     op = split.operator(
                         "ya.gamepath_category", 
-                        text=key, depress=True if value == self.window_props.check_gamepath_category(context) else False)
+                        text=key, depress=True if value == self.window_props.file.io.check_gamepath_category(context) else False)
                     op.category  = "EXPORT"
                     op.body_slot = value
 
@@ -130,18 +130,18 @@ class FileManager(Panel):
         
         box = layout.box()
         row = box.row(align=True)
-        if self.window_props.export_body_slot == "Chest & Legs":
+        if self.window_props.file.io.export_body_slot == "Chest & Legs":
             row.label(text=f"Body Part: Chest")
         else:
-            row.label(text=f"Body Part: {self.window_props.export_body_slot}")
+            row.label(text=f"Body Part: {self.window_props.file.io.export_body_slot}")
 
-        row.prop(self.window_props, "export_body_slot", text="" , expand=True)
+        row.prop(self.window_props.file.io, "export_body_slot", text="" , expand=True)
 
         # CHEST EXPORT  
     
         button_type = "export"
     
-        if self.window_props.export_body_slot == "Chest" or self.window_props.export_body_slot == "Chest & Legs":
+        if self.window_props.file.io.export_body_slot == "Chest" or self.window_props.file.io.export_body_slot == "Chest & Legs":
 
             category = "Chest"
 
@@ -181,11 +181,11 @@ class FileManager(Panel):
             
         # LEG EXPORT  
         
-        if self.window_props.export_body_slot == "Legs" or self.window_props.export_body_slot == "Chest & Legs":
+        if self.window_props.file.io.export_body_slot == "Legs" or self.window_props.file.io.export_body_slot == "Chest & Legs":
             
             category = "Legs"
 
-            if self.window_props.export_body_slot == "Chest & Legs":
+            if self.window_props.file.io.export_body_slot == "Chest & Legs":
                 layout.separator(factor=1, type="LINE")
                 row = layout.row(align=True)
                 row.label(text=f"Body Part: Legs")
@@ -226,7 +226,7 @@ class FileManager(Panel):
 
         # HAND EXPORT  
         
-        if self.window_props.export_body_slot == "Hands":
+        if self.window_props.file.io.export_body_slot == "Hands":
             
             category = "Hands"
             labels = {
@@ -266,7 +266,7 @@ class FileManager(Panel):
 
         # FEET EXPORT  
         
-        if self.window_props.export_body_slot == "Feet":
+        if self.window_props.file.io.export_body_slot == "Feet":
             
             category = "Feet"
             labels = {
@@ -299,7 +299,7 @@ class FileManager(Panel):
         row = layout.row(align=True)
         col = row.column(align=True)
         
-        aligned_row(col, "Export Prefix:", "export_prefix", self.window_props)
+        aligned_row(col, "Export Prefix:", "export_prefix", self.window_props.file.io)
 
         icon = get_conditional_icon(self.window_props.body_names)
         text = "Always" if self.window_props.body_names else "Conditional"
@@ -317,7 +317,7 @@ class FileManager(Panel):
         layout = self.layout
         row = layout.row(align=True)
 
-        if self.window_props.waiting_import:
+        if self.window_props.file.io.waiting_import:
             row.alignment = "CENTER"
             row.label(text="Waiting for import to complete...", icon='IMPORT')
             
@@ -339,7 +339,7 @@ class FileManager(Panel):
         subrow = row.row()
         subrow.alignment = "RIGHT"
         subrow.scale_x = 0.20
-        subrow.prop(self.window_props, "file_format", text=self.window_props.file_format, expand=True)
+        subrow.prop(self.window_props.file, "model_format", text=self.window_props.file.model_format, expand=True)
 
         box = layout.box()
         row = box.row(align=True)
@@ -351,7 +351,7 @@ class FileManager(Panel):
         row = layout.row(align=True)
         col = row.column(align=True)
         
-        aligned_row(col, "Rename:", "rename_import", self.window_props)
+        aligned_row(col, "Rename:", "rename_import", self.window_props.file.io)
 
         icon = get_conditional_icon(self.prefs.update_material)
         text = 'Update' if self.prefs.update_material else 'Keep'
@@ -382,8 +382,8 @@ class FileManager(Panel):
             }
             
         operator_button(row, "ya.mod_packager", icon="FILE_PARENT", attributes=op_atr)
-        row.prop(self.window_props, "modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
-        row.prop(self.window_props, "modpack_replace", text="Update", icon="CURRENT_FILE",)
+        row.prop(self.window_props.file.modpack, "modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
+        row.prop(self.window_props.file.modpack, "modpack_replace", text="Update", icon="CURRENT_FILE",)
 
         op_atr = {
             "category": "GROUP",
@@ -400,21 +400,21 @@ class FileManager(Panel):
         split = row.split(factor=0.25)
         col2 = split.column(align=True)
         col2.label(text="Ver.")
-        col2.prop(self.window_props, "modpack_version", text="")
+        col2.prop(self.window_props.file.modpack, "modpack_version", text="")
 
         col = split.column(align=True)
         col.label(text="Modpack:")
-        col.prop(self.window_props, "modpack_display_dir", text="", emboss=True)
+        col.prop(self.window_props.file.modpack, "modpack_display_dir", text="", emboss=True)
 
         split2 = row.split()
         col3 = split2.column(align=True)
         col3.alignment = "CENTER"
         col3.label(text="")
-        col3.prop(self.window_props, "modpack_author", text="by", emboss=True)
+        col3.prop(self.window_props.file.modpack, "modpack_author", text="by", emboss=True)
 
         self.status_info(box)
 
-        for group_idx, group in enumerate(self.window_props.pmp_mod_groups):
+        for group_idx, group in enumerate(self.window_props.file.modpack.pmp_mod_groups):
             group: BlendModGroup
             box = layout.box()
             button = group.show_group
@@ -495,23 +495,23 @@ class FileManager(Panel):
                     self.entry_container(columns[1], correction, group_idx, correction_idx)
 
     def status_info(self, layout: UILayout):
-        if self.window_props.modpack_replace and Path(self.window_props.modpack_dir).is_file():
+        if self.window_props.file.modpack.modpack_replace and Path(self.window_props.modpack_dir).is_file():
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
             row.label(text=f"{Path(self.window_props.modpack_dir).name} is loaded.", icon="INFO")
 
-        elif self.window_props.modpack_replace:
+        elif self.window_props.file.modpack.modpack_replace:
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
             row.label(text="No modpack is loaded.", icon="INFO")
 
-        elif not self.window_props.modpack_replace and (Path(self.prefs.modpack_output_dir) / Path(self.window_props.modpack_display_dir + ".pmp")).is_file():
+        elif not self.window_props.file.modpack.modpack_replace and (Path(self.prefs.modpack_output_dir) / Path(self.window_props.file.modpack.modpack_display_dir + ".pmp")).is_file():
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
-            row.label(text=f"{self.window_props.modpack_display_dir + '.pmp'} already exists!", icon="ERROR")
+            row.label(text=f"{self.window_props.file.modpack.modpack_display_dir + '.pmp'} already exists!", icon="ERROR")
 
         layout.separator(factor=0.1,type="SPACE")
 
@@ -556,7 +556,7 @@ class FileManager(Panel):
 
         row.prop(group, "name", text="")
         
-        if group_idx != len(self.window_props.pmp_mod_groups) - 1:
+        if group_idx != len(self.window_props.file.modpack.pmp_mod_groups) - 1:
             op_atr = {
                 "category": "GROUP",
                 "direction": "DOWN",

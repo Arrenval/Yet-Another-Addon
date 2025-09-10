@@ -5,7 +5,7 @@ from pathlib             import Path
 from bpy.types           import Operator
 from bpy.props           import BoolProperty
  
-from ..props             import get_window_properties
+from ..props             import get_window_props
 from ..xiv.io.model      import ModelImport 
 from ..xiv.formats.phyb  import PhybFile
 from ..xiv.formats.model import XIVModel
@@ -69,14 +69,14 @@ class FileRoundtrip(Operator):
     bl_description = "Compares the input file with directly written output"
 
     def execute(self, context):
-        self.window = get_window_properties()
+        self.window = get_window_props()
         model = XIVModel.from_file(self.window.insp_file1)
         path = str(Path(self.window.insp_file1).parent / "Roundtrip.mdl")
 
         model.to_file((path))
    
         compare_binaries(
-            get_window_properties().insp_file1, 
+            get_window_props().insp_file1, 
             path
             )
         
@@ -100,7 +100,7 @@ Prints an error for every simulator that has undefined collision objects in the 
 Resulting phyb is written to the same folder as the base phyb"""
 
     def execute(self, context):
-        self.window = get_window_properties()
+        self.window = get_window_props()
 
         files_exist = Path(self.window.insp_file1).is_file() and Path(self.window.insp_file2).is_file()
         if not files_exist:
@@ -135,7 +135,7 @@ class CompareOutput(Operator):
     bl_description = "Compares an output of the base file with itself. Used to verify roundtrips"
 
     def execute(self, context):
-        self.window = get_window_properties()
+        self.window = get_window_props()
         original    = Path(self.window.insp_file1)
             
         phyb = PhybFile.from_file(self.window.insp_file1)

@@ -1,9 +1,9 @@
 import bpy
 
-from .props               import get_window_properties, get_devkit_properties, get_outfit_properties, get_devkit_win_props
-from bpy.types            import Object, Context
-from bpy.app.handlers     import persistent
-from .preferences         import get_prefs
+from .props           import get_window_props, get_devkit_props, get_studio_props, get_devkit_win_props
+from bpy.types        import Object, Context
+from bpy.app.handlers import persistent
+from .preferences     import get_prefs
 
 
 _active_obj = None
@@ -13,11 +13,11 @@ _pre_tri      = None
 
 
 def frame_ui(dummy):
-    get_window_properties().animation_frame = bpy.context.scene.frame_current
+    get_window_props().animation_frame = bpy.context.scene.frame_current
 
 def get_mesh_props(dummy=None) -> None:
     obj: Object = bpy.context.active_object
-    outfit      = get_outfit_properties()
+    outfit      = get_studio_props()
     if obj and obj.mode != 'OBJECT':
         return None
     
@@ -60,7 +60,7 @@ def pre_anim_handling(dummy) ->None:
     if devkit:
         _pre_tri = devkit.devkit_triangulation
         devkit.devkit_triangulation = False
-        get_devkit_properties().collection_state.export = False
+        get_devkit_props().collection_state.export = False
     
     if get_prefs().armature_vis_anim:
         try:
@@ -73,7 +73,7 @@ def pre_anim_handling(dummy) ->None:
 
 @persistent
 def post_anim_handling(dummy) ->None:
-    props    = get_window_properties()
+    props    = get_window_props()
     devkit   = get_devkit_win_props()
     context  = bpy.context
     if devkit:

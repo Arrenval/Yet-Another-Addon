@@ -6,7 +6,7 @@ from bpy.types        import Context, UILayout
 from .objects         import visible_meshobj
 from ..preferences    import get_prefs
 from ..xiv.io.model   import ModelExport, SceneHandler, consoletools_mdl
-from ..props.getters  import get_window_properties
+from ..props.getters  import get_window_props
 from ..xiv.io.logging import YetAnotherLogger
 
 
@@ -100,7 +100,7 @@ class FileExport:
                     consoletools_mdl(
                             str(self.file_path), 
                             get_prefs().export.textools_dir,
-                            get_window_properties().export_xiv_path.strip()
+                            get_window_props().file.io.export_xiv_path.strip()
                         )
             else:
                 if self.logger:

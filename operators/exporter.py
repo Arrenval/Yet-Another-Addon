@@ -6,7 +6,7 @@ from itertools        import combinations
 from bpy.types        import Operator, Context, Object
 from bpy.props        import StringProperty, BoolProperty
   
-from ..props          import get_file_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ..props          import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
 from ..utils          import SceneOptimiser
 from ..ui.draw        import aligned_row, show_ui_button
 from ..preferences    import get_prefs
@@ -20,7 +20,7 @@ _lava_keys: dict[str, float] = {}
 
 def save_chest_sizes() -> None:
     global _yab_keys, _lava_keys
-    devkit_props = get_devkit_properties()
+    devkit_props = get_devkit_props()
 
     obj       = devkit_props.yam_torso
     obj_state = devkit_props.torso_state
@@ -49,7 +49,7 @@ def save_chest_sizes() -> None:
 
 def reset_chest_values() -> None:
     global _yab_keys, _lava_keys
-    devkit_props = get_devkit_properties()
+    devkit_props = get_devkit_props()
 
     obj       = devkit_props.yam_torso
     obj_state = devkit_props.torso_state
@@ -78,7 +78,7 @@ def reset_chest_values() -> None:
     _lava_keys = {}
 
 def collection_state(body_slot: str, piercings: bool, pubes: bool) -> None:
-    collections = get_devkit_properties().collection_state
+    collections = get_devkit_props().collection_state
 
     if body_slot == "Chest" or body_slot == "Chest & Legs":
         collections.export_chest(piercings)
@@ -95,7 +95,7 @@ def collection_state(body_slot: str, piercings: bool, pubes: bool) -> None:
     collections.export = True
 
 def hand_feet_collection(body_slot: str, options: tuple, size: str) -> None:
-    collections = get_devkit_properties().collection_state
+    collections = get_devkit_props().collection_state
 
     if body_slot == "Hands":
         if size in ("Straight", "Curved"):
@@ -114,7 +114,7 @@ def hand_feet_collection(body_slot: str, options: tuple, size: str) -> None:
 
 def apply_model_state(options: tuple[str, ...], size:str , gen: str, body_slot: str) -> None:
     global _yab_keys, _lava_keys
-    devkit = get_devkit_properties()
+    devkit = get_devkit_props()
 
     if body_slot == "Legs":
         gen_to_value = {
@@ -210,7 +210,7 @@ def apply_model_state(options: tuple[str, ...], size:str , gen: str, body_slot: 
             devkit.yam_torso.data.shape_keys.key_blocks[key_name].value = value
                 
 def reset_model_state(body_slot: str) -> None:
-    devkit  = get_devkit_properties()
+    devkit  = get_devkit_props()
     
     if body_slot == "Chest":
         devkit.reset_torso()
@@ -264,14 +264,14 @@ class YetAnotherExport(Operator):
         return context.mode == "OBJECT"
 
     def invoke(self, context: Context, event):
-        self.window      = get_window_properties()
+        self.window      = get_window_props()
         self.prefs       = get_prefs()
         self.export_dir  = Path(get_prefs().export.output_dir)
         self.visible     = visible_meshobj()
         self.no_armature = verify_armature(self.visible)
 
-        if self.window.file_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
-            if not self.window.valid_xiv_path:
+        if self.window.file.model_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
+            if not self.window.file.io.valid_xiv_path:
                 self.report({'ERROR'}, "Please input a path to your target model.")
                 return {'CANCELLED'}
             
@@ -285,7 +285,7 @@ class YetAnotherExport(Operator):
             self.report({'ERROR'}, "No export directory selected.")
             return {'CANCELLED'}
         
-        if self.window.check_tris or self.window.file_format == 'MDL':
+        if self.window.check_tris or self.window.file.model_format == 'MDL':
             not_triangulated = check_triangulation()
             if not_triangulated:
                 self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}.")
@@ -299,7 +299,7 @@ class YetAnotherExport(Operator):
         
     def execute(self, context):
         if self.no_armature:
-            armature = get_file_properties().export_armature
+            armature = get_file_props().export_armature
             if not armature:
                 self.report({'ERROR'}, "Armature was not set.")
                 return {'CANCELLED'}
@@ -326,7 +326,7 @@ class YetAnotherExport(Operator):
                     pass
             armature.hide_set(state=arm_vis)
 
-        if self.window.file_format == 'MDL' and self.prefs.export.mdl_export == 'BLENDER':
+        if self.window.file.model_format == 'MDL' and self.prefs.export.mdl_export == 'BLENDER':
             get_export_stats(context)
         else:
             self.report({'INFO'}, "Export complete!")
@@ -354,7 +354,7 @@ class YetAnotherExport(Operator):
 
             layout.separator(type='LINE')
 
-            aligned_row(layout, "Armature:", "export_armature", get_file_properties())
+            aligned_row(layout, "Armature:", "export_armature", get_file_props())
 
             if self.mode == "SIMPLE":
                 layout.separator(type='LINE')
@@ -363,14 +363,14 @@ class YetAnotherExport(Operator):
             aligned_row(layout, "File Name:", "user_input", self)
 
     def simple_export(self) -> set[str]:
-        devkit = get_devkit_properties()
+        devkit = get_devkit_props()
 
         bpy.context.window.cursor_set('WAIT')
         try:
             if devkit:
                 devkit.collection_state.export = True
             
-            export_result(self.export_dir / self.user_input, self.window.file_format)
+            export_result(self.export_dir / self.user_input, self.window.file.model_format)
     
             if devkit:
                 devkit.collection_state.export = False
@@ -380,11 +380,11 @@ class YetAnotherExport(Operator):
         return {'FINISHED'}
     
     def batch_export(self) -> set[str]:
-        self.props = get_file_properties()
+        self.props = get_file_props()
         
-        self.ALL_SHAPES   = get_devkit_properties().ALL_SHAPES
+        self.ALL_SHAPES   = get_devkit_props().ALL_SHAPES
         self.size_options = self._get_size_options()
-        self.body_slot    = self.window.export_body_slot
+        self.body_slot    = self.window.file.io.export_body_slot
     
         self.leg_sizes = {
             "Melon": self.size_options["Melon"],
@@ -418,7 +418,7 @@ class YetAnotherExport(Operator):
             return {'CANCELLED'} 
         
         save_chest_sizes()
-        get_devkit_properties().export_state(
+        get_devkit_props().export_state(
             self.body_slot, 
             self.size_options["Piercings"], 
             self.size_options["Pubes"]
@@ -447,7 +447,7 @@ class YetAnotherExport(Operator):
             if self.logger:
                 self.logger.close()
             reset_chest_values()
-            get_devkit_properties().collection_state.export = False
+            get_devkit_props().collection_state.export = False
             bpy.context.view_layer.update()
     
     def _get_size_options(self) -> dict[str, bool]:
@@ -537,7 +537,7 @@ class YetAnotherExport(Operator):
                         exception_handling(size, gen, gen_options)
                  
     def _shape_combinations(self, body_slot:str) -> dict[str, set[tuple]]:
-        devkit         = get_devkit_properties()
+        devkit         = get_devkit_props()
         possible_parts = [ 
             "Small Butt", "Soft Butt", "Hip Dips", "Rue Legs",
             "Buff", "Rue",
@@ -629,7 +629,7 @@ class YetAnotherExport(Operator):
         if gen_name != None:
             file_names.append(gen_name)
 
-        prefix = self.window.export_prefix
+        prefix = self.window.file.io.export_prefix
         if prefix:
             return f"{prefix} - " + " - ".join(list(file_names))
         
@@ -697,7 +697,7 @@ class YetAnotherExport(Operator):
 
     def _export_item(self, file_name: str):
         file_path = get_export_path(self.export_dir, file_name, self.window.create_subfolder, self.body_slot)
-        export_result(file_path, self.window.file_format, logger=self.logger, batch=True)
+        export_result(file_path, self.window.file.model_format, logger=self.logger, batch=True)
     
 
 CLASSES = [

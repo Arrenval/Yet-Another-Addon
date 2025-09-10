@@ -2,7 +2,7 @@ import bpy
   
 from bpy.types            import Operator, ShapeKey, Object, SurfaceDeformModifier, ShrinkwrapModifier, CorrectiveSmoothModifier
 
-from ..props              import get_outfit_properties, get_devkit_properties, get_window_properties, get_devkit_win_props
+from ..props              import get_studio_props, get_devkit_props, get_window_props, get_devkit_win_props
 from ..mesh.shapes        import create_co_cache, create_shape_keys
 from ..mesh.weights       import combine_v_groups
 from ..mesh.objects       import quick_copy, safe_object_delete
@@ -30,7 +30,7 @@ class ControllerVisibility(Operator):
     bl_options = {"UNDO"}
 
     def execute(self, context):
-        controller = get_devkit_properties().yam_shapes
+        controller = get_devkit_props().yam_shapes
         collection = context.view_layer.layer_collection.children["Resources"].children["Controller"]
         
         if controller.visible_get():
@@ -61,23 +61,23 @@ class ShapeKeyTransfer(Operator):
 
     @classmethod
     def poll(cls, context):
-        props         = get_outfit_properties()
+        props         = get_studio_props()
         obj:Object    = props.shapes_target
         source:Object = props.shapes_source
-        if get_window_properties().shapes_method != "Selected":
+        if get_window_props().studio.shapes_method != "Selected":
             return obj is not None and obj.visible_get() and obj.type == 'MESH' and context.mode == "OBJECT"
         else:
             return (obj is not None and source is not None) and obj.visible_get() and (obj.type == 'MESH' and source.type == 'MESH') and context.mode == "OBJECT"
 
     def execute(self, context):
-        self.devkit               = get_devkit_properties()
-        props                     = get_outfit_properties()
-        window                    = get_window_properties()
+        self.devkit               = get_devkit_props()
+        props                     = get_studio_props()
+        window                    = get_window_props()
         self.deform_target        = {}
-        self.input_method: str    = window.shapes_method
-        self.vertex_pin  : str    = window.obj_vertex_groups
-        self.exclude_wrap: str    = window.exclude_vertex_groups
-        self.smooth_level: str    = window.shapes_corrections
+        self.input_method: str    = window.studio.shapes_method
+        self.vertex_pin  : str    = window.studio.obj_vertex_groups
+        self.exclude_wrap: str    = window.studio.exclude_vertex_groups
+        self.smooth_level: str    = window.studio.shapes_corrections
         self.shrinkwrap  : bool   = window.add_shrinkwrap
         self.target      : Object = props.shapes_target
         self.shr_group   : str    = ""
@@ -94,7 +94,7 @@ class ShapeKeyTransfer(Operator):
             self.deform_target = self.get_shape_keys()
 
         elif self.input_method == "Legs":
-            self.leg_base: str = window.shape_leg_base
+            self.leg_base: str = window.studio.shape_leg_base
 
             if self.leg_base == "Skull":
                 self.leg_base = "Skull Crushers"
@@ -107,14 +107,14 @@ class ShapeKeyTransfer(Operator):
 
         elif self.input_method == "Seams":
             self.seams    : set = {key for key, value in self.seam_values.items() if value}
-            self.seam_base: str = window.shape_seam_base
+            self.seam_base: str = window.studio.shape_seam_base
             self.source         = self.devkit.yam_shapes
 
         else:
-            self.shapes_type : str    = window.shapes_type
-            self.deforms     : bool   = window.include_deforms
-            self.shape_source: str    = window.shapes_source_enum
-            self.shape_target: str    = window.shapes_target_enum
+            self.shapes_type : str    = window.studio.shapes_type
+            self.deforms     : bool   = window.studio.include_deforms
+            self.shape_source: str    = window.studio.shapes_source_enum
+            self.shape_target: str    = window.studio.shapes_target_enum
             self.source      : Object = props.shapes_source
 
         context.window.cursor_set('WAIT')
@@ -172,7 +172,7 @@ class ShapeKeyTransfer(Operator):
       
     def get_shape_keys(self) -> dict:
         options = {}
-        prop    = get_devkit_properties()
+        prop    = get_devkit_props()
         dev_win = get_devkit_win_props()
         target  = self.target
 
@@ -524,7 +524,7 @@ class ShapeKeyTransfer(Operator):
     def add_modifier(self, temp_target: Object, controller: Object, target_key: ShapeKey, source_key: ShapeKey) -> None:
 
         def initial_state(reset=False) -> None:
-            main_shapes = get_devkit_properties().yam_shapes.data
+            main_shapes = get_devkit_props().yam_shapes.data
             key_blocks  = controller.data.shape_keys.key_blocks
 
             for key in key_blocks:

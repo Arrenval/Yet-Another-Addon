@@ -3,7 +3,7 @@ import bpy
 from bpy.props       import StringProperty, EnumProperty, BoolProperty
 from bpy.types       import Operator, Context, Object, DataTransferModifier
 
-from ..props         import get_window_properties, get_outfit_properties, get_devkit_properties
+from ..props         import get_window_props, get_studio_props, get_devkit_props
 from ..mesh.weights  import remove_vertex_groups, restore_yas_groups
 from ..mesh.objects  import get_collection_obj, get_object_from_mesh
 from ..utils.typings import DevkitProps
@@ -21,7 +21,7 @@ class RemoveEmptyVGroups(Operator):
         return obj is not None and obj.type == 'MESH' and obj.vertex_groups
 
     def execute(self, context:Context):
-        props    = get_outfit_properties()
+        props    = get_studio_props()
         old_mode = context.mode
         match old_mode:
             case "PAINT_WEIGHT":
@@ -92,8 +92,8 @@ class RemoveSelectedVGroups(Operator):
         return obj is not None and obj.type == 'MESH' and obj.vertex_groups
 
     def execute(self, context:Context):
-        props    = get_outfit_properties()
-        window   = get_window_properties()
+        props    = get_studio_props()
+        window   = get_window_props()
         old_mode = context.mode
 
         if self.preset == "PANEL" and props.yas_empty and window.filter_vgroups:
@@ -136,8 +136,8 @@ class AddSymmetryGroup(Operator):
     bl_options = {"UNDO"}
 
     def execute(self, context: Context):
-        right_suffix = get_window_properties().sym_group_r.strip()
-        left_suffix  = get_window_properties().sym_group_l.strip()
+        right_suffix = get_window_props().sym_group_r.strip()
+        left_suffix  = get_window_props().sym_group_l.strip()
 
         if len(right_suffix) != len(left_suffix):
             self.report({'ERROR'}, "Both suffix need to be the same length")
@@ -229,7 +229,7 @@ class AddYASGroups(Operator):
         row.prop(self, "vagina", icon="CHECKMARK" if self.vagina else "X", text="Vagina")
         
     def execute(self, context):
-        props = get_outfit_properties()
+        props = get_studio_props()
 
         torso_groups = [
             'iv_nitoukin_l',
@@ -378,7 +378,7 @@ class YASManager(Operator):
         if self.target == 'DEVKIT':
             return self.execute(context)
         
-        devkit         = get_devkit_properties()
+        devkit         = get_devkit_props()
         devkit_targets = {
                 "TORSO": devkit.yam_torso,
                 "LEGS":  devkit.yam_legs,
@@ -389,7 +389,7 @@ class YASManager(Operator):
         
         self.store = not event.ctrl
         target     = devkit_targets[self.target] if self.target != 'ACTIVE' else context.active_object
-        dependent  = self._dependent_target([target], get_devkit_properties())
+        dependent  = self._dependent_target([target], get_devkit_props())
         delete_dep = self.target != "DEVKIT" and dependent and not self.store
 
         if (self.target == "ACTIVE" or delete_dep) and dependent:
@@ -409,8 +409,8 @@ class YASManager(Operator):
             return self.execute(context)
     
     def execute(self, context: Context):
-        props   = get_outfit_properties()
-        devkit  = get_devkit_properties()
+        props   = get_studio_props()
+        devkit  = get_devkit_props()
         targets = self.get_targets(context, devkit)
         
         context.window.cursor_set('WAIT')

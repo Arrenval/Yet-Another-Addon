@@ -10,7 +10,7 @@ from functools           import partial, singledispatchmethod
 from bpy.types           import Operator, Context, UILayout
 from bpy.props           import StringProperty, IntProperty
 
-from ...props            import get_window_properties
+from ...props            import get_window_props
 from ...preferences      import get_prefs
 from ...xiv.io.model     import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError, ModpackPhybCollisionError, ModpackFolderError
 from ...props.modpack    import BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry, modpack_data, yet_another_sort
@@ -35,7 +35,7 @@ class ModelConverter(Operator):
     
     def execute(self, context:Context):
         self.prefs                 = get_prefs()
-        self.window_props          = get_window_properties()
+        self.window_props          = get_window_props()
         self.output_dir            = Path(self.prefs.modpack_output_dir)
 
         if not self.folders:
@@ -108,16 +108,16 @@ class ModPackager(Operator):
             return "Pack selected group"
         
     def execute(self, context: Context):
-        self.props = get_window_properties()
+        self.props = get_window_props()
         self.prefs = get_prefs()
 
-        self.pmp_source       = Path(self.props.modpack_dir)
-        self.pmp_name  : str  = self.props.modpack_display_dir
-        self.author    : str  = self.props.modpack_author
-        self.version   : str  = self.props.modpack_version
+        self.pmp_source       = Path(self.props.file.modpack.modpack_dir)
+        self.pmp_name  : str  = self.props.file.modpack.modpack_display_dir
+        self.author    : str  = self.props.file.modpack.modpack_author
+        self.version   : str  = self.props.file.modpack.modpack_version
         
         self.output_dir: Path = Path(self.prefs.modpack_output_dir)
-        self.update    : bool = self.props.modpack_replace
+        self.update    : bool = self.props.file.modpack.modpack_replace
         
         if not self.prefs.is_property_set("modpack_output_dir") or not self.output_dir.is_dir():
             self.report({'ERROR'}, "Please select an output directory.")
@@ -134,7 +134,7 @@ class ModPackager(Operator):
             self.report({'ERROR'}, "Please enter an author.")
             return {'CANCELLED'}
         
-        self.blender_groups: list[BlendModGroup] = self.props.pmp_mod_groups
+        self.blender_groups: list[BlendModGroup] = self.props.file.modpack.pmp_mod_groups
         if self.category == "SINGLE":
             self.blender_groups = [self.blender_groups[self.group]]
 
@@ -180,10 +180,10 @@ class ModPackager(Operator):
             pmp.to_archive(temp_path, self.output_dir, self.pmp_name)
 
         if (self.output_dir / f"{self.pmp_name}.pmp").is_file():
-            self.props.modpack_dir = str(self.output_dir / f"{self.pmp_name}.pmp")
+            self.props.file.modpack.modpack_dir = str(self.output_dir / f"{self.pmp_name}.pmp")
             modpack_data()
 
-        setattr(self.props, "modpack_replace", True)
+        setattr(self.props.file.modpack, "modpack_replace", True)
 
         pmp_name = self.pmp_name
         groups   = self.blender_groups

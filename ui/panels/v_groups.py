@@ -1,7 +1,7 @@
 from bpy.types import Panel
 
 from ..draw    import aligned_row
-from ...props  import get_window_properties
+from ...props  import get_window_props
 
 
 class AddSymmetryGroups(Panel):
@@ -14,7 +14,7 @@ class AddSymmetryGroups(Panel):
     
     def draw(self, context):
         layout = self.layout
-        props = get_window_properties()
+        props = get_window_props()
         aligned_row(layout, "Right Suffx:", "sym_group_r", props)
         aligned_row(layout, "Left Suffx:", "sym_group_l", props)
         split = layout.split(factor=0.25, align=True)

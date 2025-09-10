@@ -7,7 +7,7 @@ from bpy.types          import Operator, PropertyGroup, Context
 from bpy.props          import StringProperty, IntProperty, EnumProperty, CollectionProperty
 from collections        import defaultdict
 
-from ...props           import get_window_properties, get_file_properties
+from ...props           import get_window_props, get_file_props
 from ...xiv.io.model    import ModelImport
 from ...preferences     import get_prefs
 from ...utils.typings   import BlendEnum
@@ -41,12 +41,12 @@ class PMPSelector(Operator):
     
     @classmethod
     def poll(cls, context:Context):
-        props = get_window_properties()
-        return props.modpack_replace
+        props = get_window_props()
+        return props.file.modpack.modpack_replace
     
     def invoke(self, context:Context, event):
-        self.props  = get_window_properties()
-        actual_file = Path(self.props.modpack_dir) 
+        self.props  = get_window_props()
+        actual_file = Path(self.props.file.modpack.modpack_dir) 
 
         if event.alt and event.type == "LEFTMOUSE" and actual_file.is_file():
             actual_dir = actual_file.parent
@@ -56,8 +56,8 @@ class PMPSelector(Operator):
             os.startfile(str(actual_file))
 
         elif event.ctrl and event.type == "LEFTMOUSE" and actual_file.is_file():
-            get_file_properties().loaded_pmp_groups.clear()
-            self.props.property_unset("modpack_dir") 
+            get_file_props().loaded_pmp_groups.clear()
+            self.props.file.modpack.property_unset("modpack_dir") 
 
         else :
             context.window_manager.fileselect_add(self)
@@ -68,8 +68,8 @@ class PMPSelector(Operator):
         selected_file = Path(self.filepath)
 
         if selected_file.exists() and selected_file.suffix == ".pmp":
-            self.props.modpack_dir = str(selected_file) 
-            self.props.modpack_display_dir = selected_file.stem
+            self.props.file.modpack.modpack_dir = str(selected_file) 
+            self.props.file.modpack.modpack_display_dir = selected_file.stem
             self.report({'INFO'}, f"{selected_file.stem} selected!")
         else:
             self.report({'ERROR'}, "Not a valid modpack!")
@@ -112,7 +112,7 @@ class FileSelector(Operator):
             elif file.suffix == '.pmp':
                 bpy.ops.ya.select_from_pmp('INVOKE_DEFAULT', filepath=self.filepath)
         else:
-            setattr(get_window_properties(), self.attr_from_category(), self.filepath)
+            setattr(get_window_props(), self.attr_from_category(), self.filepath)
             self.report({"INFO"}, "File selected!")
         
         return {'FINISHED'}
@@ -315,9 +315,9 @@ class ModpackFileSelector(Operator):
         self.group:int
         self.option:int
         self.container:BlendModGroup | BlendModOption | ModFileEntry
-        props = get_window_properties()
+        props = get_window_props()
 
-        mod_group: BlendModGroup = props.pmp_mod_groups[self.group]
+        mod_group: BlendModGroup = props.file.modpack.pmp_mod_groups[self.group]
 
         if self.category == "PHYB":
             return self.manage_phybs(context, event, mod_group, self.option)
@@ -403,11 +403,11 @@ class ModpackDirSelector(Operator):
         self.container: BlendModGroup | BlendModOption | ModFileEntry
 
         self.prefs = get_prefs()
-        self.props = get_window_properties()
+        self.props = get_window_props()
         
         match self.category:
             case "GROUP" | "SIM":
-                self.container = self.props.pmp_mod_groups[self.group]
+                self.container = self.props.file.modpack.pmp_mod_groups[self.group]
                 self.folder    = self.container.folder_path
                 attribute      = "folder_path"
 
@@ -462,7 +462,7 @@ class ModpackDirSelector(Operator):
         return {'FINISHED'}
     
     def phybs_from_folder(self, folder: Path) -> None:
-        group: BlendModGroup = get_window_properties().pmp_mod_groups[self.group]
+        group: BlendModGroup = get_window_props().file.modpack.pmp_mod_groups[self.group]
         files = [file for file in folder.glob("*") if file.is_file() and file.suffix in ".phyb"]
         
         group.base_phybs.clear()

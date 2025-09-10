@@ -17,12 +17,12 @@ class ModpackOptionPreset(PropertyGroup):
 
 class MenuSelect(PropertyGroup):
     def register_outfit_panel(self, context) -> None:
-        from .ui.panels.outfit import OutfitStudio
+        from .ui.panels.studio import MeshStudio
 
         if self.outfit_panel:
-            bpy.utils.register_class(OutfitStudio)
+            bpy.utils.register_class(MeshStudio)
         else:
-            bpy.utils.unregister_class(OutfitStudio)
+            bpy.utils.unregister_class(MeshStudio)
 
     def register_file_panel(self, context) -> None:
         from .ui.panels.file import FileManager
@@ -169,6 +169,7 @@ class ExportPrefs(PropertyGroup):
         display_dir        : str
         output_dir         : str
         textools_dir       : str
+        mdl_export         : str
         consoletools_status: bool
 
 class YetAnotherPreference(AddonPreferences):
@@ -428,7 +429,7 @@ class YetAnotherPreference(AddonPreferences):
 
 
 def register_menus() -> None:
-    from .ui.panels.outfit    import OutfitStudio
+    from .ui.panels.studio    import MeshStudio
     from .ui.panels.file      import FileManager
     from .ui.panels.utilities import FileUtilities
     from .ui.panels.v_groups  import AddSymmetryGroups
@@ -437,7 +438,7 @@ def register_menus() -> None:
     menus = get_prefs().menus
 
     if menus.outfit_panel:
-        bpy.utils.register_class(OutfitStudio)
+        bpy.utils.register_class(MeshStudio)
     if menus.file_panel:
         bpy.utils.register_class(FileManager)
     if menus.util_panel:
@@ -450,7 +451,7 @@ def register_menus() -> None:
         bpy.types.DATA_PT_modifiers.append(draw_modifier_options)
 
 def unregister_menus() -> None:
-    from .ui.panels.outfit    import OutfitStudio
+    from .ui.panels.studio    import MeshStudio
     from .ui.panels.file      import FileManager
     from .ui.panels.utilities import FileUtilities
     from .ui.panels.v_groups  import AddSymmetryGroups
@@ -459,7 +460,7 @@ def unregister_menus() -> None:
     menus = get_prefs().menus
 
     if menus.outfit_panel:
-        bpy.utils.unregister_class(OutfitStudio)
+        bpy.utils.unregister_class(MeshStudio)
     if menus.file_panel:
         bpy.utils.unregister_class(FileManager)
     if menus.util_panel:

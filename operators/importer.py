@@ -1,7 +1,7 @@
 import re
 import bpy
 
-from ..props           import get_file_properties, get_window_properties
+from ..props           import get_file_props, get_window_props
 from bpy.types         import Operator, ArmatureModifier, Context
 from bpy.props         import StringProperty
 from ..preferences     import get_prefs
@@ -27,10 +27,10 @@ class SimpleImport(Operator):
     
     def invoke(self, context, event):
         self.cleanup = get_prefs().auto_cleanup
-        self.props   = get_window_properties()
-        setattr(self.props, "waiting_import", False)
+        self.props   = get_window_props()
+        setattr(self.props.file.io, "waiting_import", False)
 
-        format = get_window_properties().file_format
+        format = get_window_props().file.model_format
 
         if format == "GLTF":
             bpy.ops.import_scene.gltf("INVOKE_DEFAULT")
@@ -44,7 +44,7 @@ class SimpleImport(Operator):
             self.pre_import_objects = len(context.scene.objects)
             self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
             context.window_manager.modal_handler_add(self)
-            setattr(self.props, "waiting_import", True)
+            setattr(self.props.file.io, "waiting_import", True)
             bpy.context.view_layer.update()
             
         return {"RUNNING_MODAL"}
@@ -57,14 +57,14 @@ class SimpleImport(Operator):
     
         elif event.type == "ESC" and event.value == "PRESS":
             context.window_manager.event_timer_remove(self._timer)
-            setattr(self.props, "waiting_import", False)
+            setattr(self.props.file.io, "waiting_import", False)
             return {"CANCELLED"}
         
         return {"PASS_THROUGH"}
 
     def execute(self, context):
         bpy.ops.ya.simple_cleanup("EXEC_DEFAULT")
-        setattr(self.props, "waiting_import", False)
+        setattr(self.props.file.io, "waiting_import", False)
         bpy.context.view_layer.update()
         return {"FINISHED"}
     
@@ -81,8 +81,8 @@ class SimpleCleanUp(Operator):
         return context.mode == "OBJECT"
     
     def execute(self, context):
-        self.window = get_window_properties()
-        self.props  = get_file_properties()
+        self.window = get_window_props()
+        self.props  = get_file_props()
         self.prefs  = get_prefs()
         self.selected = bpy.context.selected_objects
 
@@ -95,7 +95,7 @@ class SimpleCleanUp(Operator):
         if self.prefs.update_material:
             self.update_material()
 
-        if self.window.rename_import.strip() != "":
+        if self.window.file.io.rename_import.strip() != "":
             self.rename_import()
 
         if self.prefs.reorder_meshid:
@@ -164,10 +164,10 @@ class SimpleCleanUp(Operator):
                 elif re.search(r"\s\d+.\d+$", obj.name):
                     id_index = 0
                 else:
-                    obj.name = self.window.rename_import
+                    obj.name = self.window.file.io.rename_import
                     continue
                 split = obj.name.strip().split()
-                split[id_index] = self.window.rename_import
+                split[id_index] = self.window.file.io.rename_import
                 obj.name = " ".join(split)
 
 

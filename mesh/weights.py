@@ -6,7 +6,7 @@ from bpy.types       import Object, VertexGroup
 from numpy.typing    import NDArray
 from collections.abc import Iterable
 
-from ..props.outfit  import YASGroup
+from ..props.studio  import YASGroup
 
 
 def add_to_vgroup(weight_matrix: NDArray, v_group: VertexGroup) -> NDArray:

@@ -3,7 +3,7 @@ import bpy
 from bpy.props      import StringProperty, BoolProperty, CollectionProperty
 from bpy.types      import Operator, PropertyGroup, Context, Object, Mesh, UILayout
 
-from ..props        import get_window_properties, get_outfit_properties
+from ..props        import get_window_props, get_studio_props
 from ..ui.draw      import get_conditional_icon
 from ..mesh.shapes  import create_co_cache, create_shape_keys
 from ..mesh.objects import quick_copy, evaluate_obj, safe_object_delete
@@ -19,14 +19,14 @@ class ModifierShape(Operator):
 
     @classmethod
     def poll(cls, context):
-        modifier:str = get_window_properties().shape_modifiers
+        modifier:str = get_window_props().studio.shape_modifiers
         return context.mode == "OBJECT" and modifier != "None"
     
     @classmethod
     def description(cls, context, properties):
-        window = get_window_properties()
+        window = get_window_props()
         obj   = context.active_object
-        modifier:str = window.shape_modifiers
+        modifier:str = window.studio.shape_modifiers
         if modifier == "None":
             return "Missing modifier"
         if obj.modifiers[modifier].type == "DATA_TRANSFER":
@@ -35,11 +35,11 @@ class ModifierShape(Operator):
             return "Applies Deform Modifier to active shape key"
 
     def execute(self, context: Context):
-        window    = get_window_properties()
+        window    = get_window_props()
         self.keep = window.keep_modifier
 
         obj          = context.active_object
-        modifier:str = window.shape_modifiers
+        modifier:str = window.studio.shape_modifiers
         key_name     = obj.active_shape_key.name
 
         context.window.cursor_set('WAIT')
@@ -52,7 +52,7 @@ class ModifierShape(Operator):
                 self.report({'INFO'}, "Modifier Applied to Shape.")
         finally:
             context.window.cursor_set('DEFAULT')
-            get_outfit_properties().set_modifiers(context)
+            get_studio_props().set_modifiers(context)
         return {'FINISHED'}
     
     def apply_deform(self, key_name: str, target: Object, modifier: str) -> None:

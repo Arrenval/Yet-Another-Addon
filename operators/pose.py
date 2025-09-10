@@ -6,7 +6,7 @@ import base64
 
 from math           import pi
 from pathlib        import Path
-from ..props        import get_outfit_properties, get_window_properties
+from ..props        import get_studio_props, get_window_props
 from mathutils      import Quaternion
 from bpy.types      import Operator, PoseBone, Context, Modifier
 from bpy.props      import StringProperty, BoolProperty
@@ -34,7 +34,7 @@ class PoseApply(Operator):
         if properties.use_clipboard:
             return "Apply C+ scaling from clipboard"
         else:
-            if get_window_properties().scaling_armature:
+            if get_window_props().scaling_armature:
                 return """Select and apply scaling to armature:
             *Hold Shift to reapply.
             *Hold Alt to open folder"""
@@ -45,7 +45,7 @@ class PoseApply(Operator):
         
     @classmethod
     def poll(cls, context):
-        return get_outfit_properties().outfit_armature
+        return get_studio_props().outfit_armature
     
     def invoke(self, context, event):
         self.actual_file = Path(self.filepath)
@@ -75,8 +75,8 @@ class PoseApply(Operator):
         return {"RUNNING_MODAL"}
     
     def execute(self, context):
-        self.props        = get_outfit_properties()
-        self.window       = get_window_properties()
+        self.props        = get_studio_props()
+        self.window       = get_window_props()
         self.scaling      = self.window.scaling_armature
         self.old_bone_map = {
             "j_asi_e_l": "ToesLeft",
@@ -190,7 +190,7 @@ class PoseApply(Operator):
         return {"FINISHED"}
     
     def reset_armature(self, context: Context, scaling:bool):
-        armature_obj = get_outfit_properties().outfit_armature
+        armature_obj = get_studio_props().outfit_armature
         for bone in armature_obj.pose.bones:
             if scaling:
                 bone.scale = (1.0, 1.0, 1.0)

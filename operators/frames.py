@@ -1,6 +1,6 @@
 import bpy
 
-from ..props   import get_window_properties
+from ..props   import get_window_props
 from bpy.types import Operator
 from bpy.props import BoolProperty
 
@@ -15,7 +15,7 @@ class FrameJump(Operator):
  
     def execute(self, context):
         bpy.ops.screen.frame_jump(end=self.end)
-        get_window_properties().animation_frame = context.scene.frame_current
+        get_window_props().animation_frame = context.scene.frame_current
 
         return {'FINISHED'}
 
@@ -29,7 +29,7 @@ class KeyframeJump(Operator):
 
     def execute(self, context):
         bpy.ops.screen.keyframe_jump(next=self.next)
-        get_window_properties().animation_frame = context.scene.frame_current
+        get_window_props().animation_frame = context.scene.frame_current
 
         return {'FINISHED'}
 

@@ -1,12 +1,12 @@
 import bpy
 
-from bpy.props       import PointerProperty
+from bpy.props import PointerProperty
 
-from .file           import YAFileProps, CLASSES as FILE_CLS
-from .outfit         import YAOutfitProps, YASStorage, YASUIList,  CLASSES as OUTFIT_CLS
-from .window         import YAWindowProps, CLASSES as WIN_CLS
-from .modpack        import CLASSES as MODPACK_CLS
-from .getters        import get_file_properties, get_outfit_properties, get_window_properties, get_devkit_properties, get_devkit_win_props
+from .file     import YAFileProps, CLASSES as FILE_CLS
+from .studio   import YAStudioProps, YASStorage, YASUIList,  CLASSES as STUDIO_CLS
+from .window   import YAWindowProps, CLASSES as WIN_CLS
+from .modpack  import CLASSES as MODPACK_CLS
+from .getters  import get_file_props, get_studio_props, get_window_props, get_devkit_props, get_devkit_win_props
 
 
 def set_addon_properties() -> None:
@@ -16,8 +16,8 @@ def set_addon_properties() -> None:
     bpy.types.WindowManager.ya_window_props = PointerProperty(
         type=YAWindowProps)
 
-    bpy.types.Scene.ya_outfit_props = PointerProperty(
-        type=YAOutfitProps)
+    bpy.types.Scene.ya_studio_props = PointerProperty(
+        type=YAStudioProps)
     
     bpy.types.Object.yas = PointerProperty(name="YAS Weight Storage",
         type=YASStorage)
@@ -28,7 +28,7 @@ def set_addon_properties() -> None:
 def remove_addon_properties() -> None:
     del bpy.types.Scene.ya_file_props
     del bpy.types.WindowManager.ya_window_props
-    del bpy.types.Scene.ya_outfit_props
+    del bpy.types.Scene.ya_studio_props
     del bpy.types.Object.yas
 
-CLASSES = MODPACK_CLS + WIN_CLS + OUTFIT_CLS + FILE_CLS
+CLASSES = MODPACK_CLS + WIN_CLS + STUDIO_CLS + FILE_CLS
