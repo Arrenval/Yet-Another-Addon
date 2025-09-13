@@ -572,6 +572,7 @@ class YASManager(Operator):
             targets.extend(get_collection_obj("Clawsies", type='MESH'))
         
         if devkit.yam_legs in targets:
+            targets.append(get_object_from_mesh("Knees"))
             targets.extend(get_collection_obj("Pubes", type='MESH'))
 
         if devkit.yam_feet in targets:
