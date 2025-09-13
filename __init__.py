@@ -2,7 +2,6 @@ import bpy
 
 from .         import props
 from .         import preferences
-from .handlers import set_handlers, remove_handlers
 
 from pathlib   import Path
 from importlib import import_module
@@ -56,13 +55,13 @@ def register():
 
     preferences.register_menus()
 
-    set_handlers()
+    props.set_handlers()
     bpy.types.Scene.ya_addon_ver = (0, 22, 9)
     
 
 def unregister():
     del bpy.types.Scene.ya_addon_ver
-    remove_handlers()
+    props.remove_handlers()
 
     preferences.unregister_menus()
     

@@ -1,9 +1,9 @@
 import bpy
 
-from .props           import get_window_props, get_devkit_props, get_studio_props, get_devkit_win_props
+from .getters         import get_window_props, get_devkit_props, get_studio_props, get_devkit_win_props
 from bpy.types        import Object, Context
 from bpy.app.handlers import persistent
-from .preferences     import get_prefs
+from ..preferences    import get_prefs
 
 
 _active_obj = None
@@ -13,7 +13,7 @@ _pre_tri      = None
 
 
 def frame_ui(dummy):
-    get_window_props().animation_frame = bpy.context.scene.frame_current
+    get_window_props().studio.animation_frame = bpy.context.scene.frame_current
 
 def get_mesh_props(dummy=None) -> None:
     obj: Object = bpy.context.active_object
@@ -102,5 +102,3 @@ def remove_handlers() -> None:
     bpy.app.handlers.load_post.remove(active_obj_msgbus)
     bpy.app.handlers.animation_playback_pre.remove(pre_anim_handling)
     bpy.app.handlers.animation_playback_post.remove(post_anim_handling)
-
-    

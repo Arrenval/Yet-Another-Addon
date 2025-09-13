@@ -6,7 +6,8 @@ from .file     import YAFileProps, CLASSES as FILE_CLS
 from .studio   import YAStudioProps, YASStorage, YASUIList,  CLASSES as STUDIO_CLS
 from .window   import YAWindowProps, CLASSES as WIN_CLS
 from .modpack  import CLASSES as MODPACK_CLS
-from .getters  import get_file_props, get_studio_props, get_window_props, get_devkit_props, get_devkit_win_props
+from .getters  import get_file_props, get_studio_props, get_window_props, get_devkit_props, get_devkit_win_props, get_xiv_meshes
+from .handlers import set_handlers, remove_handlers
 
 
 def set_addon_properties() -> None:
