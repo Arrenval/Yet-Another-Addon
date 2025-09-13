@@ -1,11 +1,10 @@
-import re
 import bpy
    
-from bpy.types       import Panel, UILayout, Context, Object
+from bpy.types   import Panel, UILayout, Context, Object
+from collections import Counter
 
-from ..draw          import aligned_row, get_conditional_icon, ui_category_buttons
-from ...props        import get_studio_props, get_devkit_props, get_window_props, get_devkit_win_props
-from ...mesh.objects import visible_meshobj
+from ..draw      import aligned_row, get_conditional_icon, ui_category_buttons, show_ui_button
+from ...props    import get_studio_props, get_devkit_props, get_window_props, get_devkit_win_props, get_xiv_meshes
 
 
 class MeshStudio(Panel):
@@ -37,9 +36,7 @@ class MeshStudio(Panel):
         col = row.column()
         
         if self.window_props.overview_category:
-            columns = ["OBJECT", "PART", "ATTR"]
-
-            self.draw_overview(col, columns)
+            self.draw_overview(col)
             
         if self.window_props.shapes_category:
             self.draw_shapes(col)
@@ -53,139 +50,179 @@ class MeshStudio(Panel):
         if self.window_props.armature_category:
             self.draw_armature(col)
 
-    def draw_overview(self, layout:UILayout, columns):
-
-        def get_entries(visible:list[Object]) -> dict[int, dict[Object, dict[str, tuple[str | int, int | None]]]]:
-            data_entries = {}
-            for obj in visible:
-                obj_props = []
-                name_parts = obj.name.split(" ")
-                if re.search(r"^\d+.\d+\s", obj.name):
-                    id_index = 0
-                    name = name_parts[1:]
-                elif re.search(r"\s\d+.\d+$", obj.name):
-                    id_index = -1
-                    name = name_parts[:-1]
-                else:
-                    continue
-                try:
-                    group = int(name_parts[id_index].split(".")[0])
-                    part  = int(name_parts[id_index].split(".")[1])
-                    if name_parts[-2] == "Part":
-                        name_parts.pop()
-                except:
-                    continue
-
-                material  = obj.data.materials[0].name[1:-5] if obj.data.materials[0].name.endswith(".mtrl") else obj.data.materials[0].name
-                triangles = len(obj.data.loop_triangle_polygons)
-
-                for key, value in obj.items():
-                    if key.startswith("atr") and value:
-                        obj_props.append(key)
-                data_entries.setdefault(group, {})
-                data_entries[group][obj] = ({"name": ((" ".join(name)), None), 
-                                            "part": (part, 1), 
-                                            "props": (obj_props, 2), 
-                                            "material": (material, None), 
-                                            "triangles": (triangles, None)})
-    
-            return data_entries
+    def draw_overview(self, layout:UILayout):
         
-        visible            = visible_meshobj()
-        data_entries       = get_entries(visible)
-        triangles:     int = 0
-        selected_tris: int = 0
-        if len(bpy.context.selected_objects) > 0:
-            selected_tris = sum([len(obj.data.loop_triangle_polygons) for obj in bpy.context.selected_objects if obj.type == "MESH"])
-        row = layout.box().row(align=False).split(factor=0.3)
-        row_list = [row for _ in range(len(columns))]
-        
-        for index, text in enumerate(columns):
-            header = row_list[index].row(align=True)
-            header.alignment = "CENTER"
-            header.label(text=text if text == "OBJECT" else text)
+        def draw_name(obj: Object, name: str, mesh_idx: int, subrow: UILayout) -> None:
+            if mesh_idx:
+                op = subrow.operator("ya.overview_group", 
+                                    text="", 
+                                    emboss=False, 
+                                    icon="TRIA_UP")
+                op.type = "DEC_GROUP"
+                op.obj = obj.name
+            else:
+                subrow.label(text="", icon='BLANK1')
 
+            op = subrow.operator("ya.overview_group", 
+                                text="", 
+                                emboss=False, 
+                                icon="TRIA_DOWN")
+            op.type = "INC_GROUP"
+            op.obj = obj.name
+
+            op = subrow.operator("ya.overview_group", text=name, emboss=False)
+            op.type = "GROUP"
+            op.obj = obj.name
+
+        def draw_submesh(obj: Object, submesh: int, subrow: UILayout, conflict: bool) -> None:
+            if conflict:
+                subrow.label(text="", icon='ERROR')
+            else:
+                subrow.label(text="", icon='BLANK1') 
+
+            op = subrow.operator("ya.overview_group", 
+                                text="", 
+                                emboss=False, 
+                                icon="TRIA_LEFT")
+            op.type = "DEC_PART"
+            op.obj = obj.name
+
+            op = subrow.operator("ya.overview_group", 
+                                text=f"{submesh}", 
+                                emboss=False, 
+                                )
+            op.type = "PART"
+            op.obj = obj.name
+
+            op = subrow.operator("ya.overview_group", 
+                                text="", 
+                                emboss=False, 
+                                icon="TRIA_RIGHT")
+            op.type = "INC_PART"
+            op.obj = obj.name
+            subrow.label(text="", icon='BLANK1')
+
+        def draw_attr(obj: Object, props: list[str], subrow: UILayout) -> None:
+            subrow.alignment = "EXPAND"
+            for attr in props:
+                text    = self.outfit_props.attr_dict[attr] if attr in self.outfit_props.attr_dict else attr
+                op      = subrow.operator("ya.attributes", text=f"{text}")
+                op.attr = attr
+                op.obj  = obj.name
+            if len(props) == 0:
+                subrow.label(text=" ", icon='BLANK1')
+            op      = subrow.operator("ya.attributes", icon="ADD", text="")
+            op.attr = "NEW"
+            op.obj  = obj.name
+
+        def draw_flags(layout: UILayout, model_flags: list[str]) -> None:
+            col_row  = layout.row(align=True)
+            flag_col = [col_row.column(align=True) for _ in range(2)]
+            for idx, flag in enumerate(model_flags):
+                col  = flag_col[idx % 2]
+                icon = get_conditional_icon(getattr(self.outfit_props.model, flag))
+                col.prop(self.outfit_props.model, flag, icon=icon)
+
+        def get_submesh_conflicts(obj_data) -> set[int]:
+            submeshes = [submesh for obj, submesh, name, uv_count, col_count, props in obj_data if obj is not None]
+            counts    = Counter(submeshes)
+            return {submesh for submesh, count in counts.items() if count > 1}
+        
+        columns = ["OBJECT", "PART", "ATTR"]
+        meshes, triangles = get_xiv_meshes()
+         
+        box         = layout.box()
+        header_row  = box.row(align=True).split(factor=0.3)
+        for text in columns:
+            subrow = header_row.row(align=True)
+            if text == "OBJECT":
+                subrow.label(text="", icon='BLANK1')
+                subrow.label(text="", icon='BLANK1')
+
+            subrow.alignment = "CENTER"
+            subrow.label(text=text)
+            
         layout.separator(type="SPACE", factor=0.2)
 
-        for group, obj_data in sorted(data_entries.items(), key=lambda item: item[0]):
-            obj_data = sorted(obj_data.items(), key=lambda item: item[1]["part"][0])
+        for mesh_idx, obj_data in enumerate(meshes):
+            vertices  = sum([len(obj.data.vertices) for obj, submesh, name, uv_count, col_count, props in obj_data if obj is not None])
+            mesh_box  = layout.box()
+
+            row = mesh_box.row(align=True).split(factor=0.25)
+            row.alignment = 'RIGHT'
+            row.label(text=f"Mesh #{mesh_idx} ")
+
+            subrow = row.row(align=True)
+            subrow.alignment = 'RIGHT'
+            if vertices > 65536:
+                subrow.label(text="", icon='ERROR')
+            elif vertices > 58982:
+                subrow.label(text="", icon='INFO')
+            subrow.label(text=f"Vertices: {vertices}   ")
+
+            mesh_box.separator(type="LINE", factor=0.2)
+            mesh_col  = mesh_box.column(align=True)
+            conflicts = get_submesh_conflicts(obj_data)
+
+            uvs  = 0
+            cols = 0
+            for obj, submesh, name, uv_count, col_count, props in obj_data:
+                if obj is None:
+                    continue
+                conflict = True if submesh in conflicts else False
+                uvs  = max(uv_count, uvs)
+                cols = max(col_count, cols)
+                obj_row  = mesh_col.row(align=True).split(factor=0.3, align=True)
+                draw_name(obj, name, mesh_idx, obj_row.row(align=True))
+                draw_submesh(obj, submesh, obj_row.row(align=True), conflict)
+                draw_attr(obj, props, obj_row.row(align=True))
             
-            box = layout.box().row().split(factor=0.3)
-            col = box.column().row()
-            col.alignment = "CENTER"
-            col.label(text=f"Mesh #{group}:")
-            col2 = box.column()
-            matr_text = obj_data[0][1]["material"][0]
-            matr_obj  = obj_data[0][0]
-            op = col2.operator("ya.overview_material", text=str(matr_text), emboss=True)
-            op.obj = matr_obj.name
+            mesh_box.separator(type="LINE", factor=0.5)
             
-            col_box = layout.box().split(factor=0.3)
-            columns_list = [col_box.column(align=True) for _ in range(len(columns))]
-            for obj, values in obj_data:
-                col = columns_list[0]
-                col.alignment = "CENTER"
-                op = col.operator("ya.overview_group", text=values["name"][0], emboss=False)
-                op.type = "GROUP"
-                op.obj = obj.name
-            
-                for key, (value, column) in values.items():
-                    if column is None:
-                        continue
-                    col = columns_list[column].row(align=True)
-                    col.alignment = "CENTER"
-                    if key == "props":
-                        if len(values["props"][0]) > 0:
-                            col.alignment = "EXPAND"
-                        else:
-                            col.alignment = "RIGHT"
-                        for attr in value:
-                            text = self.outfit_props.attr_dict[attr] if attr in self.outfit_props.attr_dict else attr
-                            op = col.operator("ya.attributes", text=f"{text}")
-                            op.attr = attr
-                            op.obj = obj.name
-                        op = col.operator("ya.attributes", icon="ADD", text="")
-                        op.attr = "NEW"
-                        op.obj = obj.name
+            row = mesh_box.row(align=True).split(factor=0.25)
+            row.alignment = 'RIGHT'
+            row.label(text=f"Material:")
+            if mesh_idx >= len(self.outfit_props.model.meshes):
+                op      = row.operator("ya.mesh_material", text="Add Material")
+                op.mesh = mesh_idx
+            else:
+                row.prop(self.outfit_props.model.meshes[mesh_idx], "material", text="")
 
-                    elif key == "part":
-                        col.alignment = "EXPAND"
-                        col.scale_x = 1.5
-                        conflict = False
-                        for con_obj, con_values in obj_data:
-                            if con_obj == obj:
-                                continue
-                            if con_values["part"] == values["part"]:
-                                conflict = True
-                                break
-                        op = col.operator("ya.overview_group", 
-                                            text="", 
-                                            emboss=False, 
-                                            icon= "TRIA_LEFT")
-                        op.type = "DEC_PART"
-                        op.obj = obj.name
+            if not any((uvs, cols)):
+                mesh_box.separator(type="LINE", factor=0.5)
+            if not uvs:
+                row = mesh_box.row(align=True)
+                row.alignment = 'CENTER'
+                row.label(text="Couldn't detect any XIV UV channels.", icon='ERROR')
+            if not cols:
+                row = mesh_box.row(align=True)
+                row.alignment = 'CENTER'
+                row.label(text="Couldn't detect any XIV Colour channels.", icon='ERROR')
 
-                        op = col.operator("ya.overview_group", 
-                                            text=str(value), 
-                                            emboss=False, 
-                                            icon= "ERROR" if conflict else "NONE")
-                        op.type = "PART"
-                        op.obj = obj.name
+            layout.separator(type="SPACE", factor=0.2)
 
-                        op = col.operator("ya.overview_group", 
-                                            text="", 
-                                            emboss=False, 
-                                            icon= "TRIA_RIGHT")
-                        op.type = "INC_PART"
-                        op.obj = obj.name
-            
-                triangles += values["triangles"][0]
+        selected_tris = sum([len(obj.data.loop_triangle_polygons) for obj in bpy.context.selected_objects if obj.type == "MESH"])
+        count         = f"{selected_tris:,} / {triangles:,}" if selected_tris else f"{triangles:,}"
 
-        count = f"{triangles:,}" if len(bpy.context.selected_objects) == 0 else f"{selected_tris:,} / {triangles:,}"
-        row = layout.box()
-        row.alignment = "RIGHT"
-        row.label(text=f"Triangles: {count}    ")
+        options_box      = layout.box()
+        button, subrow   = show_ui_button(options_box, self.window_props, "button_model_expand", "Model Options")
+        subrow.alignment = "RIGHT"
+        subrow.label(text=f"Triangles: {count}   ")
 
+        if not button:
+            return
+        
+        options_box.separator(type="LINE", factor=0.5)
+        model_flags = list(self.outfit_props.model.get_flags().keys())
+
+        draw_flags(options_box, model_flags[:8])
+        
+        if not show_ui_button(options_box, self.window_props, "button_otherflags_expand", "Other Options")[0]:
+            return
+        
+        draw_flags(options_box, model_flags[8:16])
+        draw_flags(options_box, model_flags[16:])
+        
     def draw_shapes(self, layout:UILayout):
         box = layout.box()
         button_type = "shpk"

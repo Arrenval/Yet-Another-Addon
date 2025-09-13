@@ -378,6 +378,8 @@ class YAWindowProps(PropertyGroup):
             ("modifiers",   "expand",     "Opens the category"),
             ("transp",      "expand",     "Opens the category"),
             ("yas_man",     "expand",     "Opens the category"),
+            ("model",       "expand",     "Opens the category"),
+            ("otherflags",  "expand",     "Opens the category"),
         ]
     
     extra_options = [

@@ -15,9 +15,7 @@ def visible_meshobj(mesh_id=False) -> list[Object]:
     """
 
     visible_meshobj = []
-    for obj in bpy.context.scene.objects:
-        if not obj.visible_get(view_layer=bpy.context.view_layer):
-            continue
+    for obj in bpy.context.visible_objects:
         if not obj.type == 'MESH':
             continue
         if mesh_id and not xiv_mesh_check(obj):

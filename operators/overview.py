@@ -4,6 +4,8 @@ import bpy
 from bpy.types import Operator, Object
 from bpy.props import StringProperty, IntProperty, EnumProperty, BoolProperty
 
+from ..props   import get_studio_props
+
 
 class Attributes(Operator):
     bl_idname = "ya.attributes"
@@ -93,7 +95,6 @@ class ChangeObjectName(Operator):
 
     def execute(self, context):
         obj: Object = bpy.data.objects[self.obj]
-        context.view_layer.objects.active = obj
         name_parts = obj.name.split(" ")
 
         if self.type == "NAME":
@@ -147,7 +148,6 @@ class ChangeGroupPart(Operator):
 
     def execute(self, context):
         obj: Object = bpy.data.objects[self.obj]
-        context.view_layer.objects.active = obj
 
         match self.type:
             case "PART":
@@ -168,47 +168,21 @@ class ChangeGroupPart(Operator):
      
         return {'FINISHED'}
     
-class ChangeMaterial(Operator):
-    bl_idname = "ya.overview_material"
+class MeshMaterial(Operator):
+    bl_idname = "ya.mesh_material"
     bl_label = "Material"
     bl_description = "Tags faces you want to create backfaces for on export"
     bl_options = {"UNDO"}
 
-    obj: StringProperty() # type: ignore
-    type: StringProperty() # type: ignore
-    user_input: StringProperty(name="", default="") # type: ignore
-
-    def invoke(self, context, event):
-        bpy.context.window_manager.invoke_props_dialog(self, confirm_text="Confirm")
-        return {'RUNNING_MODAL'}
-    
-    def draw(self, context):
-        obj:Object = bpy.data.objects[self.obj]
-        layout = self.layout
-        layout.template_list('MATERIAL_UL_matslots',
-                            "",
-                            obj,
-                            "material_slots",
-                            obj,
-                            "active_material_index",
-                            rows=2
-                            )
+    mesh: IntProperty(default=0, options={'HIDDEN', 'SKIP_SAVE'}) # type: ignore
 
     def execute(self, context):
-        # obj: Object = bpy.data.objects[self.obj]
-        # context.view_layer.objects.active = obj
-        # name_parts = obj.name.split(" ")
-        # group = name_parts[-1].split(".")[0]
-        # part  = name_parts[-1].split(".")[1]
+        model_props = get_studio_props().model
+        while self.mesh >= len(model_props.meshes):
+            mesh_idx = len(model_props.meshes)
+            mesh     = model_props.meshes.add()
+            mesh.idx = mesh_idx
 
-        # if self.type == "NAME":
-        #     obj.name = f"{self.user_input} {name_parts[-1]}"
-        # if self.type == "GROUP":
-        #     new = f"{self.user_input}.{part}"
-        #     obj.name = f"{obj.name[:-len(name_parts[-1])]}{new}"
-        # if self.type == "PART":
-        #     new = f"{group}.{self.user_input}"
-        #     obj.name = f"{obj.name[:-len(name_parts[-1])]}{new}"
         return {'FINISHED'}
 
 
@@ -216,6 +190,6 @@ CLASSES = [
     Attributes,
     ChangeObjectName,
     ChangeGroupPart,
-    ChangeMaterial
+    MeshMaterial
 ]
 

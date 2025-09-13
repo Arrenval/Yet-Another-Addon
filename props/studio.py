@@ -7,10 +7,140 @@ from bpy.props       import StringProperty, EnumProperty, CollectionProperty, Po
 from collections.abc import Iterable
 
 from .window         import YAWindowProps
-from .getters        import get_window_props, get_devkit_props
+from .getters        import get_window_props, get_devkit_props, get_xiv_meshes
 from ..utils.typings import BlendEnum
 
 
+class MeshProps(PropertyGroup):
+
+    def material_search(self, context: Context, edit_text: str) -> list[str]:
+        materials = [
+                        "Bibo", "Gen2/Vanilla", "Gen3/TBSE", 
+                        "---------------------------",
+                        "Bibopube", "Betterpube",
+                        "---------------------------", 
+                        "Yet Another Piercing", "Yet Another Toenail", "Yet Another Fingernail",
+                        "---------------------------",
+                    ]
+        
+        obj_materials = set()
+        for obj_data in get_xiv_meshes()[0][self.idx]:
+            for material in obj_data[0].material_slots:
+                if not material.name.endswith(".mtrl"):
+                    continue
+                obj_materials.add(material.name)
+                
+        materials.extend(obj_materials)
+        return materials
+    
+    idx     : IntProperty() # type: ignore
+    material: StringProperty(
+                    name="", 
+                    default="", 
+                    description="Path to material", 
+                    search=material_search
+                ) # type: ignore
+    
+    flow    : BoolProperty(default=False, description="Enables anisotropy data, this is used for enhanced hair specularity") # type: ignore
+
+    if TYPE_CHECKING:
+        idx     : int
+        material: str
+        flow    : bool
+
+class ModelProps(PropertyGroup):
+    meshes: CollectionProperty(type=MeshProps) # type: ignore
+
+    shadow_disabled            : BoolProperty(name="Disable Shadows", default=False, description="Disable shadow casting for this model") # type: ignore
+    light_shadow_disabled      : BoolProperty(name="Disable Light/Shadow", default=False, description="Unknown") # type: ignore
+    waving_animation_disabled  : BoolProperty(name="Disable Waving Anim", default=True,  description="Disable waving animation") # type: ignore
+    lighting_reflection_enabled: BoolProperty(name="Lighting Reflections", default=False, description="Unknown") # type: ignore
+    unknown1                   : BoolProperty(name="UNKNOWN1", default=False, description="Unknown") # type: ignore
+    rain_occlusion_enabled     : BoolProperty(name="Rain Occlusion", default=False, description="This model will block/occlude rain") # type: ignore
+    snow_occlusion_enabled     : BoolProperty(name="Snow Occlusion", default=False, description="This model will block/occlude snow") # type: ignore
+    dust_occlusion_enabled     : BoolProperty(name="Dust Occlusion", default=False, description="This model will block/occlude dust") # type: ignore
+
+    unknown2                   : BoolProperty(name="UNKNOWN2", default=False, description="Unknown") # type: ignore
+    edge_geometry_disabled     : BoolProperty(name="Disable Edge Geometry", default=False, description="Unknown") # type: ignore
+    force_lod_range_enabled    : BoolProperty(name="Force LOD Range", default=False, description="Unknown")  # type: ignore
+    shadow_mask_enabled        : BoolProperty(name="Shadow Mask", default=False, description="Unknown") # type: ignore
+    extra_lod_enabled          : BoolProperty(name="Extra LOD Data", default=False, description="Enables extra LOD data for the model. Authoring for this data is not available") # type: ignore
+    enable_force_non_resident  : BoolProperty(name="Force Non-Resident", default=False, description="Unknown") # type: ignore
+    bg_uv_scroll_enabled       : BoolProperty(name="BG UV Scroll", default=False, description="Unknown") # type: ignore
+    static_mesh                : BoolProperty(name="Static Mesh", default=False, description="Not tested. Possibly used for furniture that does not use weights/bones") # type: ignore
+
+    unknown3                   : BoolProperty(name="UNKNOWN3", default=False, description="Unknown") # type: ignore
+    use_crest_change           : BoolProperty(name="Use Crest Change", default=False, description="Unknown") # type: ignore
+    use_material_change        : BoolProperty(name="Use Material Change", default=False, description="Unknown") # type: ignore
+    unknown4                   : BoolProperty(name="UNKNOWN4", default=False, description="Unknown") # type: ignore
+    unknown5                   : BoolProperty(name="UNKNOWN5", default=False, description="Unknown") # type: ignore
+    unknown6                   : BoolProperty(name="UNKNOWN6", default=False, description="Unknown") # type: ignore
+    unknown7                   : BoolProperty(name="UNKNOWN7", default=False, description="Unknown") # type: ignore
+    unknown8                   : BoolProperty(name="UNKNOWN8", default=False, description="Unknown") # type: ignore
+
+    def get_flags(self) -> dict[str, bool]:
+        flags = {}
+        for attr_name in self.bl_rna.properties.keys():
+            if attr_name == "use_lods":
+                continue
+            if isinstance(getattr(self, attr_name, None), bool):
+                flags[attr_name] = getattr(self, attr_name)
+
+        return flags
+    
+    def get_material_list(self) -> list[str]:
+        material_dict = {
+                            "gen2/vanilla": "/mt_c0101b0001_a.mtrl",
+                            "gen3/tbse"   : "/mt_c0101b0001_b.mtrl",
+                            "bibo"        : "/mt_c0101b0001_bibo.mtrl",
+                            
+                            "bibopube"  : "/mt_c0201b0001_bibopube.mtrl",
+                            "betterpube": "/mt_c0201b0001_betterpube.mtrl",
+
+                            "yet another piercing"  : "/mt_c0201b0001_piercings.mtrl",
+                            "yet another fingernail": "/mt_c0201b0001_yafinger.mtrl",
+                            "yet another toenail"   : "/mt_c0201b0001_yatoe.mtrl",
+                        }
+        
+        material_list = []
+        for mesh in self.meshes:
+            mat_lower = mesh.material.lower()
+            if mat_lower in material_dict:
+                material_list.append(material_dict[mat_lower])
+            else:
+                material_list.append(mesh.material)
+        
+        return material_list
+
+    if TYPE_CHECKING:
+        meshes: list[MeshProps]
+
+        shadow_disabled            : bool
+        light_shadow_disabled      : bool
+        waving_animation_disabled  : bool
+        lighting_reflection_enabled: bool
+        unknown1                   : bool
+        rain_occlusion_enabled     : bool
+        snow_occlusion_enabled     : bool
+        dust_occlusion_enabled     : bool
+        unknown2                   : bool
+        edge_geometry_disabled     : bool
+        force_lod_range_enabled    : bool
+        shadow_mask_enabled        : bool
+        extra_lod_enabled          : bool
+        enable_force_non_resident  : bool
+        bg_uv_scroll_enabled       : bool
+        static_mesh                : bool
+        unknown3                   : bool
+        unknown4                   : bool
+        unknown5                   : bool
+        unknown6                   : bool
+        unknown7                   : bool
+        use_crest_change           : bool
+        use_material_change        : bool
+        unknown8                   : bool
+
+        
 class YASUIList(PropertyGroup):
 
     def update_lock_weight(self, context:Context) -> None:
@@ -75,6 +205,8 @@ class ShapeModifiers(PropertyGroup):
         icon: str
        
 class YAStudioProps(PropertyGroup):
+
+    model: PointerProperty(type=ModelProps) # type: ignore
 
     shape_modifiers_group: CollectionProperty(type=ShapeModifiers) # type: ignore
 
@@ -388,6 +520,7 @@ class YAStudioProps(PropertyGroup):
         )  # type: ignore
 
     if TYPE_CHECKING:
+        model                  : ModelProps
         shape_modifiers_group  : Iterable[ShapeModifiers]
         
         pose_display_directory : str
@@ -405,7 +538,9 @@ class YAStudioProps(PropertyGroup):
         mod_shapes_source: Object
 
 
-CLASSES = [    
+CLASSES = [   
+    MeshProps,
+    ModelProps, 
     YASUIList,
     YASWeights,
     YASGroup,
