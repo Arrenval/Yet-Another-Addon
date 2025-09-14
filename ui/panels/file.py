@@ -495,7 +495,7 @@ class FileManager(Panel):
                     self.entry_container(columns[1], correction, group_idx, correction_idx)
 
     def status_info(self, layout: UILayout):
-        if self.window_props.file.modpack.modpack_replace and Path(self.window_props.modpack_dir).is_file():
+        if self.window_props.file.modpack.modpack_replace and Path(self.window_props.file.modpack.modpack_dir).is_file():
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
