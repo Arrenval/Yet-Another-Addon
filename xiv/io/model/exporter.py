@@ -7,42 +7,54 @@ from collections      import defaultdict
 from ..logging        import YetAnotherLogger
 from .exp.mesh        import MeshHandler
 from .exp.scene       import prepare_submeshes
-from ...formats.model import XIVModel, Mesh as XIVMesh, BoneTable, Lod, ShapeMesh, ModelFlags1
+from ...formats.model import XIVModel, Mesh as XIVMesh, BoneTable, Lod, ShapeMesh, ModelFlags1, ModelFlags2, ModelFlags3
 
 
 class ModelExport:
     
-    def __init__(self, logger: YetAnotherLogger=None):
-        self.model  = XIVModel()
-        self.logger = logger
+    def __init__(self, logger: YetAnotherLogger=None, **model_flags):
+        self.model             = XIVModel()
+        self.logger            = logger
         self.shape_value_count = 0
-        
+
+        self.model_flags : dict[str, bool]      = model_flags
         self.export_stats: dict[str, list[str]] = defaultdict(list)
 
     @classmethod
-    def export_scene(cls, export_obj: list[Object], file_path: str, logger: YetAnotherLogger=None) -> dict[str, list[str]]:
-        exporter = cls(logger=logger)
-        return exporter.create_model(export_obj, file_path)
+    def export_scene(
+                cls, 
+                export_obj: list[Object], 
+                file_path: str,
+                export_lods: bool, 
+                logger: YetAnotherLogger=None, 
+                **model_flags
+            ) -> dict[str, list[str]]:
+        
+        exporter = cls(logger=logger, **model_flags)
+        return exporter.create_model(export_obj, file_path, export_lods)
 
-    def create_model(self, export_obj: list[Object], file_path: str, max_lod: int=1) -> dict[str, list[str]]:
-        origin = 0.0
+    def create_model(self, export_obj: list[Object], file_path: str, export_lods: bool) -> dict[str, list[str]]:
+        origin  = 0.0
+        max_lod = 3 if export_lods else 1
 
         for lod_level, active_lod in enumerate(self.model.lods[:max_lod]):
             if self.logger:
                 self.logger.last_item = f"LOD{lod_level}"
-                self.logger.log("Configuring LOD0...", 2)
-            sorted_meshes       = prepare_submeshes(export_obj, self.model.attributes, lod_level)
+                self.logger.log(f"Configuring LOD{lod_level}...", 2)
+                
+            sorted_meshes = prepare_submeshes(export_obj, self.model.attributes, lod_level)
+            if not sorted_meshes:
+                break
+
             active_lod.mesh_idx = len(self.model.meshes)
-            
             self._configure_lod(active_lod, lod_level, max_lod, sorted_meshes)
             self.model.set_lod_count(lod_level + 1)
-
-        self.model.mesh_header.flags1 |= ModelFlags1.WAVING_ANIMATION_DISABLED
 
         self.model.bounding_box        = self.model.mdl_bounding_box.copy()
         self.model.bounding_box.min[1] = origin
         self.model.mesh_header.radius  = self.model.bounding_box.radius()
 
+        self._set_flags()
         self.model.to_file(file_path)
 
         return self.export_stats
@@ -77,15 +89,15 @@ class ModelExport:
         submesh_idx_offset = 0
 
         lod_bones: list[str] = []
-        for mesh_idx, blend_objs in enumerate(sorted_meshes):
-            mesh_idx = active_lod.mesh_idx + mesh_idx
+        for mesh_scene_idx, blend_objs in enumerate(sorted_meshes):
+            mesh_idx = active_lod.mesh_idx + mesh_scene_idx
             if self.logger:
                 self.logger.last_item = f"Mesh #{mesh_idx}"
                 self.logger.log(f"Processing Mesh #{mesh_idx}...", 3)
                 
             handler  = MeshHandler(
                             self.model, 
-                            lod_bones, 
+                            lod_bones,
                             mesh_idx, 
                             submesh_idx_offset,
                             stream_offset,
@@ -215,3 +227,16 @@ class ModelExport:
                 shape_mesh_count += 1
                 
             shape.mesh_count[lod_level] = shape_mesh_count
+
+    def _set_flags(self) -> None:
+        for flag in ModelFlags1:
+            if self.model_flags.get(flag.name.lower(), False):
+                self.model.mesh_header.flags1 |= flag
+
+        for flag in ModelFlags2:
+            if self.model_flags.get(flag.name.lower(), False):
+                self.model.mesh_header.flags2 |= flag
+
+        for flag in ModelFlags3:
+            if self.model_flags.get(flag.name.lower(), False):
+                self.model.mesh_header.flags3 |= flag

@@ -8,37 +8,59 @@ from collections.abc import Iterable
 
 from .window         import YAWindowProps
 from .getters        import get_window_props, get_devkit_props, get_xiv_meshes
+from ..mesh.objects  import visible_meshobj
 from ..utils.typings import BlendEnum
 
 
 class MeshProps(PropertyGroup):
 
-    def material_search(self, context: Context, edit_text: str) -> list[str]:
+    def _material_search(self, context: Context, edit_text: str) -> list[str]:
         materials = [
                         "Bibo", "Gen2/Vanilla", "Gen3/TBSE", 
                         "---------------------------",
                         "Bibopube", "Betterpube",
                         "---------------------------", 
                         "Yet Another Piercing", "Yet Another Toenail", "Yet Another Fingernail",
-                        "---------------------------",
                     ]
         
         obj_materials = set()
-        for obj_data in get_xiv_meshes()[0][self.idx]:
+        for obj_data in get_xiv_meshes(visible_meshobj())[self.idx]:
             for material in obj_data[0].material_slots:
                 if not material.name.endswith(".mtrl"):
                     continue
                 obj_materials.add(material.name)
-                
-        materials.extend(obj_materials)
+        
+        if obj_materials:
+            materials.append("---------------------------",)
+            materials.extend(obj_materials)
         return materials
+    
+    def get_material(self) -> str:
+        material_dict = {
+                            "gen2/vanilla": "/mt_c0101b0001_a.mtrl",
+                            "gen3/tbse"   : "/mt_c0101b0001_b.mtrl",
+                            "bibo"        : "/mt_c0101b0001_bibo.mtrl",
+                            
+                            "bibopube"  : "/mt_c0201b0001_bibopube.mtrl",
+                            "betterpube": "/mt_c0201b0001_betterpube.mtrl",
+
+                            "yet another piercing"  : "/mt_c0201b0001_piercings.mtrl",
+                            "yet another fingernail": "/mt_c0201b0001_yafinger.mtrl",
+                            "yet another toenail"   : "/mt_c0201b0001_yatoe.mtrl",
+                        }
+        
+        mat_lower = self.material.lower()
+        if mat_lower in material_dict:
+            return material_dict[mat_lower]
+        else:
+            return self.material
     
     idx     : IntProperty() # type: ignore
     material: StringProperty(
                     name="", 
                     default="", 
                     description="Path to material", 
-                    search=material_search
+                    search=_material_search
                 ) # type: ignore
     
     flow    : BoolProperty(default=False, description="Enables anisotropy data, this is used for enhanced hair specularity") # type: ignore
@@ -49,7 +71,8 @@ class MeshProps(PropertyGroup):
         flow    : bool
 
 class ModelProps(PropertyGroup):
-    meshes: CollectionProperty(type=MeshProps) # type: ignore
+    meshes  : CollectionProperty(type=MeshProps) # type: ignore
+    use_lods: BoolProperty(name="Export LODs", default=False, description="Export Level of Detail models") # type: ignore
 
     shadow_disabled            : BoolProperty(name="Disable Shadows", default=False, description="Disable shadow casting for this model") # type: ignore
     light_shadow_disabled      : BoolProperty(name="Disable Light/Shadow", default=False, description="Unknown") # type: ignore
@@ -88,30 +111,6 @@ class ModelProps(PropertyGroup):
 
         return flags
     
-    def get_material_list(self) -> list[str]:
-        material_dict = {
-                            "gen2/vanilla": "/mt_c0101b0001_a.mtrl",
-                            "gen3/tbse"   : "/mt_c0101b0001_b.mtrl",
-                            "bibo"        : "/mt_c0101b0001_bibo.mtrl",
-                            
-                            "bibopube"  : "/mt_c0201b0001_bibopube.mtrl",
-                            "betterpube": "/mt_c0201b0001_betterpube.mtrl",
-
-                            "yet another piercing"  : "/mt_c0201b0001_piercings.mtrl",
-                            "yet another fingernail": "/mt_c0201b0001_yafinger.mtrl",
-                            "yet another toenail"   : "/mt_c0201b0001_yatoe.mtrl",
-                        }
-        
-        material_list = []
-        for mesh in self.meshes:
-            mat_lower = mesh.material.lower()
-            if mat_lower in material_dict:
-                material_list.append(material_dict[mat_lower])
-            else:
-                material_list.append(mesh.material)
-        
-        return material_list
-
     if TYPE_CHECKING:
         meshes: list[MeshProps]
 
@@ -123,6 +122,7 @@ class ModelProps(PropertyGroup):
         rain_occlusion_enabled     : bool
         snow_occlusion_enabled     : bool
         dust_occlusion_enabled     : bool
+
         unknown2                   : bool
         edge_geometry_disabled     : bool
         force_lod_range_enabled    : bool
@@ -131,6 +131,7 @@ class ModelProps(PropertyGroup):
         enable_force_non_resident  : bool
         bg_uv_scroll_enabled       : bool
         static_mesh                : bool
+
         unknown3                   : bool
         unknown4                   : bool
         unknown5                   : bool

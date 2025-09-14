@@ -6,7 +6,7 @@ from bpy.types        import Context, UILayout
 from .objects         import visible_meshobj
 from ..preferences    import get_prefs
 from ..xiv.io.model   import ModelExport, SceneHandler, consoletools_mdl
-from ..props.getters  import get_window_props
+from ..props.getters  import get_window_props, get_studio_props
 from ..xiv.io.logging import YetAnotherLogger
 
 
@@ -66,6 +66,45 @@ def get_export_stats(context: Context) -> None:
         _export_stats = {}
         context.window_manager.popup_menu(draw_popup, title=f"Model created succesfully!", icon='CHECKMARK')
 
+def get_export_settings(format: str) -> dict[str, str | int | bool]:
+    if format == 'GLTF':
+        return {
+            "export_format": "GLTF_SEPARATE", 
+            "export_texture_dir": "GLTF Textures",
+            "use_selection": False,
+            "use_active_collection": False,
+            "export_animations": False,
+            "export_extras": True,
+            "export_leaf_bone": False,
+            "export_apply": True,
+            "use_visible": True,
+            "export_morph_normal": False,
+            "export_try_sparse_sk": False,
+            "export_attributes": True,
+            "export_normals": True,
+            "export_tangents": True,
+            "export_skins": True,
+            "export_influence_nb": 8,
+            "export_active_vertex_color_when_no_material": True,
+            "export_all_vertex_colors": True,
+            "export_image_format": "NONE"
+        }
+    
+    elif format == 'FBX':
+        return {
+            "use_selection": False,
+            "use_active_collection": False,
+            "bake_anim": False,
+            "use_custom_props": True,
+            "use_triangles": False,
+            "add_leaf_bones": False,
+            "use_mesh_modifiers": False,
+            "use_visible": True,
+        }
+    
+    elif format == 'MDL':
+        return get_studio_props().model.get_flags()
+        
 class FileExport:
     def __init__(self, file_path: Path, file_format: str, logger: YetAnotherLogger=None, batch=False):
         self.logger      = logger
@@ -76,8 +115,7 @@ class FileExport:
  
     def export_template(self):
         global _export_stats
-        export_settings = self._get_export_settings()
-    
+
         try:
             mesh_handler = SceneHandler(logger=self.logger, batch=self.batch)
 
@@ -91,21 +129,36 @@ class FileExport:
                 self.logger.last_item = None
 
             if self.file_format == 'GLTF':
-                bpy.ops.export_scene.gltf(filepath=str(self.file_path) + ".gltf", **export_settings)
+                bpy.ops.export_scene.gltf(
+                                    filepath=str(self.file_path) + ".gltf", 
+                                    **get_export_settings('GLTF')
+                                )
+
             elif self.file_format == 'FBX' or self.tt_mdl:
-                bpy.ops.export_scene.fbx(filepath=str(self.file_path) + ".fbx", **export_settings)
+                bpy.ops.export_scene.fbx(
+                                    filepath=str(self.file_path) + ".fbx", 
+                                    **get_export_settings('FBX')
+                                )
+                
                 if self.file_format == 'MDL':
                     if self.logger:
                         self.logger.log(f"Converting to MDL...", 2)
                     consoletools_mdl(
-                            str(self.file_path), 
+                            str(self.file_path),
+                            export_obj, 
                             get_prefs().export.textools_dir,
                             get_window_props().file.io.export_xiv_path.strip()
                         )
             else:
                 if self.logger:
                     self.logger.log(f"Converting to MDL...", 2)
-                _export_stats = ModelExport.export_scene(export_obj, str(self.file_path) + ".mdl", self.logger)
+                _export_stats = ModelExport.export_scene(
+                                                export_obj, 
+                                                str(self.file_path) + ".mdl",
+                                                get_studio_props().model.use_lods,
+                                                logger=self.logger,
+                                                **get_export_settings('MDL')
+                                            )
         
         except Exception as e:
             raise e
@@ -114,40 +167,3 @@ class FileExport:
             if mesh_handler:
                 mesh_handler.restore_meshes()
         
-    def _get_export_settings(self) -> dict[str, str | int | bool]:
-        if self.file_format == 'GLTF':
-            return {
-                "export_format": "GLTF_SEPARATE", 
-                "export_texture_dir": "GLTF Textures",
-                "use_selection": False,
-                "use_active_collection": False,
-                "export_animations": False,
-                "export_extras": True,
-                "export_leaf_bone": False,
-                "export_apply": True,
-                "use_visible": True,
-                "export_morph_normal": False,
-                "export_try_sparse_sk": False,
-                "export_attributes": True,
-                "export_normals": True,
-                "export_tangents": True,
-                "export_skins": True,
-                "export_influence_nb": 8,
-                "export_active_vertex_color_when_no_material": True,
-                "export_all_vertex_colors": True,
-                "export_image_format": "NONE"
-            }
-        
-        elif self.file_format == 'FBX' or self.tt_mdl:
-            return {
-                "use_selection": False,
-                "use_active_collection": False,
-                "bake_anim": False,
-                "use_custom_props": True,
-                "use_triangles": False,
-                "add_leaf_bones": False,
-                "use_mesh_modifiers": False,
-                "use_visible": True,
-            }
-
-    

@@ -21,7 +21,16 @@ USHORT_LIMIT = np.iinfo(ushort).max
 
 class MeshHandler:
 
-    def __init__(self, model: XIVModel, lod_bones: list[str], mesh_idx: int=0, idx_offset: int=0, stream_offset: int=0, shape_value_count: int=0, logger: YetAnotherLogger=None):
+    def __init__(
+            self, 
+            model            : XIVModel, 
+            lod_bones        : list[str],
+            mesh_idx         : int = 0, 
+            idx_offset       : int = 0, 
+            stream_offset    : int = 0, 
+            shape_value_count: int = 0, 
+            logger           : YetAnotherLogger = None):
+        
         self.model     = model
         self.idx       = mesh_idx
         self.lod_bones = lod_bones
@@ -49,7 +58,11 @@ class MeshHandler:
         
         self.mesh.submesh_index       = len(self.model.submeshes)
         self.mesh.bone_table_idx      = lod_level
-        self.mesh.vertex_stream_count = 2 
+        self.mesh.vertex_stream_count = 2
+        try:
+            self.mesh.material_idx    = self._get_material_idx(blend_objs[0]["xiv_material"]) 
+        except:
+            raise XIVMeshError(f"Mesh #{self.idx} is missing its material path.")
 
         vert_decl = VertexDeclaration.from_blend_mesh(blend_objs)
         self.model.vertex_declarations.append(vert_decl)
@@ -59,18 +72,17 @@ class MeshHandler:
         
         vert_offset = 0
         self.shape_arrays: dict[str, list[tuple[NDArray, dict[int, NDArray]]]] = defaultdict(list)
-        for submesh_idx, obj in enumerate(blend_objs):
+        for obj in blend_objs:
             if self.logger:
                 self.logger.last_item = f"{obj.name}"
                 self.logger.log(f"Processing {obj.name}...", 4)
 
-            if submesh_idx == 0:
-                self.mesh.material_idx = self._get_material_idx(obj)
-            if len(obj.data.vertices) == 0:
+            submesh_vert_count = len(obj.data.vertices)
+            if submesh_vert_count == 0:
                 continue
 
             self._create_submesh(obj, vert_decl, vert_offset, mesh_geo, mesh_tex)
-            vert_offset += len(obj.data.vertices)
+            vert_offset             += submesh_vert_count
             self.mesh.submesh_count += 1
         
         if self.logger:
@@ -100,8 +112,8 @@ class MeshHandler:
         self.vert_buffers.append(mesh_streams[0])
         self.vert_buffers.append(mesh_streams[1])
 
-    def _get_material_idx(self, submesh: Object) -> int:
-        material_name = clean_material_name(submesh.material_slots[0].name)
+    def _get_material_idx(self, material: str) -> int:
+        material_name = clean_material_name(material)
 
         if material_name in self.model.materials:
             material_idx = self.model.materials.index(material_name)

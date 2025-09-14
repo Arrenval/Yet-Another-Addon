@@ -60,7 +60,6 @@ class Attributes(Operator):
 
     def execute(self, context):
         obj: Object = bpy.data.objects[self.obj]
-        context.view_layer.objects.active = obj
 
         if self.attr == "NEW":
             if self.custom:

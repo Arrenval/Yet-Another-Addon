@@ -1,20 +1,19 @@
 import sqlite3
 import subprocess
 
-from pathlib           import Path
+from pathlib     import Path
+from bpy.types   import Object
 
-from .scene            import get_mesh_ids
-from .validators       import clean_material_name
-from .....mesh.objects import visible_meshobj
+from .scene      import get_mesh_ids
+from .validators import clean_material_name
 
 
-def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
-        visible    = visible_meshobj()
+def get_mesh_props(blend_obj: list[Object]) -> tuple[dict[str, str], dict[int, str]]:
         attributes = {}
         materials  = {}
 
-        for obj in visible:
-            obj_attr = []
+        for obj in blend_obj:
+            obj_attr    = []
             group, part = get_mesh_ids(obj)
 
             for attr in obj.keys():
@@ -26,12 +25,12 @@ def get_mesh_props() -> tuple[dict[str, str], dict[int, str]]:
             attributes[obj.name] = ",".join(obj_attr)
 
             if part == 0:
-                materials[group] = clean_material_name(obj.material_slots[0].name)
+                materials[group] = clean_material_name(obj["xiv_material"])
 
         return attributes, materials
 
-def update_database(db_path: str) -> None:
-    attributes, materials = get_mesh_props()
+def update_database(db_path: str, blend_obj: list[Object]) -> None:
+    attributes, materials = get_mesh_props(blend_obj)
 
     try:
         conn   = sqlite3.connect(db_path)
@@ -55,7 +54,7 @@ def update_database(db_path: str) -> None:
         if conn:
             conn.close()
 
-def consoletools_mdl(file_path: str, textools_dir: str, export_xiv_path: str):
+def consoletools_mdl(file_path: str, blend_obj: list[Object], textools_dir: str, export_xiv_path: str):
     textools      = Path(textools_dir)
     converter_dir = textools / "converters" / "fbx"
     fbx_path      = file_path + ".fbx"
@@ -68,7 +67,7 @@ def consoletools_mdl(file_path: str, textools_dir: str, export_xiv_path: str):
         cwd=converter_dir
     )
     
-    update_database(str(db_path))
+    update_database(str(db_path), blend_obj)
     
     subprocess.run(
         [

@@ -46,8 +46,7 @@ class ModelFlags1(Flag):
     SHADOW_DISABLED             = 0x01
 
 class ModelFlags2(Flag):
-    # TT refers to this as HasBonelessParts, possibly used for furniture
-    STATIC_MESH                 = 0x80 
+    STATIC_MESH                 = 0x80 # TT refers to this as HasBonelessParts, possibly used for furniture
     BG_UV_SCROLL_ENABLED        = 0x40
     ENABLE_FORCE_NON_RESIDENT   = 0x20
     EXTRA_LOD_ENABLED           = 0x10
@@ -58,11 +57,11 @@ class ModelFlags2(Flag):
 
 # Taken from TT, not tested
 class ModelFlags3(Flag):
-    UNKNOWN3                    = 0x80 
-    UNKNOWN4                    = 0x40
-    UNKNOWN5                    = 0x20
-    UNKNOWN6                    = 0x10
-    UNKNOWN7                    = 0x08
+    UNKNOWN8                    = 0x80 
+    UNKNOWN7                    = 0x40
+    UNKNOWN6                    = 0x20
+    UNKNOWN5                    = 0x10
+    UNKNOWN4                    = 0x08
     USE_CREST_CHANGE            = 0x04
     USE_MATERIAL_CHANGE         = 0x02
-    UNKNOWN8                    = 0x01
+    UNKNOWN3                    = 0x01

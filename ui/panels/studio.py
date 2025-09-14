@@ -6,6 +6,9 @@ from collections import Counter
 from ..draw      import aligned_row, get_conditional_icon, ui_category_buttons, show_ui_button
 from ...props    import get_studio_props, get_devkit_props, get_window_props, get_devkit_win_props, get_xiv_meshes
 
+from ...mesh.objects             import visible_meshobj
+from ...xiv.formats.model.vertex import XIV_COL, XIV_UV
+
 
 class MeshStudio(Panel):
     bl_idname = "VIEW3D_PT_YA_MeshStudio"
@@ -52,6 +55,13 @@ class MeshStudio(Panel):
 
     def draw_overview(self, layout:UILayout):
         
+        def sorted_lods(mesh_data: list[tuple[Object, int, str, list[str]]]) -> tuple[list[tuple[Object, int, str, list[str]]], ...]:
+            lods = [[], [], []]
+            for obj, submesh, lod, name, props in mesh_data:
+                lods[lod].append((obj, submesh, lod, name, props))
+            
+            return lods[0], lods[1], lods[2]
+
         def draw_name(obj: Object, name: str, mesh_idx: int, subrow: UILayout) -> None:
             if mesh_idx:
                 op = subrow.operator("ya.overview_group", 
@@ -115,6 +125,18 @@ class MeshStudio(Panel):
             op.attr = "NEW"
             op.obj  = obj.name
 
+        def draw_lods(layout: UILayout, lod_data: list[tuple[Object, int, int, int, str, list[str]]])-> None:
+            mesh_col  = layout.column(align=True)
+            conflicts = get_submesh_conflicts(lod_data)
+            for obj, submesh, lod, name, props in lod_data:
+                if obj is None:
+                    continue
+                conflict = True if submesh in conflicts else False
+                obj_row  = mesh_col.row(align=True).split(factor=0.3, align=True)
+                draw_name(obj, name, mesh_idx, obj_row.row(align=True))
+                draw_submesh(obj, submesh, obj_row.row(align=True), conflict)
+                draw_attr(obj, props, obj_row.row(align=True))
+
         def draw_flags(layout: UILayout, model_flags: list[str]) -> None:
             col_row  = layout.row(align=True)
             flag_col = [col_row.column(align=True) for _ in range(2)]
@@ -123,13 +145,14 @@ class MeshStudio(Panel):
                 icon = get_conditional_icon(getattr(self.outfit_props.model, flag))
                 col.prop(self.outfit_props.model, flag, icon=icon)
 
-        def get_submesh_conflicts(obj_data) -> set[int]:
-            submeshes = [submesh for obj, submesh, name, uv_count, col_count, props in obj_data if obj is not None]
+        def get_submesh_conflicts(mesh_data: list[tuple[Object, int, str, list[str]]]) -> set[int]:
+            submeshes = [obj_data[1] for obj_data in mesh_data if obj_data[0] is not None]
             counts    = Counter(submeshes)
             return {submesh for submesh, count in counts.items() if count > 1}
         
         columns = ["OBJECT", "PART", "ATTR"]
-        meshes, triangles = get_xiv_meshes()
+        meshes  = get_xiv_meshes(visible_meshobj())
+        model   = self.outfit_props.model
          
         box         = layout.box()
         header_row  = box.row(align=True).split(factor=0.3)
@@ -144,8 +167,13 @@ class MeshStudio(Panel):
             
         layout.separator(type="SPACE", factor=0.2)
 
-        for mesh_idx, obj_data in enumerate(meshes):
-            vertices  = sum([len(obj.data.vertices) for obj, submesh, name, uv_count, col_count, props in obj_data if obj is not None])
+        triangles = 0
+        for mesh_idx, mesh_data in enumerate(meshes):
+            lod0, lod1, lod2 = sorted_lods(mesh_data)
+            vertices         = sum([len(obj_tuple[0].data.vertices) 
+                                    for obj_tuple in lod0 
+                                    if obj_tuple[0] is not None])
+            
             mesh_box  = layout.box()
 
             row = mesh_box.row(align=True).split(factor=0.25)
@@ -162,31 +190,45 @@ class MeshStudio(Panel):
 
             mesh_box.separator(type="LINE", factor=0.2)
             mesh_col  = mesh_box.column(align=True)
-            conflicts = get_submesh_conflicts(obj_data)
+            conflicts = get_submesh_conflicts(lod0)
 
             uvs  = 0
             cols = 0
-            for obj, submesh, name, uv_count, col_count, props in obj_data:
+            for obj, submesh, lod, name, props in lod0:
                 if obj is None:
                     continue
+                triangles += len(obj.data.loop_triangle_polygons)
                 conflict = True if submesh in conflicts else False
-                uvs  = max(uv_count, uvs)
-                cols = max(col_count, cols)
+
+                uvs  = min(2, len([layer for layer in obj.data.color_attributes 
+                                    if layer.name.lower().startswith(XIV_COL)]))
+    
+                cols = min(3, len([layer for layer in obj.data.uv_layers 
+                                    if layer.name.lower().startswith(XIV_UV)]))
+
                 obj_row  = mesh_col.row(align=True).split(factor=0.3, align=True)
                 draw_name(obj, name, mesh_idx, obj_row.row(align=True))
                 draw_submesh(obj, submesh, obj_row.row(align=True), conflict)
                 draw_attr(obj, props, obj_row.row(align=True))
+            
+            if model.use_lods:
+                if lod1 or lod2:
+                    mesh_box.separator(type="LINE", factor=0.5)
+                if lod1:
+                    draw_lods(mesh_box, lod1)
+                if lod2:
+                    draw_lods(mesh_box, lod2)
             
             mesh_box.separator(type="LINE", factor=0.5)
             
             row = mesh_box.row(align=True).split(factor=0.25)
             row.alignment = 'RIGHT'
             row.label(text=f"Material:")
-            if mesh_idx >= len(self.outfit_props.model.meshes):
+            if mesh_idx >= len(model.meshes):
                 op      = row.operator("ya.mesh_material", text="Add Material")
                 op.mesh = mesh_idx
             else:
-                row.prop(self.outfit_props.model.meshes[mesh_idx], "material", text="")
+                row.prop(model.meshes[mesh_idx], "material", text="")
 
             if not any((uvs, cols)):
                 mesh_box.separator(type="LINE", factor=0.5)
@@ -213,8 +255,13 @@ class MeshStudio(Panel):
             return
         
         options_box.separator(type="LINE", factor=0.5)
-        model_flags = list(self.outfit_props.model.get_flags().keys())
 
+        icon = get_conditional_icon(getattr(self.outfit_props.model, "use_lods"))
+        aligned_row(options_box, "LODs:", "use_lods", self.outfit_props.model, prop_str="Export", attr_icon=icon)
+
+        options_box.separator(type="LINE", factor=0.5)
+
+        model_flags = list(self.outfit_props.model.get_flags().keys())
         draw_flags(options_box, model_flags[:8])
         
         if not show_ui_button(options_box, self.window_props, "button_otherflags_expand", "Other Options")[0]:

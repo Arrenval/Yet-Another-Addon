@@ -2,7 +2,7 @@ import os
 import bpy
 import platform
 
-from typing         import TYPE_CHECKING
+from typing         import TYPE_CHECKING, Literal
 from bpy.types      import AddonPreferences, PropertyGroup, Context, UILayout
 from bpy.props      import StringProperty, BoolProperty, CollectionProperty, EnumProperty, PointerProperty
      
@@ -169,7 +169,7 @@ class ExportPrefs(PropertyGroup):
         display_dir        : str
         output_dir         : str
         textools_dir       : str
-        mdl_export         : str
+        mdl_export         : Literal['BLENDER', 'TT']
         consoletools_status: bool
 
 class YetAnotherPreference(AddonPreferences):

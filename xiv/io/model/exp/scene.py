@@ -57,11 +57,10 @@ def prepare_submeshes(export_obj: list[Object], model_attributes: list[str], lod
         split_seams(obj)
         mesh_dict[group][part] = obj
 
-    sorted_meshes = [submesh_dict for mesh_idx, submesh_dict in sorted(mesh_dict.items(), key=lambda x: x[0])]
-
+    mesh_indices = sorted(mesh_dict.keys())
     final_sort: list[list[Object]] = []
-    for submesh_dict in sorted_meshes:
-        sorted_submeshes = [obj for submesh_idx, obj in sorted(submesh_dict.items(), key=lambda x: x[0])]
+    for mesh_idx in mesh_indices:
+        sorted_submeshes = [obj for submesh_idx, obj in sorted(mesh_dict[mesh_idx].items(), key=lambda x: x[0])]
         final_sort.append(sorted_submeshes)
     
     return final_sort

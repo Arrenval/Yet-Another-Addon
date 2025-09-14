@@ -9,7 +9,7 @@ from collections          import defaultdict
 from collections.abc      import Iterable 
 
 from ..logging           import YetAnotherLogger
-from ....props           import get_window_props, get_devkit_props         
+from ....props           import get_window_props, get_devkit_props, get_studio_props, get_xiv_meshes   
 from ....preferences     import get_prefs        
 from ....mesh.shapes     import get_shape_mix
 from .com.exceptions     import XIVMeshParentError
@@ -271,6 +271,7 @@ class SceneHandler:
         for obj in self.meshes:
             obj.hide_set(state=True)
         
+        self._set_mesh_props(dupes)
         return dupes
 
     def handle_transparency(self, transparency: list[Object]) -> dict[Object, Object]:
@@ -458,6 +459,22 @@ class SceneHandler:
 
         return tuple(excluded_groups)
 
+    def _set_mesh_props(self, dupes: list[Object]) -> None:
+        model  = get_studio_props().model
+        meshes = get_xiv_meshes(dupes)  
+        for idx, mesh_data in enumerate(meshes):
+            try:
+                mesh_props = model.meshes[idx]
+            except:
+                continue
+            
+            flow     = mesh_props.flow
+            material = mesh_props.get_material()
+            for obj_data in mesh_data:
+                obj = obj_data[0]
+                obj["xiv_flow"]     = flow
+                obj["xiv_material"] = material
+
     def restore_meshes(self) -> None:
         """We're trying a lot."""
         if self.logger:
@@ -482,5 +499,3 @@ class SceneHandler:
                     self.logger.log_exception(f"Error updating view layer: {e}")
             else:
                 print(f"Error updating view layer: {e}")
-
- 
