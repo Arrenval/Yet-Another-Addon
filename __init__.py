@@ -56,7 +56,7 @@ def register():
     preferences.register_menus()
 
     props.set_handlers()
-    bpy.types.Scene.ya_addon_ver = (0, 23, 1)
+    bpy.types.Scene.ya_addon_ver = (0, 23, 2)
     
 
 def unregister():
