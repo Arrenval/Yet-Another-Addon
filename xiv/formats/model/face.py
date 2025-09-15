@@ -35,16 +35,18 @@ class NeckMorph:
         for idx in self.bone_idx:
             file.write(pack('<B', idx))
 
+# Unclear what this data represents. Likely not a vector at all.
+# Sign is always 0 (except the first one), xy are usually small values around -0.006 - 0.006, z is around ~1.5.
 @dataclass
-class ShadowNormal:
+class ShadowData:
     vector: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
-    sign  : float       = 0.0
+    sign  : int         = 0
 
     @classmethod
-    def from_bytes(cls, reader: BinaryReader) -> 'ShadowNormal':
+    def from_bytes(cls, reader: BinaryReader) -> 'ShadowData':
         data = cls()
         data.vector = reader.read_array(3, 'f')
-        data.sign   = reader.read_float()
+        data.sign   = reader.read_uint32()
 
         return data
     
@@ -52,7 +54,4 @@ class ShadowNormal:
         for value in self.vector:
             file.write(pack('<f', value))
         
-        file.write(pack('<f', self.sign))
-    
-    def is_empty(self) -> bool:
-        return (sum(self.vector) + self.sign) == 0
+        file.write(pack('<I', self.sign))

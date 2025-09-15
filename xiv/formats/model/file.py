@@ -1,6 +1,6 @@
 
 from io           import BytesIO
-from numpy        import ushort, array
+from numpy        import ushort, single, empty
 from struct       import pack
 from typing       import List
 from dataclasses  import dataclass, field
@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 from .lod         import Lod, ExtraLod
 from .bbox        import BoundingBox
 from .mesh        import Mesh, Submesh, TerrainShadowMesh, TerrainShadowSubMesh
-from .face        import NeckMorph, ShadowNormal
+from .face        import NeckMorph, ShadowData
 from .enums       import ModelFlags2
 from ..utils      import BinaryReader, write_padding
 from .shapes      import Shape, ShapeMesh
@@ -116,12 +116,13 @@ class XIVModel:
 
         self.shapes                  : list[Shape]                = []
         self.shape_meshes            : list[ShapeMesh]            = []
-        # We use numpy for efficiency, the python class can still be found in the Shapes module
-        self.shape_values            : NDArray[ushort]            = array([], dtype=shape_value_dtype)
+        # We use numpy for efficiency, the python class can still be found in the "shapes" module
+        self.shape_values            : NDArray[ushort]            = empty(0, dtype=shape_value_dtype)
 
         self.submesh_bonemaps        : list[int]                  = [] #ushort
         self.neck_morphs             : list[NeckMorph]            = []
-        self.shadow_data             : list[ShadowNormal]         = []
+        # We use numpy for efficiency, the python class can still be found in the "face" module
+        self.shadow_data             : NDArray[single]            = empty((0, 4), dtype=single)
 
         self.bounding_box                           = BoundingBox()
         self.mdl_bounding_box                       = BoundingBox()
@@ -232,7 +233,7 @@ class XIVModel:
         model.submesh_bonemaps = reader.read_array(submesh_bonemap_size // 2, format_str='H')
 
         model.neck_morphs      = [NeckMorph.from_bytes(reader) for _ in range (model.mesh_header.neck_morph_count)]
-        model.shadow_data      = [ShadowNormal.from_bytes(reader) for _ in range (model.mesh_header.shadow_data_count)]
+        model.shadow_data      = reader.read_to_ndarray(single, model.mesh_header.shadow_data_count * 4).reshape(-1, 4)
 
         padding     = reader.read_byte()
         reader.pos += padding
