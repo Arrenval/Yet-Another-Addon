@@ -46,7 +46,7 @@ def get_xiv_meshes(objs: list[Object]) -> list[list[tuple[Object, int, str, list
                 name_parts.pop()
             name = name_parts[:-1]
         else:
-            return None, None, None
+            return None, None, None, None
         
         mesh       = int(mesh_id.split(".")[0])
         submesh    = int(mesh_id.split(".")[1])

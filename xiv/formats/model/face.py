@@ -8,10 +8,10 @@ from ..utils      import BinaryReader
 
 @dataclass
 class NeckMorph:
-    positions  : List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
-    UNKNOWN1   : int         = 0x00006699
-    normals    : List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
-    bone_idx   : List[int]   = field(default_factory=lambda: [0, 0, 0, 0])
+    positions: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    UNKNOWN1 : int         = 0x00006699
+    normals  : List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    bone_idx : List[int]   = field(default_factory=lambda: [0, 0, 0, 0])
 
     @classmethod
     def from_bytes(cls, reader: BinaryReader) -> 'NeckMorph':
@@ -21,7 +21,6 @@ class NeckMorph:
         morph.normals   = reader.read_array(3, 'f')
         morph.bone_idx  = reader.read_array(4, 'B')
 
-        print(morph)
         return morph
     
     def write(self, file: BytesIO) -> 'NeckMorph':

@@ -1,4 +1,3 @@
-from enum              import Enum
 from typing            import TYPE_CHECKING, Literal
 from pathlib           import Path
 from itertools         import chain
@@ -6,30 +5,11 @@ from bpy.types         import PropertyGroup, Context
 from bpy.props         import StringProperty, EnumProperty, CollectionProperty, BoolProperty, IntProperty
 from collections.abc   import Iterable
 
+from .enums            import get_racial_enum
 from .getters          import get_file_props, get_window_props
 from ..utils.typings   import BlendEnum
 from ..xiv.formats.pmp import Modpack
 
-
-class RacialCodes(Enum):
-    Middie_M = '0101'
-    Middie_F = '0201'
-    High_M   = '0301'
-    High_F   = '0401'
-    Elezen_M = '0501'
-    Elezen_F = '0601'
-    Miqo_M   = '0701'
-    Miqo_F   = '0801'
-    Roe_M    = '0901'
-    Roe_F    = '1001'
-    Lala_M   = '1101'
-    Lala_F   = '1201'
-    Aura_M   = '1301'
-    Aura_F   = '1401'
-    Hroth_M  = '1501'
-    Hroth_F  = '1601'
-    Viera_M  = '1701'
-    Viera_F  = '1801'
 
 def modpack_data() -> None:
     window = get_window_props()
@@ -124,17 +104,6 @@ def yet_another_sort(files:list[Path]) -> list[Path]:
         final_sort.append(tuples[0])
 
     return final_sort
-
-def get_racial_enum(optional=True) -> BlendEnum:
-    items = [('', "Unspecified:", ""), ('0', "None", ""), ('', "MALE:", "")] if optional else [('', "MALE:", "")]
-    items.extend([(race.value , race.name.replace("_", " "), "") for race in RacialCodes if race.name.endswith('_M')])
-    items.append(('', "FEMALE:", ""))
-    items.extend([(race.value , race.name.replace("_", " "), "") for race in RacialCodes if race.name.endswith('_F')])
-    return items
-
-def get_racial_name(race_code: str) -> str:
-    code_to_name = {race.value: race.name.replace("_", " ") for race in RacialCodes}
-    return code_to_name[race_code]
 
 
 class ModpackHelper(PropertyGroup):
