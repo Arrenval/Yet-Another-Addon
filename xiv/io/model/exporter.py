@@ -7,7 +7,10 @@ from collections      import defaultdict
 from ..logging        import YetAnotherLogger
 from .exp.mesh        import MeshHandler
 from .exp.scene       import prepare_submeshes
-from ...formats.model import XIVModel, Mesh as XIVMesh, BoneTable, Lod, ShapeMesh, ModelFlags1, ModelFlags2, ModelFlags3
+from .com.exceptions  import XIVMeshError
+from ...formats.model import (XIVModel, Mesh as XIVMesh, 
+                              BoneTable, Lod, ShapeMesh, NeckMorph,
+                              ModelFlags1, ModelFlags2, ModelFlags3)
 
 
 class ModelExport:
@@ -23,17 +26,25 @@ class ModelExport:
     @classmethod
     def export_scene(
                 cls, 
-                export_obj: list[Object], 
-                file_path: str,
-                export_lods: bool, 
-                logger: YetAnotherLogger=None, 
+                export_obj : list[Object], 
+                file_path  : str,
+                export_lods: bool,
+                neck_morphs: list[tuple[list[float], list[float]]], 
+                logger     : YetAnotherLogger=None, 
                 **model_flags
             ) -> dict[str, list[str]]:
         
         exporter = cls(logger=logger, **model_flags)
-        return exporter.create_model(export_obj, file_path, export_lods)
+        return exporter.create_model(export_obj, file_path, export_lods, neck_morphs)
 
-    def create_model(self, export_obj: list[Object], file_path: str, export_lods: bool) -> dict[str, list[str]]:
+    def create_model(
+                self, 
+                export_obj : list[Object], 
+                file_path  : str, 
+                export_lods: bool, 
+                neck_morphs: list[tuple[list[float], list[float]]]
+                ) -> dict[str, list[str]]:
+        
         origin  = 0.0
         max_lod = 3 if export_lods else 1
 
@@ -53,6 +64,9 @@ class ModelExport:
         self.model.bounding_box        = self.model.mdl_bounding_box.copy()
         self.model.bounding_box.min[1] = origin
         self.model.mesh_header.radius  = self.model.bounding_box.radius()
+
+        if neck_morphs:
+            self._add_neck_morph(neck_morphs)
 
         self._set_flags()
         self.model.to_file(file_path)
@@ -240,3 +254,18 @@ class ModelExport:
         for flag in ModelFlags3:
             if self.model_flags.get(flag.name.lower(), False):
                 self.model.mesh_header.flags3 |= flag
+
+    def _add_neck_morph(self, neck_morphs: list[tuple[list[float], list[float]]]) -> None:
+        try:
+            kubi = self.model.bones.index("j_kubi")
+            sebo = self.model.bones.index("j_sebo_c")
+        except:
+            raise XIVMeshError("Couldn't create neck morph data. Missing 'j_kubi' or 'j_sebo_c'.")
+        
+        for pos, normals in neck_morphs:
+            morph = NeckMorph()
+            morph.normals   = normals
+            morph.positions = pos
+            morph.bone_idx  = [kubi, sebo, 0, 0]
+            self.model.neck_morphs.append(morph)
+            

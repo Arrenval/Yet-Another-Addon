@@ -24,7 +24,6 @@ class NeckMorph:
         return morph
     
     def write(self, file: BytesIO) -> 'NeckMorph':
-        
         for pos in self.positions:
             file.write(pack('<f', pos))
         
@@ -57,5 +56,3 @@ class ShadowNormal:
     
     def is_empty(self) -> bool:
         return (sum(self.vector) + self.sign) == 0
-
-

@@ -258,6 +258,7 @@ class MeshStudio(Panel):
 
         icon = get_conditional_icon(getattr(self.outfit_props.model, "use_lods"))
         aligned_row(options_box, "LODs:", "use_lods", self.outfit_props.model, prop_str="Export", attr_icon=icon)
+        aligned_row(options_box, "Neck Morph:", "neck_morph", self.outfit_props.model)
 
         options_box.separator(type="LINE", factor=0.5)
 

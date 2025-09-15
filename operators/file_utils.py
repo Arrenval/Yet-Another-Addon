@@ -1,9 +1,13 @@
 import os
+import bpy
+import json
 import tempfile
 
+from math                import pi
 from pathlib             import Path
 from bpy.types           import Operator
 from bpy.props           import BoolProperty
+from collections         import defaultdict
  
 from ..props             import get_window_props
 from ..xiv.io.model      import ModelImport 
@@ -61,6 +65,36 @@ def compare_binaries(original_path: str, written_path: str, context_bytes: int=3
                 marker = ""
                 
             print(f"0x{addr:06X}  {orig_hex:<31}  {written_hex:<31}{marker}")
+
+def save_neck_morph(model: XIVModel, json_folder: Path, race: str, create_mesh: bool=False):
+    file_name = "neck_morph.json"
+    try:
+        with open(json_folder / file_name, 'r') as file:
+            neck_morphs = json.load(file)
+    except:
+        neck_morphs = defaultdict(list)
+
+    morph_data = []
+    for idx, morph in enumerate(model.neck_morphs):
+        morph_data.append(
+                            {"positions": morph.positions,
+                             "normals"  : morph.normals
+                            }
+                        )
+    
+    neck_morphs[race] = morph_data
+    with open(json_folder / file_name, 'w') as file:
+        file.write(json.dumps(neck_morphs, indent=4))
+    
+    if create_mesh:
+        mesh = bpy.data.meshes.new("morph")
+        mesh.vertices.add(len(model.neck_morphs))
+        for idx, morph in enumerate(model.neck_morphs):
+            mesh.vertices[idx].co = morph.positions
+
+        obj = bpy.data.objects.new("Morph", mesh)
+        obj.rotation_euler.x = pi / 2
+        bpy.context.collection.objects.link(obj)
 
 class FileRoundtrip(Operator):
     bl_idname = "ya.file_roundtrip"

@@ -6,6 +6,7 @@ from bpy.types       import PropertyGroup, Object, Context
 from bpy.props       import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
 from collections.abc import Iterable
 
+from .enums          import get_racial_enum
 from .window         import YAWindowProps
 from .getters        import get_window_props, get_devkit_props, get_xiv_meshes
 from ..mesh.objects  import visible_meshobj
@@ -71,9 +72,15 @@ class MeshProps(PropertyGroup):
         flow    : bool
 
 class ModelProps(PropertyGroup):
-    meshes  : CollectionProperty(type=MeshProps) # type: ignore
-    use_lods: BoolProperty(name="Export LODs", default=False, description="Export Level of Detail models") # type: ignore
-
+    meshes    : CollectionProperty(type=MeshProps) # type: ignore
+    use_lods  : BoolProperty(name="Export LODs", default=False, description="Export Level of Detail models") # type: ignore
+    neck_morph: EnumProperty(
+                    name= "",
+                    default=1,
+                    description= "For face models. Select a race's neck morph data to use",
+                    items=lambda self, context: get_racial_enum()
+                    ) # type: ignore
+    
     shadow_disabled            : BoolProperty(name="Disable Shadows", default=False, description="Disable shadow casting for this model") # type: ignore
     light_shadow_disabled      : BoolProperty(name="Disable Light/Shadow", default=False, description="Unknown") # type: ignore
     waving_animation_disabled  : BoolProperty(name="Disable Waving Anim", default=True,  description="Disable waving animation") # type: ignore

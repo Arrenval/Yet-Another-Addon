@@ -1,13 +1,14 @@
 import bpy
 
-from pathlib          import Path
-from bpy.types        import Context, UILayout
-
-from .objects         import visible_meshobj
-from ..preferences    import get_prefs
-from ..xiv.io.model   import ModelExport, SceneHandler, consoletools_mdl
-from ..props.getters  import get_window_props, get_studio_props
-from ..xiv.io.logging import YetAnotherLogger
+from pathlib             import Path
+from bpy.types           import Context, UILayout
+   
+from .objects            import visible_meshobj
+from ..preferences       import get_prefs
+from ..xiv.io.model      import ModelExport, SceneHandler, consoletools_mdl
+from ..props.getters     import get_window_props, get_studio_props
+from ..xiv.io.logging    import YetAnotherLogger
+from ..xiv.io.model.data import get_neck_morphs
 
 
 _export_stats: dict[str, list[str]] = {}
@@ -102,9 +103,7 @@ def get_export_settings(format: str) -> dict[str, str | int | bool]:
             "use_visible": True,
         }
     
-    elif format == 'MDL':
-        return get_studio_props().model.get_flags()
-        
+
 class FileExport:
     def __init__(self, file_path: Path, file_format: str, logger: YetAnotherLogger=None, batch=False):
         self.logger      = logger
@@ -152,12 +151,14 @@ class FileExport:
             else:
                 if self.logger:
                     self.logger.log(f"Converting to MDL...", 2)
+                model_props   = get_studio_props().model
                 _export_stats = ModelExport.export_scene(
                                                 export_obj, 
                                                 str(self.file_path) + ".mdl",
-                                                get_studio_props().model.use_lods,
+                                                model_props.use_lods,
+                                                get_neck_morphs(model_props.neck_morph),
                                                 logger=self.logger,
-                                                **get_export_settings('MDL')
+                                                **model_props.get_flags()
                                             )
         
         except Exception as e:
