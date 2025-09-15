@@ -4,8 +4,8 @@ from bpy.types        import Panel, UILayout, Context
 from ..draw           import aligned_row, get_conditional_icon, operator_button
 from ...props         import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
 from ...preferences   import get_prefs
-from ...props.modpack import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry, get_racial_name
-
+from ...props.enums   import RacialCodes
+from ...props.modpack import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry
         
 class FileManager(Panel):
     bl_idname = "VIEW3D_PT_YA_FileManager"
@@ -499,7 +499,7 @@ class FileManager(Panel):
             layout.separator(factor=0.5,type="LINE")
             row = layout.row(align=True)
             row.alignment = "CENTER"
-            row.label(text=f"{Path(self.window_props.modpack_dir).name} is loaded.", icon="INFO")
+            row.label(text=f"{Path(self.window_props.file.modpack.modpack_dir).name} is loaded.", icon="INFO")
 
         elif self.window_props.file.modpack.modpack_replace:
             layout.separator(factor=0.5,type="LINE")
@@ -808,7 +808,7 @@ class FileManager(Panel):
 
             row = aligned_row(
                         phyb_col, 
-                        "XIV Path:" if phyb.race == '0' else f"{get_racial_name(phyb.race).split(' ')[0]}:", 
+                        "XIV Path:" if phyb.race == '0' else f"{RacialCodes(phyb.race).name.replace('_', ' ').split(' ')[0]}:", 
                         "game_path", 
                         phyb
                     )
