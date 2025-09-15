@@ -181,6 +181,10 @@ class MeshMaterial(Operator):
             mesh_idx = len(model_props.meshes)
             mesh     = model_props.meshes.add()
             mesh.idx = mesh_idx
+            
+            material = list(mesh.get_obj_materials())
+            if material:
+                mesh.material = material[0]
 
         return {'FINISHED'}
 

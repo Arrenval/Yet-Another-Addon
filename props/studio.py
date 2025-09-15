@@ -15,6 +15,16 @@ from ..utils.typings import BlendEnum
 
 class MeshProps(PropertyGroup):
 
+    def get_obj_materials(self) -> set[str]:
+        obj_materials = set()
+        for obj_data in get_xiv_meshes(visible_meshobj())[self.idx]:
+            for material in obj_data[0].material_slots:
+                if not material.name.endswith(".mtrl"):
+                    continue
+                obj_materials.add(material.name)
+
+        return obj_materials
+
     def _material_search(self, context: Context, edit_text: str) -> list[str]:
         materials = [
                         "Bibo", "Gen2/Vanilla", "Gen3/TBSE", 
@@ -24,12 +34,7 @@ class MeshProps(PropertyGroup):
                         "Yet Another Piercing", "Yet Another Toenail", "Yet Another Fingernail",
                     ]
         
-        obj_materials = set()
-        for obj_data in get_xiv_meshes(visible_meshobj())[self.idx]:
-            for material in obj_data[0].material_slots:
-                if not material.name.endswith(".mtrl"):
-                    continue
-                obj_materials.add(material.name)
+        obj_materials = self.get_obj_materials()
         
         if obj_materials:
             materials.append("---------------------------",)
