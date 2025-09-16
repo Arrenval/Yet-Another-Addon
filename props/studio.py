@@ -18,10 +18,13 @@ class MeshProps(PropertyGroup):
     def get_obj_materials(self) -> set[str]:
         obj_materials = set()
         for obj_data in get_xiv_meshes(visible_meshobj())[self.idx]:
-            for material in obj_data[0].material_slots:
+            obj = obj_data[0]
+            for material in obj.material_slots:
                 if not material.name.endswith(".mtrl"):
                     continue
                 obj_materials.add(material.name)
+            if "xiv_material" in obj and obj["xiv_material"].strip():
+                obj_materials.add(obj["xiv_material"])
 
         return obj_materials
 
@@ -34,11 +37,11 @@ class MeshProps(PropertyGroup):
                         "Yet Another Piercing", "Yet Another Toenail", "Yet Another Fingernail",
                     ]
         
-        obj_materials = self.get_obj_materials()
-        
+        obj_materials = list(self.get_obj_materials())
         if obj_materials:
-            materials.append("---------------------------",)
-            materials.extend(obj_materials)
+            obj_materials.append("---------------------------",)
+            materials = obj_materials + materials
+            
         return materials
     
     def get_material(self) -> str:

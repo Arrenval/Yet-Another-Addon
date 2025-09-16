@@ -1,10 +1,11 @@
 import re
 import bpy
 
-from bpy.types import Operator, Object
-from bpy.props import StringProperty, IntProperty, EnumProperty, BoolProperty
+from bpy.types      import Operator, Object, UILayout
+from bpy.props      import StringProperty, IntProperty, EnumProperty, BoolProperty
 
-from ..props   import get_studio_props
+from ..props        import get_studio_props, get_xiv_meshes
+from ..mesh.objects import visible_meshobj
 
 
 class Attributes(Operator):
@@ -60,7 +61,7 @@ class Attributes(Operator):
 
     def execute(self, context):
         obj: Object = bpy.data.objects[self.obj]
-
+        
         if self.attr == "NEW":
             if self.custom:
                 self.attr = self.user_input
@@ -68,10 +69,13 @@ class Attributes(Operator):
                 self.attr = self.selection
         
         if self.attr in obj and obj[self.attr]:
+            bpy.context.view_layer.objects.active = obj
             bpy.ops.wm.properties_remove(data_path="object", property_name=self.attr)
         else:
             obj[self.attr] = True
         
+        for area in context.screen.areas:
+            area.tag_redraw()
         return {'FINISHED'}
     
 class ChangeObjectName(Operator):
@@ -99,6 +103,8 @@ class ChangeObjectName(Operator):
         if self.type == "NAME":
             obj.name = f"{self.user_input} {name_parts[-1]}"
 
+        for area in context.screen.areas:
+            area.tag_redraw()
         return {'FINISHED'}
     
 class ChangeGroupPart(Operator):
@@ -164,28 +170,46 @@ class ChangeGroupPart(Operator):
 
         self.name_parts[self.id_index] = f"{self.group if self.group >= 0 else 0}.{self.part if self.part >= 0 else 0}"
         obj.name = " ".join(self.name_parts)
-     
+
+        for area in context.screen.areas:
+            area.tag_redraw()
         return {'FINISHED'}
     
 class MeshMaterial(Operator):
     bl_idname = "ya.mesh_material"
     bl_label = "Material"
-    bl_description = "Tags faces you want to create backfaces for on export"
+    bl_description = "Edit material path of this mesh"
     bl_options = {"UNDO"}
 
     mesh: IntProperty(default=0, options={'HIDDEN', 'SKIP_SAVE'}) # type: ignore
 
-    def execute(self, context):
-        model_props = get_studio_props().model
-        while self.mesh >= len(model_props.meshes):
-            mesh_idx = len(model_props.meshes)
-            mesh     = model_props.meshes.add()
+    def invoke(self, context, event):
+        self.mesh: int
+        self.model_props = get_studio_props().model
+        while self.mesh >= len(self.model_props.meshes):
+            mesh_idx = len(self.model_props.meshes)
+            mesh     = self.model_props.meshes.add()
             mesh.idx = mesh_idx
             
             material = list(mesh.get_obj_materials())
             if material:
                 mesh.material = material[0]
 
+        bpy.context.window_manager.invoke_props_dialog(self, confirm_text="Enter Material Path")
+        return {'RUNNING_MODAL'}
+    
+    def draw(self, context):
+        layout: UILayout = self.layout
+        layout.prop(self.model_props.meshes[self.mesh], "material", text="")
+
+    def execute(self, context):
+        scene_mesh  = get_xiv_meshes(visible_meshobj())[self.mesh]
+        for obj_data in scene_mesh:
+            obj = obj_data[0]
+            obj["xiv_material"] = self.model_props.meshes[self.mesh].material
+
+        for area in context.screen.areas:
+            area.tag_redraw()
         return {'FINISHED'}
 
 

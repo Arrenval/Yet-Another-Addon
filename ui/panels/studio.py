@@ -170,9 +170,9 @@ class MeshStudio(Panel):
         triangles = 0
         for mesh_idx, mesh_data in enumerate(meshes):
             lod0, lod1, lod2 = sorted_lods(mesh_data)
-            vertices         = sum([len(obj_tuple[0].data.vertices) 
-                                    for obj_tuple in lod0 
-                                    if obj_tuple[0] is not None])
+            vertices         = sum([len(obj_data[0].data.vertices) 
+                                    for obj_data in lod0 
+                                    if obj_data[0] is not None])
             
             mesh_box  = layout.box()
 
@@ -221,15 +221,21 @@ class MeshStudio(Panel):
             
             mesh_box.separator(type="LINE", factor=0.5)
             
-            row = mesh_box.row(align=True).split(factor=0.25)
-            row.alignment = 'RIGHT'
-            row.label(text=f"Material:")
             if mesh_idx >= len(model.meshes):
-                op      = row.operator("ya.mesh_material", text="Add Material")
+                op      = mesh_box.operator("ya.mesh_material", text="Add Mesh Properties")
                 op.mesh = mesh_idx
             else:
-                row.prop(model.meshes[mesh_idx], "material", text="")
-
+                obj = lod0[0][0]
+                row = mesh_box.row(align=True).split(factor=0.25)
+                row.alignment = 'RIGHT'
+                row.label(text=f"Material:")
+                if "xiv_material" in obj:
+                    op      = row.operator("ya.mesh_material", text=obj["xiv_material"])
+                    op.mesh = mesh_idx
+                else:
+                    op      = row.operator("ya.mesh_material", text="Add Material")
+                    op.mesh = mesh_idx
+                    
             if not any((uvs, cols)):
                 mesh_box.separator(type="LINE", factor=0.5)
             if not uvs:

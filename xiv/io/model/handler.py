@@ -472,8 +472,9 @@ class SceneHandler:
             material = mesh_props.get_material()
             for obj_data in mesh_data:
                 obj = obj_data[0]
-                obj["xiv_flow"]     = flow
-                obj["xiv_material"] = material
+                obj["xiv_flow"] = flow
+                if "xiv_material" not in obj:
+                    obj["xiv_material"] = material
 
     def restore_meshes(self) -> None:
         """We're trying a lot."""
