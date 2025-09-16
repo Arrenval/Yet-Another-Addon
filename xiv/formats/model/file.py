@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 from .lod         import Lod, ExtraLod
 from .bbox        import BoundingBox
 from .mesh        import Mesh, Submesh, TerrainShadowMesh, TerrainShadowSubMesh
-from .face        import NeckMorph, ShadowData
+from .face        import NeckMorph
 from .enums       import ModelFlags2
 from ..utils      import BinaryReader, write_padding
 from .shapes      import Shape, ShapeMesh
@@ -92,8 +92,12 @@ class XIVModel:
 
     def __init__(self):
         shape_value_dtype = [
-                                ("base_indices_idx",'<u2'), 
+                                ("base_indices_idx", '<u2'), 
                                 ("replace_vert_idx", '<u2')
+                            ]
+        face_data_dtype = [
+                                ("positions", '<f4', (3,)), 
+                                ("sign",      '<u4')
                             ]
 
         self.header         = FileHeader()
@@ -122,7 +126,7 @@ class XIVModel:
         self.submesh_bonemaps        : list[int]                  = [] #ushort
         self.neck_morphs             : list[NeckMorph]            = []
         # We use numpy for efficiency, the python class can still be found in the "face" module
-        self.shadow_data             : NDArray[single]            = empty((0, 4), dtype=single)
+        self.face_data               : NDArray[single]            = empty(0, dtype=face_data_dtype)
 
         self.bounding_box                           = BoundingBox()
         self.mdl_bounding_box                       = BoundingBox()
@@ -233,7 +237,7 @@ class XIVModel:
         model.submesh_bonemaps = reader.read_array(submesh_bonemap_size // 2, format_str='H')
 
         model.neck_morphs      = [NeckMorph.from_bytes(reader) for _ in range (model.mesh_header.neck_morph_count)]
-        model.shadow_data      = reader.read_to_ndarray(single, model.mesh_header.shadow_data_count * 4).reshape(-1, 4)
+        model.face_data        = reader.read_to_ndarray(model.face_data.dtype, model.mesh_header.face_data_count)
 
         padding     = reader.read_byte()
         reader.pos += padding
@@ -347,8 +351,7 @@ class XIVModel:
         for morph in self.neck_morphs:
             morph.write(file)
 
-        for normal in self.shadow_data:
-            normal.write(file)
+        file.write(self.face_data.tobytes())
 
         padding = ((file.tell() + 1) & 0b111)
         if padding > 0:
@@ -419,7 +422,7 @@ class XIVModel:
         self.mesh_header.shape_value_count   = len(self.shape_values)
         self.mesh_header.element_id_count    = len(self.element_ids)
         self.mesh_header.neck_morph_count    = len(self.neck_morphs)
-        self.mesh_header.shadow_data_count   = len(self.shadow_data)
+        self.mesh_header.face_data_count     = len(self.face_data)
 
         self.mesh_header.terrain_shadow_mesh_count    = len(self.terrain_shadow_meshes)
         self.mesh_header.terrain_shadow_submesh_count = len(self.terrain_shadow_submeshes)

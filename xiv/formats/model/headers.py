@@ -101,7 +101,7 @@ class MeshHeader:
     neck_morph_count            : int   = 0              #byte
     bone_table_array_count_total: int   = 0 
     UNKOWN8                     : int   = 0             
-    shadow_data_count           : int   = 0             
+    face_data_count             : int   = 0             
     PADDING                             = 4
 
     @classmethod
@@ -138,7 +138,7 @@ class MeshHeader:
 
         header.bone_table_array_count_total = reader.read_uint16()
         header.UNKOWN8                      = reader.read_uint16()
-        header.shadow_data_count              = reader.read_uint32()
+        header.face_data_count              = reader.read_uint32()
 
         reader.pos += header.PADDING
 
@@ -176,6 +176,6 @@ class MeshHeader:
 
         file.write(pack('<H', self.bone_table_array_count_total))
         file.write(pack('<H', self.UNKOWN8))
-        file.write(pack('<I', self.shadow_data_count))
+        file.write(pack('<I', self.face_data_count))
 
         file.write(write_padding(self.PADDING))

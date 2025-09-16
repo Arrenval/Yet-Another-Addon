@@ -35,23 +35,27 @@ class NeckMorph:
         for idx in self.bone_idx:
             file.write(pack('<B', idx))
 
-# Unclear what this data represents. Likely not a vector at all.
-# Sign is always 0 (except the first one), xy are usually small values around -0.006 - 0.006, z is around ~1.5.
+# Unclear what this is used for, the data is handed off to some game function that seem to generate an in memory texture. 
+# It contains positional data per vertex and a sign.
+# In the models I've looked at the positional data matches the base position of the model.
+# Without a model with any obvious differences it's hard to know what it exactly is used for.
+# It is possible that this is considered as base data before any form of lighting interactions and shape keys are ignored (?).
+# Sign is always 0 (except the first one).
 @dataclass
-class ShadowData:
-    vector: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
-    sign  : int         = 0
+class FaceData:
+    pos : list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    sign: int         = 0
 
     @classmethod
-    def from_bytes(cls, reader: BinaryReader) -> 'ShadowData':
+    def from_bytes(cls, reader: BinaryReader) -> 'FaceData':
         data = cls()
-        data.vector = reader.read_array(3, 'f')
+        data.pos = reader.read_array(3, 'f')
         data.sign   = reader.read_uint32()
 
         return data
     
     def write(self, file: BytesIO) -> None:
-        for value in self.vector:
+        for value in self.pos:
             file.write(pack('<f', value))
         
         file.write(pack('<I', self.sign))
