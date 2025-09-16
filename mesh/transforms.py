@@ -1,3 +1,4 @@
+import bpy
 import numpy as np
 
 from numpy     import single
@@ -7,14 +8,15 @@ from mathutils import Matrix
 
 def apply_transforms(obj: Object, clear_parent: bool=False):
         world_transform = obj.matrix_world.copy()
+        if obj.data is None:
+            return
+        if world_transform == Matrix.Identity(4):
+            return
 
         if clear_parent:
             obj.parent = None
             
-        if world_transform == Matrix.Identity(4):
-            return
-        
-        if not obj.data.shape_keys:
+        if obj.type != 'MESH' or not obj.data.shape_keys:
             obj.data.transform(world_transform)
         else:
             vert_count       = len(obj.data.vertices)
@@ -26,4 +28,9 @@ def apply_transforms(obj: Object, clear_parent: bool=False):
                 pos = (transform_matrix @ pos.T).T[:, :3]
                 key.data.foreach_set("co", pos.flatten())
 
-        obj.matrix_world.identity()
+        if obj.type == 'MESH':
+            obj.data.update()
+        else:
+            obj.update_tag(refresh={"DATA"})
+            bpy.context.view_layer.update()
+        obj.matrix_basis.identity()

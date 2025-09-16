@@ -63,9 +63,10 @@ class SimpleImport(Operator):
         return {"PASS_THROUGH"}
 
     def execute(self, context):
-        bpy.ops.ya.simple_cleanup("EXEC_DEFAULT")
-        setattr(self.props.file.io, "waiting_import", False)
-        bpy.context.view_layer.update()
+        if self.cleanup:
+            bpy.ops.ya.simple_cleanup("EXEC_DEFAULT")
+            setattr(self.props.file.io, "waiting_import", False)
+            bpy.context.view_layer.update()
         return {"FINISHED"}
     
 class SimpleCleanUp(Operator):
@@ -81,15 +82,28 @@ class SimpleCleanUp(Operator):
         return context.mode == "OBJECT"
     
     def execute(self, context):
-        self.window = get_window_props()
-        self.props  = get_file_props()
-        self.prefs  = get_prefs()
+        self.window   = get_window_props()
+        self.props    = get_file_props()
+        self.prefs    = get_prefs()
+        has_armature  = self.props.import_armature is not None
         self.selected = bpy.context.selected_objects
 
         if not self.selected:
             return {"CANCELLED"}
         
-        if self.props.import_armature:
+        if has_armature or self.prefs.remove_nonmesh:
+            for obj in self.selected:
+                if obj.type != 'MESH':
+                    continue
+                parent = obj.parent
+                apply_transforms(obj, clear_parent=True)
+                obj.parent = parent
+            
+            for obj in self.selected:
+                if obj.type == 'ARMATURE':
+                    apply_transforms(obj, clear_parent=True)
+        
+        if has_armature:
             self.fix_parent(self.props.import_armature)
 
         if self.prefs.update_material:
@@ -135,7 +149,6 @@ class SimpleCleanUp(Operator):
             if obj.parent == armature:
                 continue
 
-            apply_transforms(obj, clear_parent=True)
             if armature:
                 obj.parent = armature
                 for modifier in obj.modifiers:
