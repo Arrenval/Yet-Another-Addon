@@ -229,7 +229,7 @@ class ShapeKeyTransfer(Operator):
                 pass
 
             elif self.input_method == "Chest" and self.chest_base != "Large":
-                self.target.data.shape_keys.key_blocks[0].name = self.chest_base.upper()
+                self.target.data.shape_keys.key_blocks[0].name = self.chest_base
 
             elif self.input_method == "Legs" and self.leg_base != "Gen A/Watermelon Crushers":
                 self.target.data.shape_keys.key_blocks[0].name = self.leg_base
@@ -243,7 +243,7 @@ class ShapeKeyTransfer(Operator):
             key_blocks = self.target.data.shape_keys.key_blocks
 
             if self.input_method == "Chest" and self.chest_base != "Large" and driver_source.relative_key.name == "LARGE":
-                target_key.relative_key = key_blocks[self.chest_base.upper()]
+                target_key.relative_key = key_blocks[self.chest_base]
                 
             elif self.input_method == "Legs" and self.leg_base != "Gen A/Watermelon Crushers" and driver_source.relative_key.name == "Gen A/Watermelon Crushers":
                 target_key.relative_key = key_blocks[self.leg_base]
