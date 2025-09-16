@@ -13,18 +13,32 @@ from ..mesh.objects  import visible_meshobj
 from ..utils.typings import BlendEnum
 
 
+XIV_MATERIALS = {
+                    "gen2/vanilla": "/mt_c0101b0001_a.mtrl",
+                    "gen3/tbse"   : "/mt_c0101b0001_b.mtrl",
+                    "bibo"        : "/mt_c0101b0001_bibo.mtrl",
+                    
+                    "bibopube"  : "/mt_c0201b0001_bibopube.mtrl",
+                    "betterpube": "/mt_c0201b0001_betterpube.mtrl",
+
+                    "yet another piercing"  : "/mt_c0201b0001_piercings.mtrl",
+                    "yet another fingernail": "/mt_c0201b0001_yafinger.mtrl",
+                    "yet another toenail"   : "/mt_c0201b0001_yatoe.mtrl",
+                }
+
 class MeshProps(PropertyGroup):
 
     def get_obj_materials(self) -> set[str]:
         obj_materials = set()
         for obj_data in get_xiv_meshes(visible_meshobj())[self.idx]:
             obj = obj_data[0]
+            if "xiv_material" in obj and obj["xiv_material"].strip():
+                obj_materials.add(obj["xiv_material"])
             for material in obj.material_slots:
                 if not material.name.endswith(".mtrl"):
                     continue
                 obj_materials.add(material.name)
-            if "xiv_material" in obj and obj["xiv_material"].strip():
-                obj_materials.add(obj["xiv_material"])
+            
 
         return obj_materials
 
@@ -44,32 +58,27 @@ class MeshProps(PropertyGroup):
             
         return materials
     
-    def get_material(self) -> str:
-        material_dict = {
-                            "gen2/vanilla": "/mt_c0101b0001_a.mtrl",
-                            "gen3/tbse"   : "/mt_c0101b0001_b.mtrl",
-                            "bibo"        : "/mt_c0101b0001_bibo.mtrl",
-                            
-                            "bibopube"  : "/mt_c0201b0001_bibopube.mtrl",
-                            "betterpube": "/mt_c0201b0001_betterpube.mtrl",
+    def _get_material(self):
+        value = self.get("material", "")
+        return value
 
-                            "yet another piercing"  : "/mt_c0201b0001_piercings.mtrl",
-                            "yet another fingernail": "/mt_c0201b0001_yafinger.mtrl",
-                            "yet another toenail"   : "/mt_c0201b0001_yatoe.mtrl",
-                        }
-        
-        mat_lower = self.material.lower()
-        if mat_lower in material_dict:
-            return material_dict[mat_lower]
+    def _set_material(self, material: str) -> None:
+        mat_lower = material.lower()
+        if mat_lower in XIV_MATERIALS:
+            self["material"] = XIV_MATERIALS[mat_lower]
         else:
-            return self.material
-    
+            self["material"] = material
+
     idx     : IntProperty() # type: ignore
     material: StringProperty(
                     name="", 
                     default="", 
-                    description="Path to material", 
-                    search=_material_search
+                    description="Path to material",
+                    get=_get_material, 
+                    set=_set_material,
+                    search=_material_search,
+                    search_options={'SUGGESTION'},
+                    
                 ) # type: ignore
     
     flow    : BoolProperty(default=False, description="Enables anisotropy data, this is used for enhanced hair specularity") # type: ignore
