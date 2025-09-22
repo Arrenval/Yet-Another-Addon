@@ -5,7 +5,7 @@ import bmesh
 from bpy.types import Object
 
 
-def clean_material_name(name: str):
+def clean_material_path(name: str):
     name = re.sub(r'\.\d{3}$', "", name.strip())
     if not name.endswith(".mtrl"):
         name = name + ".mtrl"

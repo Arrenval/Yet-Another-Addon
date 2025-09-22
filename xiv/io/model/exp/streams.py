@@ -5,6 +5,7 @@ from numpy.typing      import NDArray
  
 from .accessors        import *
 from ..com.schema      import get_array_type
+from ..com.helpers     import vector_to_bytes, byte_sign
 from ....formats.model import VertexDeclaration, VertexUsage
 
 
@@ -21,12 +22,15 @@ def get_submesh_streams(obj: Object, vert_decl: VertexDeclaration) -> tuple[NDAr
         shapes     = get_shape_co(obj, vert_count)
         uv_arrays  = get_uvs(obj, indices, vert_count, loop_count, uv_count)
         col_arrays = get_col_attributes(obj, indices, vert_count, loop_count, col_count)
+        bitangents = get_bitangents(obj, indices, loop_count, obj.data.uv_layers[0].name)
 
         streams = create_stream_arrays(vert_count, vert_decl)
         
         streams[0]["position"] = pos
         streams[1]["normal"]   = nor
-        streams[1]["tangent"]  = get_bitangents(obj, indices, loop_count, obj.data.uv_layers[0].name)
+        streams[1]["tangent"]  = np.c_[vector_to_bytes(bitangents[:, :3].copy()), byte_sign(bitangents[:, 3].copy())]
+        if "xiv_flow" in obj.data.color_attributes:
+            streams[1]["flow"] = get_flow(obj, nor, bitangents, indices, vert_count, loop_count)
 
         for col_idx, col in enumerate(col_arrays):
             streams[1][f"colour{col_idx}"] = col
@@ -46,10 +50,13 @@ def create_stream_arrays(vert_count: int, vert_decl: VertexDeclaration) -> dict[
     streams     = {}
     for stream, array_type in array_types.items():
         vert_array = np.zeros(vert_count, array_type)
+        if "flow" in vert_array.dtype.names:
+            vert_array["flow"][:, :2]  = 127
+            vert_array["flow"][:, 2:3] = 255
         if "colour0" in vert_array.dtype.names:
-            vert_array["colour0"][:]    = -1
+            vert_array["colour0"][:]    = 255
         if "colour1" in vert_array.dtype.names:
-            vert_array["colour1"][:, 3] = -1
+            vert_array["colour1"][:, 3] = 255
             
         streams[stream] = vert_array
 

@@ -7,10 +7,11 @@ from numpy            import ushort, byte, ubyte
 from numpy.typing     import NDArray
 from collections      import defaultdict
 
+from .imp.accessors   import *
 from .imp.streams     import get_submesh_streams, create_stream_arrays
 from .imp.weights     import create_weight_matrix, set_weights
 from .com.exceptions  import XIVMeshError
-from ...formats.model import XIVModel, Submesh
+from ...formats.model import XIVModel, Submesh, VertexDeclaration, VertexUsage
 
     
 def create_material(name: str, col_idx) -> Material:
@@ -108,31 +109,37 @@ class ModelImport:
             return
 
         bpy.context.selected_objects.clear()
-        shapes = get_shapes(self.model, lod_level)
-        for mesh_idx, mesh in enumerate(model.meshes[:mesh_count]):
+        self.shapes = get_shapes(self.model, lod_level)
+        for mesh_idx, mesh in enumerate(self.model.meshes[:mesh_count]):
             self.mesh_idx, self.mesh = mesh_idx, mesh
-            if mesh.vertex_count == 0:
-                print(f"Mesh #{mesh_idx}: Mesh has no vertices.")
-                continue
             
-            streams = create_stream_arrays(lod_buffer, mesh, model.vertex_declarations[mesh_idx], mesh_idx)
-            if not streams:
+            self._read_xiv_mesh(lod_buffer, indices)
+            
+    def _read_xiv_mesh(self, lod_buffer: bytes, indices: NDArray) -> None:
+        if self.mesh.vertex_count == 0:
+            print(f"Mesh #{self.mesh_idx}: Mesh has no vertices.")
+            return
+        
+        vert_decl = self.model.vertex_declarations[self.mesh_idx]
+        streams   = create_stream_arrays(lod_buffer, self.mesh, vert_decl, self.mesh_idx)
+        if not streams:
+            return
+        self._verify_attributes(streams, vert_decl)
+
+        material    = create_material(self.model.materials[self.mesh.material_idx], self.mesh.material_idx)
+        submeshes   = self.model.submeshes[self.mesh.submesh_index: self.mesh.submesh_index + self.mesh.submesh_count]
+        mesh_shapes = self.shapes[self.mesh.start_idx] if self.mesh.start_idx in self.shapes else []
+        for submesh_idx, submesh in enumerate(submeshes):
+            if submesh.idx_count == 0:
+                continue
+            self.submesh_idx, self.submesh = submesh_idx, submesh
+            
+            try:
+                self._create_blend_obj(submesh, streams, indices, mesh_shapes, material)
+            except XIVMeshError as e:
+                print(f"Mesh #{self.mesh_idx}.{submesh_idx}: {e}")
                 continue
 
-            material    = create_material(self.model.materials[mesh.material_idx], mesh.material_idx)
-            submeshes   = model.submeshes[mesh.submesh_index: mesh.submesh_index + mesh.submesh_count]
-            mesh_shapes = shapes[mesh.start_idx] if mesh.start_idx in shapes else []
-            for submesh_idx, submesh in enumerate(submeshes):
-                if submesh.idx_count == 0:
-                    continue
-                self.submesh_idx, self.submesh = submesh_idx, submesh
-                
-                try:
-                    self._create_blend_obj(submesh, streams, indices, mesh_shapes, material)
-                except XIVMeshError as e:
-                    print(f"Mesh #{mesh_idx}.{submesh_idx}: {e}")
-                    continue
-    
     def _create_blend_obj(self, submesh: Submesh, streams: dict[int, NDArray], indices: NDArray[ushort], shapes: list[tuple[str, NDArray]], material: Material):
 
         def create_v_groups() -> list[int]:
@@ -152,10 +159,11 @@ class ModelImport:
                 if not new_obj.data.shape_keys:
                     new_obj.shape_key_add(name="Basis")
 
-                pos     = streams[0]["position"].copy()
-                new_pos = pos[submesh_values["replace_vert_idx"]]
-                pos[submesh_shape_indices] = new_pos
-                
+                pos = get_shape_positions(
+                                    streams, 
+                                    submesh_values["replace_vert_idx"], 
+                                    submesh_shape_indices)
+
                 submesh_pos = pos[vert_start: vert_start + vert_count].flatten()
                 shape_key   = new_obj.shape_key_add(name=shape_name)
                 shape_key.data.foreach_set("co", submesh_pos)
@@ -182,7 +190,7 @@ class ModelImport:
                         )
         blend_mesh.name = obj_name
         
-        if all(field in submesh_streams[0].dtype.names for field in ("blend_weights", "blend_indices")):
+        if self.weights:
             bone_table = self.model.bone_tables[self.mesh.bone_table_idx].bone_idx
             create_v_groups()
             weight_matrix = create_weight_matrix(
@@ -200,12 +208,14 @@ class ModelImport:
         bpy.context.collection.objects.link(new_obj)
         new_obj.select_set(True)
 
-    def _create_blend_mesh(self, streams, submesh_indices: NDArray, vert_count: int) -> Mesh:
-        co_arr, no_arr, uv_arrays, col_arrays = self._sort_arrays(streams)
+    def _create_blend_mesh(self, streams: dict[int, NDArray], submesh_indices: NDArray, vert_count: int) -> Mesh:
+        uvs    : list[NDArray] = []
+        colours: list[NDArray] = get_colours(streams, self.col_count)
         new_mesh = bpy.data.meshes.new("temp_name")
 
+        positions = get_positions(streams)
         new_mesh.vertices.add(vert_count)
-        new_mesh.vertices.foreach_set("co", co_arr)
+        new_mesh.vertices.foreach_set("co", positions.flatten())
         
         loop_count = submesh_indices.shape[0]
         new_mesh.loops.add(loop_count)
@@ -221,79 +231,44 @@ class ModelImport:
         new_mesh.update()
         new_mesh.validate()
 
-        for idx, uv_arr in enumerate(uv_arrays):
+        if self.uv0:
+            uvs.extend(get_uv0(streams))
+        if self.uv1:
+            uvs.append(get_uv1(streams))
+
+        for idx, uv_arr in enumerate(uvs):
             layer = new_mesh.uv_layers.new(name=f"uv{idx}")
             layer.uv.foreach_set("vector", uv_arr[submesh_indices].ravel())
 
-        for idx, col_arr in enumerate(col_arrays):
-            col_attr = new_mesh.color_attributes.new(name=f"vc{idx}", type='BYTE_COLOR', domain='CORNER')
+        for idx, col_arr in enumerate(colours):
+            col_attr = new_mesh.color_attributes.new(name=f"vc{idx}", type='FLOAT_COLOR', domain='CORNER')
             col_attr.data.foreach_set("color", col_arr[submesh_indices].ravel())
-             
-        if no_arr is not None:
-            new_mesh.normals_split_custom_set_from_vertices(no_arr)
+
+        if self.normals:
+            normals = get_normals(streams)
+            new_mesh.normals_split_custom_set_from_vertices(normals)
+        
+        if all((self.normals, self.tangents, self.flow)):
+            bitangents = get_bitangents(streams)
+            flow       = get_flow(streams[1]["flow"], normals, bitangents)
+            flow_attr  = new_mesh.color_attributes.new(name=f"xiv_flow", type='FLOAT_COLOR', domain='CORNER')
+            flow_attr.data.foreach_set("color", flow[submesh_indices].ravel())
       
         return new_mesh
     
-    def _sort_arrays(self, streams: dict[int, NDArray]) -> tuple[NDArray, NDArray, list[NDArray], list[NDArray]]:
-
-        def get_normal_array() -> NDArray | None:
-            if "normal" not in arr_fields:
-                return None
-            
-            normals = streams[1]["normal"]
-            if normals.shape[1] < 3:
-                print(f"Mesh#{self.mesh_idx}.{self.submesh_idx}: Missing normal coordinates.")
-                return None
-            
-            return normals[:, :3]
-
-        def get_uv_arrays() -> list[NDArray]:
-            uv_arrays = []
-            if "uv0" in arr_fields:
-                uv0_data = streams[1]["uv0"].copy()
-
-                uv0_data[:, 1] = 1.0 - uv0_data[:, 1]  
-                uv_arrays.append(uv0_data[:, 0:2])
-                if uv0_data.shape[1] == 4:
-                    uv0_data[:, 3] = 1.0 - uv0_data[:, 3]
-                    uv_arrays.append(uv0_data[:, 2:4])
-
-            if "uv1" in arr_fields:
-                uv1_data = streams[1]["uv1"].copy()
-
-                uv1_data = 1.0 - uv1_data
-
-                uv_arrays.append(uv1_data)
-            
-            return uv_arrays
-
-        def get_col_array() -> list[NDArray]:
-            col_arrays = []
-            if "colour0" in arr_fields:
-                col_arrays.append(streams[1]["colour0"].view(ubyte) / 255.0)
-
-            if "colour1" in arr_fields:
-                col_arrays.append(streams[1]["colour1"].view(ubyte) / 255.0)
-
-            return col_arrays
-            
-        arr_fields = [field for stream in streams.values() for field in stream.dtype.fields]
-
-        co_arr     = None
-        nor_arr    = None
-        # ta_arr   = None 
-        # fl_arr   = None
-        uv_arrays  = []
-        col_arrays = []
+    def _verify_attributes(self, streams: dict[int, NDArray], vert_decl: VertexDeclaration) -> None:
+        arr_fields = {field for stream in streams.values() for field in stream.dtype.fields}
 
         if "position" in arr_fields:
-            co_arr = streams[0]["position"].flatten()
+            self.positions = True
         else:
             raise XIVMeshError("No Position data.")
-
-        nor_arr    = get_normal_array()
-        uv_arrays  = get_uv_arrays()
-        col_arrays = get_col_array()
-
-        return co_arr, nor_arr, uv_arrays, col_arrays
+        
+        self.weights   = all(field in streams[0].dtype.names for field in ("blend_weights", "blend_indices"))
+        self.normals   = "normal" in arr_fields
+        self.tangents  = "tangent" in arr_fields 
+        self.flow      = "flow" in arr_fields
+        self.uv0       = "uv0" in arr_fields
+        self.uv1       = "uv1" in arr_fields
+        self.col_count = vert_decl.usage_count(VertexUsage.COLOUR)
     

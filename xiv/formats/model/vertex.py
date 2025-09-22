@@ -109,7 +109,11 @@ class VertexDeclaration:
 
         col_count = 1
         uv_count  = 1
+        flow      = False
         for obj in submeshes:
+            if "xiv_flow" in obj.data.color_attributes:
+                flow = True
+
             col_count = max(col_count, len([layer for layer in obj.data.color_attributes 
                                             if layer.name.lower().startswith(XIV_COL)]))
             
@@ -118,6 +122,9 @@ class VertexDeclaration:
 
         col_count = min(col_count, 2)
         uv_count  = min(uv_count, 3)
+
+        if flow:
+            decl.create_element(VertexType.NBYTE4, VertexUsage.FLOW, 1)
 
         for i in range(col_count):
             decl.create_element(VertexType.NBYTE4, VertexUsage.COLOUR, 1, i)

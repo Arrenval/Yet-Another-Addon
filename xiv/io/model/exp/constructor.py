@@ -5,12 +5,12 @@ from bpy.types         import Object
 from numpy.typing      import NDArray
 from collections       import defaultdict
 
-from .norm             import normalised_int_array 
 from .weights          import sort_weights, normalise_weights, empty_vertices
-from ...logging        import YetAnotherLogger
 from .streams          import create_stream_arrays, get_submesh_streams
 from .accessors        import get_weights
-from .validators       import clean_material_name  
+from ...logging        import YetAnotherLogger
+from .validators       import clean_material_path  
+from ..com.helpers     import normalised_int_array 
 from ..com.exceptions  import XIVMeshError
 from ....formats.model import (XIVModel, Mesh as XIVMesh, Submesh,
                                VertexDeclaration, VertexType, VertexUsage,
@@ -20,7 +20,6 @@ from ....formats.model import (XIVModel, Mesh as XIVMesh, Submesh,
 USHORT_LIMIT = np.iinfo(ushort).max
 
 class CreateLOD:
-
     def __init__(self, model: XIVModel, lod_level: int, shape_value_count: int = 0, logger: YetAnotherLogger = None):
         self.model     = model
         self.logger    = logger
@@ -238,7 +237,7 @@ class CreateLOD:
         self.model.meshes.append(self.mesh)
 
     def _get_material_idx(self, material: str) -> int:
-        material_name = clean_material_name(material)
+        material_name = clean_material_path(material)
 
         if material_name in self.model.materials:
             material_idx = self.model.materials.index(material_name)

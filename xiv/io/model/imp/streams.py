@@ -2,7 +2,6 @@ import numpy as np
 
 from numpy.typing      import NDArray
  
-from ..com.space       import xiv_to_blend_space
 from ..com.schema      import get_array_type
 from ....formats.model import Mesh as XIVMesh, VertexDeclaration
 
@@ -41,9 +40,5 @@ def create_stream_arrays(buffer: bytes, mesh: XIVMesh, vert_decl: VertexDeclarat
                         ).copy()
         
         streams[stream] = vert_array
-
-    if blend_space:
-        streams[0]['position'] = xiv_to_blend_space(streams[0]['position'])
-        streams[1]['normal']   = xiv_to_blend_space(streams[1]['normal'])
 
     return streams

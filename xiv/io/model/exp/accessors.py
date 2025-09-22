@@ -4,8 +4,8 @@ from numpy                    import single, byte, ubyte
 from bpy.types                import Object
 from numpy.typing             import NDArray
             
-from .norm                    import average_vert_normals
-from ..com.space              import blend_to_xiv_space
+from ..com.space              import blend_to_xiv_space, world_to_tangent_space, lin_to_srgb
+from ..com.helpers            import average_vert_normals, calc_tangents_with_bitangent, vector_to_bytes, quantise_flow, normalise_vectors
 
 from ....formats.model.vertex import XIV_COL, XIV_UV
 
@@ -18,12 +18,6 @@ def _loop_to_vert(loop_arr: NDArray, indices: NDArray, vert_count: int, shape: i
     vert_arr[unique_verts] = temp_arr
 
     return vert_arr
-
-def _tangent_bytes(float_tangents: NDArray) -> NDArray:
-    clamped_tan = np.clip(float_tangents, -1.0, 1.0)
-    compressed  = (clamped_tan + 1) * (255.0 * 0.5)
-    
-    return compressed.round().astype(ubyte)
 
 def get_space_data(obj: Object, indices: NDArray, vert_count: int, loop_count: int) -> tuple[NDArray]:
     pos = np.zeros(vert_count * 3, single)
@@ -67,15 +61,19 @@ def get_col_attributes(obj: Object, indices: NDArray, vert_count: int, loop_coun
     for layer in obj.data.color_attributes[:col_count]:
         if not layer.name.lower().startswith(XIV_COL):
             continue
-        count   = loop_count if layer.domain == "CORNER" else vert_count
+        count   = loop_count if layer.domain == 'CORNER' else vert_count
         col_arr = np.zeros(count * 4, single)
 
         layer.data.foreach_get("color", col_arr)
-        col_arr = col_arr.clip(0.0, 1.0) * 255.0
         col_arr = col_arr.reshape(-1, 4) 
-        if layer.domain == "CORNER":
+        
+        if layer.domain == 'CORNER':
             col_arr = _loop_to_vert(col_arr, indices, vert_count, 4)
+        if layer.data_type == 'BYTE_COLOR':
+            col_arr = lin_to_srgb(col_arr)
+            
 
+        col_arr = col_arr.clip(0.0, 1.0) * 255.0
         col_arrays.append(col_arr.round().astype(byte))
     
     return col_arrays
@@ -89,7 +87,6 @@ def get_bitangents(obj: Object, indices: NDArray, loop_count: NDArray, uv_layer:
 
     loop_bi_sign = np.zeros(loop_count, single)
     obj.data.loops.foreach_get("bitangent_sign", loop_bi_sign)
-    loop_bi_sign = np.where(loop_bi_sign < 0, 0, -1)
 
     # Broadcast loop values based on our indices back into the vertex array.
     # Note that this requires that any UV seams and sharp edges were split earlier.
@@ -105,11 +102,7 @@ def get_bitangents(obj: Object, indices: NDArray, loop_count: NDArray, uv_layer:
     vert_tan[unique_verts]    = temp_vert_bitan
     vert_bisign[unique_verts] = temp_vert_bisign
 
-    byte_tan = np.zeros((len(vert_tan), 4), dtype=ubyte)
-    byte_tan[:, :3] = _tangent_bytes(vert_tan)  
-    byte_tan[:, 3]  = vert_bisign.astype(ubyte)
-
-    return byte_tan
+    return np.c_[vert_tan, vert_bisign]
 
 def get_weights(obj: Object, vert_count: int, group_count: int) -> NDArray:
     weight_matrix = np.zeros((vert_count, group_count), dtype=np.float32)
@@ -118,3 +111,28 @@ def get_weights(obj: Object, vert_count: int, group_count: int) -> NDArray:
             weight_matrix[vertex_idx, group.group] = group.weight
 
     return weight_matrix
+
+def get_flow(obj: Object, normals: NDArray, bitangents: NDArray, indices: NDArray, vert_count: int, loop_count: int) -> NDArray:
+    flow_layer = obj.data.color_attributes["xiv_flow"]
+    count      = loop_count if flow_layer.domain == 'CORNER' else vert_count
+
+    flow_colour = np.zeros(count * 4, single)
+    flow_layer.data.foreach_get("color", flow_colour)
+    flow_colour = flow_colour.reshape(-1, 4) 
+    if flow_layer.domain == 'CORNER':
+        flow_colour = _loop_to_vert(flow_colour, indices, vert_count, 4)
+    if flow_layer.data_type == 'BYTE_COLOR':
+        flow_colour = lin_to_srgb(flow_colour)
+
+    signs        = bitangents[:, 3]
+    bitangents   = bitangents[:, :3]
+    tangents     = calc_tangents_with_bitangent(normals, bitangents, signs)
+    world_flow   = _flow_vectors(flow_colour[:, :2])
+    tangent_flow = world_to_tangent_space(world_flow, tangents, bitangents, normals)
+
+    return np.c_[vector_to_bytes(tangent_flow), np.full(len(tangent_flow), 255, dtype=ubyte)]
+
+def _flow_vectors(flow_colour: NDArray) -> NDArray:
+    flow_vectors = normalise_vectors((flow_colour * 2) - 1)
+    quantised    = quantise_flow(flow_vectors)               
+    return np.c_[quantised, np.zeros(len(flow_vectors))]

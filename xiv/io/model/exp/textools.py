@@ -5,7 +5,7 @@ from pathlib     import Path
 from bpy.types   import Object
 
 from .scene      import get_mesh_ids
-from .validators import clean_material_name
+from .validators import clean_material_path
 
 
 def get_mesh_props(blend_obj: list[Object]) -> tuple[dict[str, str], dict[int, str]]:
@@ -25,7 +25,7 @@ def get_mesh_props(blend_obj: list[Object]) -> tuple[dict[str, str], dict[int, s
             attributes[obj.name] = ",".join(obj_attr)
 
             if part == 0:
-                materials[group] = clean_material_name(obj["xiv_material"])
+                materials[group] = clean_material_path(obj["xiv_material"])
 
         return attributes, materials
 
