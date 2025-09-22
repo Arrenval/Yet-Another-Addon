@@ -86,6 +86,8 @@ class ShapeKeyTransfer(Operator):
         self.cleanup     : list[Object] = []    
 
         if self.input_method == "Chest":
+            self.lava_keys        = {"Cupcake": "--- Cupcake", "Teardrop": "-- Teardrop"} 
+            self.lava_size        = {"Lavabod" , "-- Teardrop", "--- Cupcake"}
             self.sub_keys  : bool = window.sub_shape_keys
             self.overhang  : bool = window.adjust_overhang
             self.chest_base: str  = props.shape_chest_base  
@@ -384,13 +386,12 @@ class ShapeKeyTransfer(Operator):
             lava_size     = source_key.name.endswith(("Teardrop", "Cupcake"))
             sub_key       = source_key.name.startswith("-") and not lava_size and self.sub_keys
             deform        = not sub_key
-
+            
             if sub_key:
-                get_target_key(self.target, source_key.name)
                 continue
             if not self.deform_target.get(source_key.name, False):
                 continue
-            
+
             key_name = "Lavatop" if source_key.name == "Lavabod" else source_key.name
             body_key = shape_controller.data.shape_keys.key_blocks.get(key_name)
             if not body_key:
@@ -532,6 +533,9 @@ class ShapeKeyTransfer(Operator):
 
             if self.input_method == "Chest" and main_shapes.name in controller.data.name:
                 key_name = "Lavatop" if self.chest_base == "Lavabod" else self.chest_base
+                if key_name in self.lava_keys:
+                    key_name = self.lava_keys[key_name]
+
                 key_blocks[key_name].mute = False
 
                 if self.chest_base in ("Lavabod", "Teardrop", "Cupcake"):
@@ -557,8 +561,7 @@ class ShapeKeyTransfer(Operator):
 
         def target_state() -> None:
             key_blocks   = controller.data.shape_keys.key_blocks
-            chest_filter = {"LARGE", "MEDIUM", "SMALL", "MASC", "Lavabod"} 
-            lava_keys    = {"Lavabod" , "-- Teardrop", "--- Cupcake"}
+            chest_filter = {"LARGE", "MEDIUM", "SMALL", "MASC", "Lavabod", "-- Teardrop", "-- Cupake"}
             leg_filter   = {"Gen A/Watermelon Crushers", "Skull Crushers", "Yanilla", "Mini", "Lavabod", "Masc"} 
 
             if self.input_method == "Selected":
@@ -572,10 +575,13 @@ class ShapeKeyTransfer(Operator):
                 source_key.relative_key.value = 1
             
             if self.input_method == "Chest" and target_key.name in chest_filter:
-                key_name = "Lavatop" if self.chest_base == "Lavabod" else self.chest_base 
+                key_name = "Lavatop" if self.chest_base == "Lavabod" else self.chest_base
+                if key_name in self.lava_keys:
+                    key_name = self.lava_keys[key_name]
+
                 key_blocks[key_name].mute = True
 
-                if self.chest_base in ("Lavabod", "Teardrop", "Cupcake") and target_key.name not in lava_keys:
+                if self.chest_base in ("Lavabod", "Teardrop", "Cupcake") and target_key.name not in self.lava_size:
                     key_blocks["Lavatop"].mute = True
 
             elif self.input_method == "Legs" and target_key.name in leg_filter:
@@ -641,7 +647,7 @@ class ShapeKeyTransfer(Operator):
         target_key.driver_remove("value")
         target_key.driver_remove("mute")
         value = target_key.driver_add("value").driver
-        mute = target_key.driver_add("mute").driver
+        mute  = target_key.driver_add("mute").driver
 
         if self.input_method == "Chest" and target_key.name == "LARGE" and self.chest_base != "LARGE":
             value.type = 'SCRIPTED'
@@ -653,6 +659,25 @@ class ShapeKeyTransfer(Operator):
             value_var.targets[0].id_type = 'SCENE'
             value_var.targets[0].id = bpy.context.scene
             value_var.targets[0].data_path = "ya_devkit_props.torso_state.chest_size"
+
+        elif self.input_method == "Chest" and target_key.name == "Lavabod" and self.chest_base in ("Lavabod", "Teardrop", "Cupcake"):
+            value.type = 'SCRIPTED'
+            value.expression = "size == 0 and lava"
+            value_var = value.variables.new()
+            value_var.name = "size"
+            value_var.type = 'SINGLE_PROP'
+            
+            value_var.targets[0].id_type = 'SCENE'
+            value_var.targets[0].id = bpy.context.scene
+            value_var.targets[0].data_path = "ya_devkit_props.torso_state.chest_size"
+
+            value_var = value.variables.new()
+            value_var.name = "lava"
+            value_var.type = 'SINGLE_PROP'
+            
+            value_var.targets[0].id_type = 'SCENE'
+            value_var.targets[0].id = bpy.context.scene
+            value_var.targets[0].data_path = "ya_devkit_props.torso_state.lavabod"
 
         elif self.input_method == "Legs" and target_key.name == "Gen A/Watermelon Crushers" and self.leg_base != "Melon":
             value.type = 'SCRIPTED'
