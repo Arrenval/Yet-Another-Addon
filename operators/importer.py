@@ -35,7 +35,7 @@ class SimpleImport(Operator):
         if format == "GLTF":
             bpy.ops.import_scene.gltf("INVOKE_DEFAULT")
         elif format == "FBX":
-            bpy.ops.import_scene.fbx("INVOKE_DEFAULT")
+            bpy.ops.import_scene.fbx("INVOKE_DEFAULT", colors_type='LINEAR')
         elif format == "MDL":
             bpy.ops.ya.file_selector("INVOKE_DEFAULT", category="MDL")
         

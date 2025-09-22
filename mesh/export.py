@@ -101,6 +101,7 @@ def get_export_settings(format: str) -> dict[str, str | int | bool]:
             "add_leaf_bones": False,
             "use_mesh_modifiers": False,
             "use_visible": True,
+            "colors_type": 'LINEAR'
         }
     
 
