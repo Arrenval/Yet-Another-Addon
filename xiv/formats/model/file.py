@@ -85,10 +85,11 @@ class ElementID:
 
 
 class XIVModel:
-    V5               = 0x01000005
-    V6               = 0x01000006
-    NUM_VERTICES     = 17
-    FILE_HEADER_SIZE = 0x44
+    V5                  = 0x01000005
+    V6                  = 0x01000006
+    NUM_VERTICES        = 17
+    FILE_HEADER_SIZE    = 0x44
+    VERTEX_BUFFER_LIMIT = 8388608
 
     def __init__(self):
         shape_value_dtype = [
@@ -383,7 +384,8 @@ class XIVModel:
         file.seek(lod_pos)
         for lod in self.lods:
             lod.write(file)
-        
+
+        self.validate()
         return file.getvalue()
 
     def _update_offsets(self, total_size: int) -> None:
@@ -435,6 +437,11 @@ class XIVModel:
     def set_lod_count(self, count: int) -> None:
         self.header.lod_count      = count
         self.mesh_header.lod_count = count
+    
+    def validate(self) -> None:
+        size_limit = any([size > self.VERTEX_BUFFER_LIMIT for size in self.header.vert_buffer_size])
+        if size_limit:
+            raise ValueError(f"Vertex buffer is too large.")
 
     def _get_data_offset(self) -> int:
         return self.FILE_HEADER_SIZE + self.header.runtime_size + self.header.stack_size
