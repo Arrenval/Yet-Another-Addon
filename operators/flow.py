@@ -66,7 +66,7 @@ class FlowNode(Operator):
         radians, colour           = self._create_math_nodes(nodes, links)
         
         store_attr = nodes.new(type='GeometryNodeStoreNamedAttribute')
-        store_attr.data_type = 'BYTE_COLOR'
+        store_attr.data_type = 'FLOAT_COLOR'
         store_attr.domain    = 'CORNER'
         store_attr.inputs[2].default_value = "xiv_flow"
         store_attr.location = (400, 76)
