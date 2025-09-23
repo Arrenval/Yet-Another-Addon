@@ -54,6 +54,7 @@ def register():
         bpy.utils.register_class(cls)
 
     preferences.register_menus()
+    preferences.register_keymaps()
 
     props.set_handlers()
     bpy.types.Scene.ya_addon_ver = (0, 25, 1)
@@ -62,7 +63,8 @@ def register():
 def unregister():
     del bpy.types.Scene.ya_addon_ver
     props.remove_handlers()
-
+    
+    preferences.unregister_keymaps()
     preferences.unregister_menus()
     
     for cls in reversed(classes):

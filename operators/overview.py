@@ -4,6 +4,7 @@ import bpy
 from bpy.types      import Operator, Object, UILayout
 from bpy.props      import StringProperty, IntProperty, EnumProperty, BoolProperty
 
+from .flow          import default_xiv_flow
 from ..props        import get_studio_props, get_xiv_meshes
 from ..mesh.objects import visible_meshobj
 
@@ -203,7 +204,7 @@ class MeshMaterial(Operator):
         layout.prop(self.model_props.meshes[self.mesh], "material", text="")
 
     def execute(self, context):
-        scene_mesh  = get_xiv_meshes(visible_meshobj())[self.mesh]
+        scene_mesh = get_xiv_meshes(visible_meshobj())[self.mesh]
         for obj_data in scene_mesh:
             obj = obj_data[0]
             obj["xiv_material"] = self.model_props.meshes[self.mesh].material
@@ -212,11 +213,39 @@ class MeshMaterial(Operator):
             area.tag_redraw()
         return {'FINISHED'}
 
+class UpdateFlow(Operator):
+    bl_idname = "ya.flow_channel"
+    bl_label = "Material"
+    bl_description = "Add flow colour channel to mesh objects, used for hair anisotropy. Will update channels from TexTools"
+    bl_options = {"UNDO"}
+
+    mesh: IntProperty(default=0, options={'HIDDEN', 'SKIP_SAVE'}) # type: ignore
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.mode == 'OBJECT'
+    
+    def execute(self, context):
+        self.objs = get_xiv_meshes(visible_meshobj())[int(self.mesh)]
+
+        updated = 0
+        for obj, submesh, lod, name, props in self.objs:
+            if "xiv_flow" not in obj.data.color_attributes:
+                default_xiv_flow(obj)
+                updated += 1
+        
+        if updated:
+            self.report({'INFO'}, "Colour channels updated!")
+        else:
+            self.report({'INFO'}, "No colour channels to update.")
+
+        return {'FINISHED'}
 
 CLASSES = [
     Attributes,
     ChangeObjectName,
     ChangeGroupPart,
-    MeshMaterial
+    MeshMaterial,
+    UpdateFlow
 ]
 

@@ -39,7 +39,6 @@ class MeshProps(PropertyGroup):
                     continue
                 obj_materials.add(material.name)
             
-
         return obj_materials
 
     def _material_search(self, context: Context, edit_text: str) -> list[str]:
@@ -63,11 +62,13 @@ class MeshProps(PropertyGroup):
         return value
 
     def _set_material(self, material: str) -> None:
+        from ..xiv.io.model.exp.validators import clean_material_path
+        
         mat_lower = material.lower()
         if mat_lower in XIV_MATERIALS:
             self["material"] = XIV_MATERIALS[mat_lower]
         else:
-            self["material"] = material
+            self["material"] = clean_material_path(material)
 
     idx     : IntProperty() # type: ignore
     material: StringProperty(
@@ -81,7 +82,7 @@ class MeshProps(PropertyGroup):
                     
                 ) # type: ignore
     
-    flow    : BoolProperty(default=False, description="Enables anisotropy data, this is used for enhanced hair specularity") # type: ignore
+    flow    : BoolProperty(default=False, name="", description="Export available flow data for this mesh") # type: ignore
 
     if TYPE_CHECKING:
         idx     : int

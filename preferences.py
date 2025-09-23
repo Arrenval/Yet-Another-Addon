@@ -1,14 +1,17 @@
 import os
 import bpy
 import platform
+import rna_keymap_ui
 
 from typing         import TYPE_CHECKING, Literal
-from bpy.types      import AddonPreferences, PropertyGroup, Context, UILayout
+from bpy.types      import AddonPreferences, PropertyGroup, Context, UILayout, KeyMap, KeyMapItem
 from bpy.props      import StringProperty, BoolProperty, CollectionProperty, EnumProperty, PointerProperty
      
 from .ui.draw       import aligned_row, get_conditional_icon, operator_button
 from .utils.typings import BlendEnum
 
+
+_keymaps: dict[str, tuple[KeyMap, KeyMapItem]] = {}
 
 class ModpackOptionPreset(PropertyGroup):
     name   : StringProperty(name="", description="Name of preset") # type: ignore
@@ -199,6 +202,15 @@ class YetAnotherPreference(AddonPreferences):
         items=lambda self, context: self.get_preset_enums()
         ) # type: ignore
     
+    pref_menu: EnumProperty(
+        name="Preferences Menu",
+        description="Select a category",
+        items=[
+            ('GENERAL', "General", ""),
+            ('KEY', "Keymap/Presets", "")
+        ]
+        ) # type: ignore
+    
     def update_directory(self, context: Context, category: str) -> None:
         actual_prop = f"{category}_dir"
         display_prop = f"{category}_display_dir"
@@ -267,27 +279,35 @@ class YetAnotherPreference(AddonPreferences):
 
     def draw(self, context: Context):
         layout       = self.layout
+        row          = layout.row(align=True)
+        row.prop(self, "pref_menu", text="Menu", expand=True)
+
         layout_split = layout.split(factor=0.5, align=True)
         left_col     = layout_split.column(align=True)
         right_col    = layout_split.column(align=True)
 
-        import_box = left_col.box()
-        self.draw_import(import_box)
+        if self.pref_menu == 'GENERAL':
+            import_box = right_col.box()
+            self.draw_import(import_box)
 
-        export_box = left_col.box()
-        self.draw_export(export_box)
+            export_box = right_col.box()
+            self.draw_export(export_box)
 
-        modpack_box = left_col.box()
-        self.draw_modpack(modpack_box)
+            modpack_box = right_col.box()
+            self.draw_modpack(modpack_box)
 
-        options_box = right_col.box()
-        self.draw_options(options_box)
+            options_box = left_col.box()
+            self.draw_options(options_box)
 
-        panel_box = right_col.box()
-        self.draw_menus(panel_box)
+            panel_box = left_col.box()
+            self.draw_menus(panel_box)
 
-        preset_box = right_col.box()
-        self.draw_presets(preset_box)
+        elif self.pref_menu == 'KEY':
+            keymap_box = left_col.box()
+            self.draw_keymaps(keymap_box)
+
+            preset_box = right_col.box()
+            self.draw_presets(preset_box)
 
     def draw_modpack(self, layout: UILayout) -> None:
         # options = [
@@ -359,6 +379,21 @@ class YetAnotherPreference(AddonPreferences):
 
         layout.separator(type='SPACE')
 
+    def draw_keymaps(self, layout: UILayout) -> None:
+        wm = bpy.context.window_manager
+        kc = wm.keyconfigs.user
+
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Keymaps:")
+
+        layout.separator(type="LINE")
+        for km, kmi in _keymaps.values():
+            row = layout.row(align=True)
+            rna_keymap_ui.draw_kmi(['ADDON', 'USER', 'DEFAULT'], kc, km, kmi, row, 0)
+
+
+
     def draw_presets(self, layout: UILayout) -> None:
         row = layout.row(align=True)
         row.alignment = "CENTER"
@@ -427,8 +462,31 @@ class YetAnotherPreference(AddonPreferences):
             split.prop(prop, attr, text=button_text, icon=get_conditional_icon(button_icon))
             split.label(text=label)
 
+def register_keymaps() -> None:
+    global _keymaps
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+
+    km  = kc.keymaps.new(name='UV Editor', space_type='EMPTY')
+    kmi = km.keymap_items.new(
+            'wm.call_menu_pie',           
+            'F',                          
+            'PRESS',                      
+            ctrl=True,                 
+        )
+    kmi.properties.name = "YA_MT_flow_direction_pie"
+
+    _keymaps["YA_MT_flow_direction_pie"] = (km, kmi)
+
+def unregister_keymaps() -> None:
+    global _keymaps
+
+    for km, kmi in _keymaps.values():
+        km.keymap_items.remove(kmi)
+    _keymaps.clear()
 
 def register_menus() -> None:
+    from .ui.panels.pie       import CLASSES
     from .ui.panels.studio    import MeshStudio
     from .ui.panels.file      import FileManager
     from .ui.panels.utilities import FileUtilities
@@ -449,8 +507,12 @@ def register_menus() -> None:
         bpy.types.MESH_MT_vertex_group_context_menu.append(menu_vertex_group_append)
     if menus.mod_button:
         bpy.types.DATA_PT_modifiers.append(draw_modifier_options)
+    
+    for cls in CLASSES:
+        bpy.utils.register_class(cls)
 
 def unregister_menus() -> None:
+    from .ui.panels.pie       import CLASSES
     from .ui.panels.studio    import MeshStudio
     from .ui.panels.file      import FileManager
     from .ui.panels.utilities import FileUtilities
@@ -471,6 +533,9 @@ def unregister_menus() -> None:
         bpy.types.MESH_MT_vertex_group_context_menu.remove(menu_vertex_group_append)
     if menus.mod_button:
         bpy.types.DATA_PT_modifiers.remove(draw_modifier_options)
+    
+    for cls in CLASSES:
+        bpy.utils.unregister_class(cls)
 
 def get_prefs() -> YetAnotherPreference:
     """Get Yet Another Preference"""

@@ -25,7 +25,7 @@ def get_mesh_props(blend_obj: list[Object]) -> tuple[dict[str, str], dict[int, s
             attributes[obj.name] = ",".join(obj_attr)
 
             if part == 0:
-                materials[group] = clean_material_path(obj["xiv_material"])
+                materials[group] = clean_material_path(obj)
 
         return attributes, materials
 

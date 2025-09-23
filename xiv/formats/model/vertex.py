@@ -97,7 +97,7 @@ class VertexDeclaration:
         return decl
     
     @classmethod
-    def from_blend_mesh(cls, submeshes: list[Object]) -> 'VertexDeclaration':
+    def from_blend_mesh(cls, submeshes: list[Object], export_flow=False) -> 'VertexDeclaration':
         decl = cls()
 
         decl.create_element(VertexType.SINGLE3, VertexUsage.POSITION, 0)
@@ -109,7 +109,7 @@ class VertexDeclaration:
 
         col_count = 1
         uv_count  = 1
-        flow      = False
+        has_flow  = False
         for obj in submeshes:
             if "xiv_flow" in obj.data.color_attributes:
                 flow = True
@@ -123,7 +123,7 @@ class VertexDeclaration:
         col_count = min(col_count, 2)
         uv_count  = min(uv_count, 3)
 
-        if flow:
+        if has_flow and export_flow:
             decl.create_element(VertexType.NBYTE4, VertexUsage.FLOW, 1)
 
         for i in range(col_count):

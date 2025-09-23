@@ -595,23 +595,23 @@ class FileManager(Panel):
         operator_button(row, "ya.modpack_manager", icon="TRASH", attributes=op_atr)
 
     def group_container(self, layout: UILayout, group: BlendModGroup, idx: int):
-            text = "Create:" if group.idx == "New" else "Replace:"
-            row = aligned_row(layout, text, "idx", group)
+        text = "Create:" if group.idx == "New" else "Replace:"
+        row = aligned_row(layout, text, "idx", group)
 
-            subrow = row.row(align=True)
-            subrow.alignment = 'RIGHT'
-            subrow.scale_x = 1.12
-            subrow.prop(group, "page", text="")
+        subrow = row.row(align=True)
+        subrow.alignment = 'RIGHT'
+        subrow.scale_x = 1.12
+        subrow.prop(group, "page", text="")
 
-            row = aligned_row(layout, "Description:", "description", group)
-        
-            subrow = row.row(align=True)
-            subrow.alignment = 'RIGHT'
-            subrow.scale_x = 1
-            subrow.prop(group, "group_type", text="")
+        row = aligned_row(layout, "Description:", "description", group)
+    
+        subrow = row.row(align=True)
+        subrow.alignment = 'RIGHT'
+        subrow.scale_x = 1
+        subrow.prop(group, "group_type", text="")
 
-            if not group.use_folder:
-                layout.separator(factor=0.1, type="SPACE")
+        if not group.use_folder:
+            layout.separator(factor=0.1, type="SPACE")
 
     def option_header(self, layout: UILayout, group: BlendModGroup, option: BlendModOption, group_idx: int, option_idx: int):
         row = layout.box().row(align=True)

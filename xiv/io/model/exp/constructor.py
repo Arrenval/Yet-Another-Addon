@@ -182,11 +182,12 @@ class CreateLOD:
         self.mesh.bone_table_idx      = self.lod_level
         self.mesh.vertex_stream_count = 2
         try:
-            self.mesh.material_idx    = self._get_material_idx(blend_objs[0]["xiv_material"]) 
+            self.mesh.material_idx    = self._get_material_idx(blend_objs[0]) 
         except:
-            raise XIVMeshError(f"Mesh #{self.mesh_idx} is missing its material path.")
+            raise XIVMeshError(f"Mesh #{self.mesh_idx} is missing a material path.")
 
-        vert_decl = VertexDeclaration.from_blend_mesh(blend_objs)
+        mesh_flow = blend_objs[0]["xiv_flow"] if "xiv_flow" in blend_objs[0] else False
+        vert_decl = VertexDeclaration.from_blend_mesh(blend_objs, mesh_flow)
         self.model.vertex_declarations.append(vert_decl)
 
         mesh_geo: list[NDArray] = []
@@ -236,7 +237,8 @@ class CreateLOD:
         self.indices_buffers.append(self.mesh_indices)
         self.model.meshes.append(self.mesh)
 
-    def _get_material_idx(self, material: str) -> int:
+    def _get_material_idx(self, obj: Object) -> int:
+        material = obj["xiv_material"] if "xiv_material" in obj else obj.material_slots[0].name
         material_name = clean_material_path(material)
 
         if material_name in self.model.materials:

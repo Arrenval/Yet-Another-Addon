@@ -1,9 +1,10 @@
 import bpy
-   
+
+from functools   import partial
 from bpy.types   import Panel, UILayout, Context, Object
 from collections import Counter
 
-from ..draw      import aligned_row, get_conditional_icon, ui_category_buttons, show_ui_button
+from ..draw      import aligned_row, get_conditional_icon, ui_category_buttons, show_ui_button, operator_button
 from ...props    import get_studio_props, get_devkit_props, get_window_props, get_devkit_win_props, get_xiv_meshes
 
 from ...mesh.objects             import visible_meshobj
@@ -90,24 +91,26 @@ class MeshStudio(Panel):
             else:
                 subrow.label(text="", icon='BLANK1') 
 
-            op = subrow.operator("ya.overview_group", 
-                                text="", 
-                                emboss=False, 
-                                icon="TRIA_LEFT")
+            op = subrow.operator(
+                            "ya.overview_group", 
+                            text="", 
+                            emboss=False, 
+                            icon="TRIA_LEFT")
             op.type = "DEC_PART"
             op.obj = obj.name
 
             op = subrow.operator("ya.overview_group", 
-                                text=f"{submesh}", 
-                                emboss=False, 
-                                )
+                            text=f"{submesh}", 
+                            emboss=False, 
+                            )
             op.type = "PART"
             op.obj = obj.name
 
-            op = subrow.operator("ya.overview_group", 
-                                text="", 
-                                emboss=False, 
-                                icon="TRIA_RIGHT")
+            op = subrow.operator(
+                            "ya.overview_group", 
+                            text="", 
+                            emboss=False, 
+                            icon="TRIA_RIGHT")
             op.type = "INC_PART"
             op.obj = obj.name
             subrow.label(text="", icon='BLANK1')
@@ -194,11 +197,15 @@ class MeshStudio(Panel):
 
             uvs  = 0
             cols = 0
+            flow = 0
             for obj, submesh, lod, name, props in lod0:
                 if obj is None:
                     continue
                 triangles += len(obj.data.loop_triangle_polygons)
                 conflict = True if submesh in conflicts else False
+
+                if "xiv_flow" in obj.data.color_attributes:
+                    flow += 1
 
                 uvs  = min(2, len([layer for layer in obj.data.color_attributes 
                                     if layer.name.lower().startswith(XIV_COL)]))
@@ -220,22 +227,36 @@ class MeshStudio(Panel):
                     draw_lods(mesh_box, lod2)
             
             mesh_box.separator(type="LINE", factor=0.5)
+
+            if not (mesh_idx < len(model.meshes)):
+                operator_button(mesh_box, "ya.mesh_material", icon="NONE", text="Add Mesh Properties", attributes={"mesh": mesh_idx})
+                continue
             
-            if mesh_idx >= len(model.meshes):
-                op      = mesh_box.operator("ya.mesh_material", text="Add Mesh Properties")
-                op.mesh = mesh_idx
-            else:
-                obj = lod0[0][0]
-                row = mesh_box.row(align=True).split(factor=0.25)
-                row.alignment = 'RIGHT'
-                row.label(text=f"Material:")
-                if "xiv_material" in obj:
-                    op      = row.operator("ya.mesh_material", text=obj["xiv_material"])
-                    op.mesh = mesh_idx
-                else:
-                    op      = row.operator("ya.mesh_material", text="Add Material")
-                    op.mesh = mesh_idx
-                    
+            obj = lod0[0][0]
+            prop_col = mesh_box.column(align=True)
+            row    = prop_col.row().split(factor=0.25)
+
+            mat_op = partial(
+                            operator_button, 
+                            operator="ya.mesh_material",
+                            icon="NONE",
+                            text=obj["xiv_material"] if "xiv_material" in obj else "Add Material",
+                            attributes={"mesh": mesh_idx}
+                        )
+            
+            aligned_row(prop_col, "Material:", function=mat_op)
+            
+            flow_op = partial(
+                            operator_button, 
+                            operator="ya.flow_channel",
+                            icon="NONE",
+                            text="Add Flow Data" if flow < len(lod0) else "Has Flow Data",
+                            attributes={"mesh": mesh_idx}
+                        )
+
+            row = aligned_row(prop_col, "Flow:", function=flow_op)
+            row.prop(model.meshes[mesh_idx], "flow", text="", icon="RADIOBUT_ON" if model.meshes[mesh_idx].flow and flow else "RADIOBUT_OFF")
+
             if not any((uvs, cols)):
                 mesh_box.separator(type="LINE", factor=0.5)
             if not uvs:

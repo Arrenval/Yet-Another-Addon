@@ -468,13 +468,11 @@ class SceneHandler:
             except:
                 continue
             
-            flow     = mesh_props.flow
-            material = mesh_props.material
             for obj_data in mesh_data:
                 obj = obj_data[0]
-                obj["xiv_flow"] = flow
+                obj["xiv_flow"] = mesh_props.flow
                 if "xiv_material" not in obj:
-                    obj["xiv_material"] = material
+                    obj["xiv_material"] = mesh_props.material
 
     def restore_meshes(self) -> None:
         """We're trying a lot."""
