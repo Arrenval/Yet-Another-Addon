@@ -388,6 +388,7 @@ class ShapeKeyTransfer(Operator):
             deform        = not sub_key
             
             if sub_key:
+                get_target_key(self.target, source_key.name)
                 continue
             if not self.deform_target.get(source_key.name, False):
                 continue
