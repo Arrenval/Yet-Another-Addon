@@ -1,13 +1,13 @@
 import numpy as np
 
-from numpy                    import single, byte, ubyte
-from bpy.types                import Object
-from numpy.typing             import NDArray
+from numpy             import single, byte, ubyte
+from bpy.types         import Object
+from numpy.typing      import NDArray
             
-from ..com.space              import blend_to_xiv_space, world_to_tangent_space, lin_to_srgb
-from ..com.helpers            import average_vert_normals, calc_tangents_with_bitangent, vector_to_bytes, quantise_flow, normalise_vectors
+from ..com.space       import blend_to_xiv_space, world_to_tangent_space
+from ..com.helpers     import average_vert_normals, calc_tangents_with_bitangent, vector_to_bytes, quantise_flow, normalise_vectors
 
-from ....formats.model.vertex import XIV_COL, XIV_UV
+from ....formats.model import XIV_COL, XIV_UV
 
 
 def _loop_to_vert(loop_arr: NDArray, indices: NDArray, vert_count: int, shape: int) -> NDArray:
@@ -69,9 +69,6 @@ def get_col_attributes(obj: Object, indices: NDArray, vert_count: int, loop_coun
         
         if layer.domain == 'CORNER':
             col_arr = _loop_to_vert(col_arr, indices, vert_count, 4)
-        if layer.data_type == 'BYTE_COLOR':
-            col_arr = lin_to_srgb(col_arr)
-            
 
         col_arr = col_arr.clip(0.0, 1.0) * 255.0
         col_arrays.append(col_arr.round().astype(byte))
@@ -121,8 +118,6 @@ def get_flow(obj: Object, normals: NDArray, bitangents: NDArray, indices: NDArra
     flow_colour = flow_colour.reshape(-1, 4) 
     if flow_layer.domain == 'CORNER':
         flow_colour = _loop_to_vert(flow_colour, indices, vert_count, 4)
-    if flow_layer.data_type == 'BYTE_COLOR':
-        flow_colour = lin_to_srgb(flow_colour)
 
     signs        = bitangents[:, 3]
     bitangents   = bitangents[:, :3]

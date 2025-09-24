@@ -3,19 +3,22 @@ import bpy
 import bmesh
 import numpy as np
 
-from bpy.types            import Object, Depsgraph, ShapeKey
-from bmesh.types          import BMFace, BMesh
-from collections          import defaultdict
-from collections.abc      import Iterable 
-
-from ..logging           import YetAnotherLogger
-from ....props           import get_window_props, get_devkit_props, get_studio_props, get_xiv_meshes   
-from ....preferences     import get_prefs        
-from ....mesh.shapes     import get_shape_mix
-from .com.exceptions     import XIVMeshParentError
-from ....mesh.weights    import remove_vertex_groups
-from ....mesh.objects    import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
-from ....mesh.face_order import get_original_faces, sequential_faces
+from numpy.typing            import NDArray
+from bpy.types               import Object, Depsgraph, ShapeKey
+from bmesh.types             import BMFace, BMesh
+from collections             import defaultdict
+from collections.abc         import Iterable 
+   
+from ..logging               import YetAnotherLogger
+from ....props               import get_window_props, get_devkit_props, get_studio_props, get_xiv_meshes  
+from .com.space              import lin_to_srgb 
+from ....preferences         import get_prefs        
+from ....mesh.shapes         import get_shape_mix
+from .com.exceptions         import XIVMeshParentError
+from ....mesh.weights        import remove_vertex_groups
+from ....mesh.objects        import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
+from ....mesh.face_order     import get_original_faces, sequential_faces
+from ...formats.model.vertex import XIV_COL
 
 
 def create_backfaces(obj:Object) -> None:
@@ -103,7 +106,54 @@ def _get_backfaces(bm: BMesh, bf_idx: int) -> list[BMFace]:
     backfaces = [bm.faces[idx] for idx, is_backface in enumerate(faces_mask) if is_backface]
     
     return backfaces
+
+def colour_layer_correction(obj: Object) -> None:
+    '''This function corrects linear colour data that's been wrongly stored as sRGB during FBX import.'''
+    verts  = len(obj.data.vertices)
+    loops  = len(obj.data.loops)
+    layers = [layer.name for layer in obj.data.color_attributes]
     
+    layer_data: list[tuple[bool, str, str, str, NDArray]] = []
+    for name in layers:
+        layer   = obj.data.color_attributes[name]
+        domain  = layer.domain
+        convert = name.lower().startswith(XIV_COL) and layer.data_type == 'BYTE_COLOR'
+        data    = 'FLOAT_COLOR' if convert else layer.data_type
+
+        count = verts if domain == 'POINT' else loops
+        rgba = np.ones(count * 4, dtype=np.float32)
+
+        # When we access the data here, Blender converts what it thinks is sRGB to Linear colours.
+        # Problem is the data is already Linear.
+        layer.data.foreach_get("color", rgba)
+        obj.data.color_attributes.remove(layer)
+        layer_data.append((convert, name, domain, data, rgba))
+        
+    for convert, name, domain, data, rgba in layer_data:
+        layer = obj.data.color_attributes.new(name, domain=domain, type=data)
+        
+        # Here we apply the opposite conversion to restore the linear data. 
+        # Due to the gamma curve we won't get the exact values back, but an approximation.
+        if convert:
+            rgba = lin_to_srgb(rgba)
+
+        layer.data.foreach_set("color", rgba)
+
+
+def set_mesh_props(dupes: list[Object]) -> None:
+    model  = get_studio_props().model
+    meshes = get_xiv_meshes(dupes)  
+    for idx, mesh_data in enumerate(meshes):
+        try:
+            mesh_props = model.meshes[idx]
+        except:
+            continue
+        
+        for obj_data in mesh_data:
+            obj = obj_data[0]
+            obj["xiv_flow"] = mesh_props.flow
+            if "xiv_material" not in obj:
+                obj["xiv_material"] = mesh_props.material
 
 class SceneHandler:
     """
@@ -271,7 +321,10 @@ class SceneHandler:
         for obj in self.meshes:
             obj.hide_set(state=True)
         
-        self._set_mesh_props(dupes)
+        for obj in dupes:
+            colour_layer_correction(obj)
+        
+        set_mesh_props(dupes)
         return dupes
 
     def handle_transparency(self, transparency: list[Object]) -> dict[Object, Object]:
@@ -458,21 +511,6 @@ class SceneHandler:
             excluded_groups.update(genitalia[:4])
 
         return tuple(excluded_groups)
-
-    def _set_mesh_props(self, dupes: list[Object]) -> None:
-        model  = get_studio_props().model
-        meshes = get_xiv_meshes(dupes)  
-        for idx, mesh_data in enumerate(meshes):
-            try:
-                mesh_props = model.meshes[idx]
-            except:
-                continue
-            
-            for obj_data in mesh_data:
-                obj = obj_data[0]
-                obj["xiv_flow"] = mesh_props.flow
-                if "xiv_material" not in obj:
-                    obj["xiv_material"] = mesh_props.material
 
     def restore_meshes(self) -> None:
         """We're trying a lot."""

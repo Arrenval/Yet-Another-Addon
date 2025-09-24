@@ -21,7 +21,7 @@ def default_xiv_flow(obj: Object) -> None:
             obj.data.color_attributes.remove(layer)
             
             layer = obj.data.color_attributes.new("xiv_flow", domain='CORNER', type='FLOAT_COLOR')
-            layer.data.foreach_set("color", lin_to_srgb(rgba.reshape(-1, 4)).flatten())
+            layer.data.foreach_set("color", lin_to_srgb(rgba))
         else:
             layer.name = "xiv_flow" 
 
