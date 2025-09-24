@@ -5,6 +5,7 @@ from collections          import defaultdict
 
 from .validators          import remove_loose_verts, split_seams
 from ..com.exceptions     import XIVMeshIDError
+from ....formats.model    import XIV_ATTR
 from .....mesh.transforms import apply_transforms
 
 
@@ -12,10 +13,8 @@ def get_attributes(obj: Object) -> list[str]:
     attributes: list[str] = []
     for attr in obj.keys():
         attr: str
-        if attr.startswith("atr") and obj[attr]:
+        if attr.startswith(XIV_ATTR) and obj[attr]:
             attributes.append(attr.strip())
-        if attr.startswith("heels_offset") and obj[attr]:
-            attributes.append(attr.strip())   
 
     return attributes
 

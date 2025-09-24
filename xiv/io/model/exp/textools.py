@@ -1,11 +1,13 @@
 import sqlite3
 import subprocess
 
-from pathlib     import Path
-from bpy.types   import Object
+from pathlib           import Path
+from bpy.types         import Object
+      
+from .scene            import get_mesh_ids
+from .validators       import clean_material_path
+from ....formats.model import XIV_ATTR
 
-from .scene      import get_mesh_ids
-from .validators import clean_material_path
 
 
 def get_mesh_props(blend_obj: list[Object]) -> tuple[dict[str, str], dict[int, str]]:
@@ -18,9 +20,7 @@ def get_mesh_props(blend_obj: list[Object]) -> tuple[dict[str, str], dict[int, s
 
             for attr in obj.keys():
                 attr: str
-                if attr.startswith("atr") and obj[attr]:
-                    obj_attr.append(attr.strip())
-                if attr.startswith("heels_offset") and obj[attr]:
+                if attr.startswith(XIV_ATTR) and obj[attr]:
                     obj_attr.append(attr.strip())    
             attributes[obj.name] = ",".join(obj_attr)
 
