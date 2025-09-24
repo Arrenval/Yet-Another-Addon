@@ -40,7 +40,7 @@ class Attributes(Operator):
         if properties.attr == "NEW":
             return "Add new attribute to the object"
         else:
-            return "Remove this attribute"
+            return f"Remove this attribute: {properties.attr}"
 
     def invoke(self, context, event):
         if self.attr == "NEW":

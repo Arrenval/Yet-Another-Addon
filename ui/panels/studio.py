@@ -118,7 +118,7 @@ class MeshStudio(Panel):
         def draw_attr(obj: Object, props: list[str], subrow: UILayout) -> None:
             subrow.alignment = "EXPAND"
             for attr in props:
-                text    = self.outfit_props.attr_dict[attr] if attr in self.outfit_props.attr_dict else attr
+                text    = self.outfit_props.get_attr_name(attr)
                 op      = subrow.operator("ya.attributes", text=f"{text}")
                 op.attr = attr
                 op.obj  = obj.name

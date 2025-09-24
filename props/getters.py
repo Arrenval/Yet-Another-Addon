@@ -2,11 +2,11 @@ import re
 import bpy
 
 
-from typing         import TYPE_CHECKING, Literal
-from bpy.types      import Object
-from collections    import defaultdict
+from typing              import TYPE_CHECKING, Literal
+from bpy.types           import Object
+from collections         import defaultdict
 
-from ..mesh.objects import visible_meshobj
+from ..xiv.formats.model import XIV_ATTR
 
 if TYPE_CHECKING:
     from .file           import YAFileProps
@@ -61,7 +61,7 @@ def get_xiv_meshes(objs: list[Object]) -> list[list[tuple[Object, int, str, list
         elif lod > 2:
             continue
 
-        obj_props = [key for key, value in obj.items() if key.startswith(("atr", "heels_offset")) and value]
+        obj_props = [key for key, value in obj.items() if key.startswith(XIV_ATTR) and value]
         mesh_dict[mesh].append((obj, submesh, lod, name, obj_props))
 
     mesh_indices = sorted(mesh_dict.keys())

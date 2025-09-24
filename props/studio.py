@@ -324,19 +324,49 @@ class YAStudioProps(PropertyGroup):
         'n_throw': 'Throw'
         }
 
-    attr_dict = {
-           "atr_nek": "Neck",
-           "atr_ude": "Elbow",
-           "atr_hij": "Wrist",
-           "atr_arm": "Glove",
-           "atr_kod": "Waist",
-           "atr_hiz": "Knee",
-           "atr_sne": "Shin",
-           "atr_leg": "Boot",
-           "atr_lpd": "Knee Pad",
-        }
-    
-
+    def get_attr_name(self, attr: str) -> str:
+        parts = {
+                "nek": "Neck",
+                "ude": "Elbow",
+                "hij": "Wrist",
+                "arm": "Hand",
+                "kod": "Waist",
+                "hiz": "Knee",
+                "sne": "Shin",
+                "leg": "Boot",
+                "lpd": "Knee Pad",
+            }
+        
+        variant = {
+                "mv": "Head",
+                "tv": "Body",
+                "gv": "Glove",
+                "dv": "Leg",
+                "sv": "Shoe",
+                "ev": "Earring",
+                "nv": "Necklace",
+                "wv": "Bracelet",
+                "rv": "Ring",
+                "fv": "Face",
+                "hv": "Hair"
+            }
+        if attr.startswith("atr_"):
+            split = attr.split("_")
+            variant_id = split[1]
+            if variant_id in variant and len(split) > 2:
+                variant_part = split[2].upper()
+                return f"{variant[variant_id]} {variant_part}"
+            elif variant_id in parts:
+                return parts[variant_id]
+            else:
+                return attr
+        elif attr.startswith("heels_offset"):
+            return f"Heels: {attr.split('=')[1]}"
+        elif attr.startswith("skin_offset"):
+            return f"Skin: {attr.split('=')[1]}"
+        else:
+            return attr
+        
     def _chest_controller_update(self, context: Context) -> None:
         key_blocks = get_devkit_props().yam_shapes.data.shape_keys.key_blocks
         for key in key_blocks:
