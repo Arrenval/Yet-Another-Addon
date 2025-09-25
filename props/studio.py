@@ -362,7 +362,7 @@ class YAStudioProps(PropertyGroup):
                 return attr
         elif attr.startswith("heels_offset"):
             return f"Heels: {attr.split('=')[1]}"
-        elif attr.startswith("skin_offset"):
+        elif attr.startswith("skin_suffix"):
             return f"Skin: {attr.split('=')[1]}"
         else:
             return attr
