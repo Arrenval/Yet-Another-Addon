@@ -1,11 +1,12 @@
 # Yet Another Addon
 This is a Blender add-on which aims to give various tools to aid in XIV Modding workflows. Some of its features are:
 * Fix for transparent meshes made in Blender.
+* Native support for XIV Model import/export.
 * XIV .pose and scaling import.
 * File export with ability to retain XIV specific properties.
 * Penumbra compatible modpackaging.
 
-A more extensive overview of the features can be found [here](https://docs.google.com/document/d/1WRKKUZZsAzDOTpt6F7iJkN8TDvwDBm0s0Z4DHdWqT_o/edit?usp=sharing), as well as the compatible YAB+ Devkit.
+A more extensive overview of the features can be found [here](https://github.com/Arrenval/Yet-Another-Addon/wiki), as well as the compatible YAB+ Devkit.
 
 You'll find most of the features under the "XIV Kit" tab in the 3D Viewport.
 
@@ -19,12 +20,12 @@ Installing this as an addon and later updating to an extension will incur a loss
 ## Acknowledgements
 * The `pmp` package is based around Penumbra's [Modpack schemas](https://github.com/xivdev/Penumbra/tree/master/schemas) by [@Ottermandias](https://github.com/Ottermandias) and [@Ny](https://github.com/Exter-N).
 * The `phyb` package uses VFXEditor/Penumbra's Phyb structs by [@0ceal0t](https://github.com/0ceal0t) and [@Ottermandias](https://github.com/Ottermandias).
-* The binary span reader in the `serialiser` module is based on [@Ny](https://github.com/Exter-N) and [@Ottermandias](https://github.com/Ottermandias)' [utilities](https://github.com/Ottermandias/Penumbra.GameData/blob/10fdb025436f7ea9f1f5e97635c19eee0578de7b/Files/Utility/SpanBinaryReader.cs).
-* The `model` package is based on the structs in [Lumina](https://github.com/NotAdam/Lumina/tree/master/src/Lumina/Models/Models) and [Penumbra](https://github.com/Ottermandias/Penumbra.GameData/tree/10fdb025436f7ea9f1f5e97635c19eee0578de7b/Files).
+* The binary span reader in the `xiv.utils` module is based on [@Ny](https://github.com/Exter-N) and [@Ottermandias](https://github.com/Ottermandias)' [utilities](https://github.com/Ottermandias/Penumbra.GameData/blob/10fdb025436f7ea9f1f5e97635c19eee0578de7b/Files/Utility/SpanBinaryReader.cs).
+* The `xiv.formats.model` package is based on the structs in [Lumina](https://github.com/NotAdam/Lumina/tree/master/src/Lumina/Models/Models) and [Penumbra](https://github.com/Ottermandias/Penumbra.GameData/tree/10fdb025436f7ea9f1f5e97635c19eee0578de7b/Files).
 * [@ackwell](https://github.com/ackwell) for help with understanding XIV primitives and their usage.
 
 ## Licensing
-Modules based around Penumbra and XIV interop are standalone, exist for compatibility and do not interface directly with the Blender Python API. They inherit their respective source's licenses. See **Acknowledgements** for details.
+The format modules based around Penumbra and XIV interop are standalone, exist for compatibility and do not interface directly with the Blender Python API. They inherit their respective source's licenses. See **Acknowledgements** for details.
 
 The remaining code within this tool is made for the Blender API and follows its GPL3 licensing, read the *LICENSE.md* for details. However, I do humbly request that it does not be used for creating mods or assets that are behind a permanent paywall. 
 
