@@ -1,22 +1,25 @@
 import os
 import bpy
-import platform
 import rna_keymap_ui
 
-from typing         import TYPE_CHECKING, Literal
+from typing         import TYPE_CHECKING
 from bpy.types      import AddonPreferences, PropertyGroup, Context, UILayout, KeyMap, KeyMapItem
 from bpy.props      import StringProperty, BoolProperty, CollectionProperty, EnumProperty, PointerProperty
      
 from .ui.draw       import aligned_row, get_conditional_icon, operator_button
-from .utils.typings import BlendEnum
 
 
 _keymaps: dict[str, tuple[KeyMap, KeyMapItem]] = {}
 
 class ModpackOptionPreset(PropertyGroup):
-    name   : StringProperty(name="", description="Name of preset") # type: ignore
-    format : StringProperty(name="", description="Type of preset") # type: ignore
+    name  : StringProperty(name="", description="Name of preset") # type: ignore
+    format: StringProperty(name="", description="Type of preset") # type: ignore
     preset: StringProperty(name="", description="JSON serialised preset") # type: ignore
+
+    if TYPE_CHECKING:
+        name  : str
+        format: str
+        preset: str
 
 class MenuSelect(PropertyGroup):
     def register_outfit_panel(self, context) -> None:
@@ -231,7 +234,7 @@ class YetAnotherPreference(AddonPreferences):
         ) # type: ignore
 
     if TYPE_CHECKING:
-        modpack_presets: ModpackOptionPreset
+        modpack_presets: list[ModpackOptionPreset]
         menus          : MenuSelect
         export         : ExportPrefs
 
@@ -307,7 +310,7 @@ class YetAnotherPreference(AddonPreferences):
             row.label(text="You currently have no presets.", icon="INFO")
 
         for idx, preset in enumerate(self.modpack_presets):
-            if preset.type != self.modpack_presets[idx -1].type:
+            if preset.format != self.modpack_presets[idx - 1].format:
                 layout.separator(type="LINE")
 
             row = aligned_row(layout, preset.format.capitalize(), "name", preset)
@@ -318,13 +321,7 @@ class YetAnotherPreference(AddonPreferences):
             "preset_idx":   idx,
             }
             
-            operator_button(row, "ya.modpack_presets", icon="TRASH", attributes=op_atr)
-            
-            subrow = row.row(align=True)
-            subrow.scale_x = 2.2
-            subrow.label(text="", icon="BLANK1")
-        
-        layout.separator(type="SPACE")
+            operator_button(row, "ya.preset_manager", icon="TRASH", attributes=op_atr)
 
     def draw_options(self, layout: UILayout) -> None:
         row = layout.row(align=True)

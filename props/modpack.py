@@ -158,6 +158,7 @@ class ModMetaEntry(PropertyGroup):
             ("Face", "Face", ""),
             ("Ears", "Ears", "")]
             ) # type: ignore
+    
     race_condition     : EnumProperty(
         name= "",
         default=1,

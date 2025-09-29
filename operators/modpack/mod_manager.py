@@ -260,7 +260,6 @@ class ModpackPresets(Operator):
         
         self.prefs  = get_prefs()
         self.props  = get_window_props()
-        self.format = "modpack"
         self.mod_group: BlendModGroup = self.props.file.modpack.pmp_mod_groups[self.group]
 
         if len(self.prefs.modpack_presets) == 0:
@@ -301,7 +300,7 @@ class ModpackPresets(Operator):
             new_preset        = presets.add()
             new_preset.name   = self.preset_name
             new_preset.preset = context.window_manager.clipboard
-            new_preset.format = self.format
+            new_preset.format = self.format.lower()
 
             self.sort_presets(presets, manager)
         
@@ -327,28 +326,33 @@ class ModpackPresets(Operator):
             aligned_row(layout, "Preset:", "modpack_preset_select", self.prefs)
 
     def to_clipboard(self, context: Context, manager: RNAPropertyIO) -> set:
-        option_data     = manager.extract(self.mod_group.mod_options)
-        correction_data = manager.extract(self.mod_group.corrections)
-        base_phybs      = manager.extract(self.mod_group.base_phybs)
-
-        preset_json: str = self.get_wrapper([option_data, correction_data, base_phybs])
-        preset_bytes     = gzip.compress(preset_json.encode("utf-8"))                  
-        b64_string       = base64.b64encode(preset_bytes).decode("utf-8")
+        preset_data  = self._preset_data(manager)
+        preset_json  = self.get_wrapper(preset_data)
+        preset_bytes = gzip.compress(preset_json.encode("utf-8"))                  
+        b64_string   = base64.b64encode(preset_bytes).decode("utf-8")
         
         context.window_manager.clipboard = b64_string
         return {"FINISHED"}
+    
+    def _preset_data(self, manager: RNAPropertyIO) -> dict:
+        return manager.extract_property_group(self.mod_group)
 
     def add_preset(self, preset: Preset, manager: RNAPropertyIO) -> set:
-        modpack_idx_attr = {
-            0: "mod_options",
-            1: "corrections",
-            2: "group_files",
-            3: "base_phybs",
-        }
-
-        if preset.get("_version") == 1 and preset.get("_format") == "modpack":
+        
+        def modpack_v1(manager: RNAPropertyIO, preset: Preset):
+            modpack_idx_attr = {
+                0: "mod_options",
+                1: "corrections",
+                2: "group_files",
+                3: "base_phybs",
+            }
             for idx, attr_data in enumerate(preset["preset"]):
                 manager.add(attr_data, getattr(self.mod_group, modpack_idx_attr[idx]))
+        
+        if preset.get("_version") == 1 and preset.get("_format") == "modpack":
+            modpack_v1(manager, preset)
+        elif preset.get("_version") == 2 and preset.get("_format") == "modpack":
+            manager.restore_property_group(preset["preset"], self.mod_group)
         else:
             self.report({"ERROR"}, "Not a valid modpack preset!")
             return {"CANCELLED"}
@@ -360,9 +364,9 @@ class ModpackPresets(Operator):
         preset: Preset = json.loads(preset_data.decode("utf-8"))
         return preset
     
-    def get_wrapper(self, preset: Any):
+    def get_wrapper(self, preset: Any) -> str:
         wrapper: Preset = {
-            "_version":    1,
+            "_version":    2,
             "_format":     self.format.lower(),
             "preset":      preset,
 
