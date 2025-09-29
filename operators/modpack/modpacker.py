@@ -1,12 +1,10 @@
-import bpy
 import shutil
 import tempfile
-import subprocess
 
 from pathlib             import Path
 from datetime            import datetime
 from itertools           import chain
-from functools           import partial, singledispatchmethod
+from functools           import singledispatchmethod
 from bpy.types           import Operator, Context, UILayout
 from bpy.props           import StringProperty, IntProperty
 
@@ -28,70 +26,6 @@ def get_binary_name(all_options: list, options: set[str]) -> str:
 
     return option_name
 
-class ModelConverter(Operator):
-    bl_idname = "ya.fbx_converter"
-    bl_label = "Modpacker"
-    bl_description = "FBX to MDL converter via ConsoleTools"
-    
-    def execute(self, context:Context):
-        self.prefs                 = get_prefs()
-        self.window_props          = get_window_props()
-        self.output_dir            = Path(self.prefs.modpack_output_dir)
-
-        if not self.folders:
-            self.report({'ERROR'}, "Please select an FBX directory")
-            return {'CANCELLED'}
-            
-        if not self.prefs.consoletools_status:
-            bpy.ops.ya.consoletools("EXEC_DEFAULT")
-            if not self.prefs.consoletools_status:
-                self.report({'ERROR'}, "Verify that ConsoleTools is ready.")
-                return {'CANCELLED'} 
-            
-        mdl_status, cmd = self.mdl_converter(context) 
-
-        callback = partial(ModelConverter.delete_cmd_file, context, cmd, mdl_status)
-        bpy.app.timers.register(callback, first_interval=0.5)
-        return {"FINISHED"}
-       
-    def mdl_converter(self, context:Context) -> subprocess.Popen:
-        textools              = Path(self.prefs.export.textools_dir)
-
-        to_convert: set[tuple[Path, str]] = set()
-
-        cmd_name = "MDL.cmd"
-        commands = ["@echo off", f"cd /d {textools.drive}", f"cd {textools}", "echo Please don't close this window..."]
-
-        cmd_path = self.output_dir / cmd_name
-
-        cmds_added  = 0
-        total_files = len(to_convert)
-        for file, game_path in to_convert:
-            commands.append(f"echo ({cmds_added + 1}/{total_files}) Converting: {file.stem}")
-            source = str(file)
-            dest   = str(file.parent / file.stem)
-
-            commands.append("echo Finalising .mdl...")
-            commands.append(f'ConsoleTools.exe /wrap "{source}" "{dest}.mdl" "{game_path}" >nul')
-
-            cmds_added += 1
-        
-        # commands.append("pause")
-
-        with open(cmd_path, 'w') as file:
-            for cmd in commands:
-                file.write(f"{cmd}\n")
-
-        mdl_status = subprocess.Popen([str(cmd_path)], creationflags=subprocess.CREATE_NEW_CONSOLE)
-
-        return mdl_status, cmd_path
-
-    def delete_cmd_file(context, cmd:Path, mdl_status: subprocess.Popen) -> None:
-        if mdl_status is not None and mdl_status.poll() != 0:
-            return 0.5
-        
-        Path.unlink(cmd, missing_ok=True)
-        
 class ModPackager(Operator):
     bl_idname = "ya.mod_packager"
     bl_label = "Modpacker"
@@ -491,6 +425,5 @@ class ModPackager(Operator):
 
 
 CLASSES = [
-    ModelConverter,
     ModPackager
 ]

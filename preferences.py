@@ -124,18 +124,6 @@ class ExportPrefs(PropertyGroup):
         if os.path.exists(display_dir):  
             setattr(self, actual_prop, display_dir)
 
-    def _mdl_enum(self, context: Context) -> BlendEnum:
-        if platform.system() == 'Windows':
-            return [
-            ('BLENDER', "Blender", "Native Blender to .mdl export."),
-            ('TT', "TexTools", "Export as fbx and let Textools convert to .mdl."),
-            ]
-        
-        else:
-            return [
-            ('BLENDER', "Blender", "Native Blender to .mdl export."),
-            ]
-
     display_dir: StringProperty(
         name="Export Folder",
         default="Select an export directory...",  
@@ -148,32 +136,10 @@ class ExportPrefs(PropertyGroup):
         default="Select an export directory...",
         maxlen=255,
         )  # type: ignore
-    
-    mdl_export: EnumProperty(
-        name="Option Presets",
-        description="Select a preset to apply to your mod group",
-        default=0,
-        items=_mdl_enum
-        ) # type: ignore
-    
-    textools_dir: StringProperty(
-        name="ConsoleTools Directory",
-        default="Select ConsoleTools.exe...", 
-        maxlen=255,
-        options={'HIDDEN'},
-        
-        )  # type: ignore
-    
-    consoletools_status: BoolProperty(
-        default=False,
-        )  # type: ignore
-    
+
     if TYPE_CHECKING:
         display_dir        : str
         output_dir         : str
-        textools_dir       : str
-        mdl_export         : Literal['BLENDER', 'TT']
-        consoletools_status: bool
 
 class YetAnotherPreference(AddonPreferences):
     bl_idname = __package__
@@ -260,7 +226,7 @@ class YetAnotherPreference(AddonPreferences):
     
     armature_vis_anim: BoolProperty(
         name="Hide Armature",
-        description="Controls whether armatures are hidden during animation playback.",
+        description="Controls whether armatures are hidden during animation playback",
         default=True,
         ) # type: ignore
 
@@ -287,20 +253,14 @@ class YetAnotherPreference(AddonPreferences):
         right_col    = layout_split.column(align=True)
 
         if self.pref_menu == 'GENERAL':
-            import_box = right_col.box()
-            self.draw_import(import_box)
-
-            export_box = right_col.box()
-            self.draw_export(export_box)
-
-            modpack_box = right_col.box()
-            self.draw_modpack(modpack_box)
-
             options_box = left_col.box()
             self.draw_options(options_box)
 
-            panel_box = left_col.box()
+            panel_box = right_col.box()
             self.draw_menus(panel_box)
+
+            modpack_box = right_col.box()
+            self.draw_directories(modpack_box)
 
         elif self.pref_menu == 'KEY':
             keymap_box = left_col.box()
@@ -309,76 +269,18 @@ class YetAnotherPreference(AddonPreferences):
             preset_box = right_col.box()
             self.draw_presets(preset_box)
 
-    def draw_modpack(self, layout: UILayout) -> None:
-        # options = [
-        #     (None, "", "", "", ""),
-        # ]
-
+    def draw_directories(self, layout: UILayout) -> None:
         row = layout.row(align=True)
         row.alignment = "CENTER"
-        row.label(text="Modpack:")
+        row.label(text="Directories:")
         
-        layout.separator(type="LINE")
-
-        row = aligned_row(layout, "Mod Output:", "modpack_output_dir", self)
+        row = aligned_row(layout, "Model:", "output_dir", self.export)
+        row.operator("ya.dir_selector", text="", icon="FILE_FOLDER").category = "export"
+        row = aligned_row(layout, "Modpack:", "modpack_output_dir", self)
         row.operator("ya.modpack_dir_selector", text="", icon="FILE_FOLDER").category = "OUTPUT_PMP"
 
-        # layout.separator(type="LINE")
-
-        # self.option_rows(layout, options)
-        
         layout.separator(type="SPACE")
     
-    def draw_import(self, layout: UILayout) -> None:
-        row = layout.row(align=True)
-        row.alignment = "CENTER"
-        row.label(text="Import:")
-
-        options = [
-            (self, "auto_cleanup", self.auto_cleanup, "Auto Cleanup", "Cleans up imported files automatically with your current settings"),
-            (self, "remove_nonmesh", self.remove_nonmesh, "Remove Non-Mesh", "Removes non-mesh objects. Typically leftover objects from FBX imports or skeletons."),
-            (self, "update_material", self.update_material, "Update Materials", "Changes material rendering and enables backface culling. Tries to adjust metallic and roughness values of TT materials."),
-            (self, "reorder_meshid", self.reorder_meshid, "Mesh ID", "Moves mesh identifier to the front of the object name."),
-        ]
-
-        self.option_rows(layout.column(align=True), options)
-
-    def draw_export(self, layout: UILayout) -> None:
-        # options = [
-        #     (None, "", "", "", ""),
-        # ]
-
-        row = layout.row(align=True)
-        row.alignment = "CENTER"
-        row.label(text="Export:")
-
-        layout.separator(type="LINE")
-
-        if platform.system() == "Windows":
-            row   = layout.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="Model Export:")
-            subrow = split.row(align=True)
-            subrow.prop(self.export, "mdl_export", text="MDL", expand=True)
-            
-            if self.export.mdl_export == 'TT':
-                text = "✓  ConsoleTools Ready!" if self.export.consoletools_status else "X  ConsoleTools missing."
-                row  = aligned_row(layout, "", text)
-                row.operator("ya.consoletools", text="Check")
-                col = layout.column(align=True)
-                row = aligned_row(col, "ConsoleTools:", "textools_dir", self.export)
-                row.operator("ya.consoletools_dir", text="", icon="FILE_FOLDER")
-            else:
-                col = layout.column(align=True)
-        else:
-            col = layout.column(align=True)
-
-        row = aligned_row(col, "File Output:", "output_dir", self.export)
-        row.operator("ya.dir_selector", text="", icon="FILE_FOLDER")
-
-        layout.separator(type='SPACE')
-
     def draw_keymaps(self, layout: UILayout) -> None:
         wm = bpy.context.window_manager
         kc = wm.keyconfigs.user
@@ -391,8 +293,6 @@ class YetAnotherPreference(AddonPreferences):
         for km, kmi in _keymaps.values():
             row = layout.row(align=True)
             rna_keymap_ui.draw_kmi(['ADDON', 'USER', 'DEFAULT'], kc, km, kmi, row, 0)
-
-
 
     def draw_presets(self, layout: UILayout) -> None:
         row = layout.row(align=True)
@@ -431,7 +331,16 @@ class YetAnotherPreference(AddonPreferences):
         row.alignment = "CENTER"
         row.label(text="Options:")
         options = [
-            (self, "auto_cleanup", self.armature_vis_anim, "Hide Armature", "Controls whether armatures are hidden during animation playback."),
+            (self, "armature_vis_anim", self.armature_vis_anim, "Hide Armature", "Controls whether armatures are hidden during animation playback."),
+        ]
+
+        self.option_rows(layout.column(align=True), options)
+
+        options = [
+            (self, "auto_cleanup", self.auto_cleanup, "Auto Cleanup", "Cleans up imported files automatically with your current settings"),
+            (self, "remove_nonmesh", self.remove_nonmesh, "Remove Non-Mesh", "Removes non-mesh objects. Typically leftover objects from FBX imports or skeletons."),
+            (self, "update_material", self.update_material, "Update Materials", "Changes material rendering and enables backface culling. Tries to adjust metallic and roughness values of TT materials."),
+            (self, "reorder_meshid", self.reorder_meshid, "Mesh ID", "Moves mesh identifier to the front of the object name."),
         ]
 
         self.option_rows(layout.column(align=True), options)
@@ -446,7 +355,11 @@ class YetAnotherPreference(AddonPreferences):
             (self.menus, "file_panel", self.menus.file_panel, "File Manager", "Panel for import/export and modpacking tools."),
             (self.menus, "util_panel", self.menus.util_panel, "Utilities", "Panel with various file utilities."),
             (self.menus, "sym_panel", self.menus.sym_panel, "Sym Groups", "Panel under vertex group menu that can add missing symmetry groups."),
-            (None, "", "", "", ""),
+            ]
+
+        self.option_rows(layout.column(align=True), options)
+
+        options = [
             (self.menus, "weight_menu", self.menus.weight_menu, "Vertex Weights", "Vertex Group addition to quickly remove selected or empty vertex groups."),
             (self.menus, "mod_button", self.menus.mod_button, "Shape Key Modifiers", "Operator that helps apply modifiers to meshes with shape keys."),
         ]

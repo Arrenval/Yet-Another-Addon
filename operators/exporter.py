@@ -270,17 +270,11 @@ class YetAnotherExport(Operator):
         self.export_dir  = Path(get_prefs().export.output_dir)
         self.visible     = visible_meshobj()
         self.no_armature = verify_armature(self.visible)
-
-        if self.file_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
-            if not self.window.file.io.valid_xiv_path:
-                self.report({'ERROR'}, "Please input a path to your target model.")
-                return {'CANCELLED'}
-            
-            if not get_prefs().export.consoletools_status:
-                bpy.ops.ya.consoletools("EXEC_DEFAULT")
-                if not get_prefs().export.consoletools_status:
-                    self.report({'ERROR'}, "Verify that ConsoleTools is ready in the add-on preferences.")
-                    return {'CANCELLED'} 
+        self.logger      = YetAnotherLogger(
+                                    total=1, 
+                                    output_dir=self.export_dir, 
+                                    start_time=time.time()
+                                )
 
         if not self.export_dir.is_dir():
             self.report({'ERROR'}, "No export directory selected.")
@@ -321,8 +315,20 @@ class YetAnotherExport(Operator):
                 
                 else:
                     self.batch_export()
+
+        except Exception as e:
+            if self.logger:
+                self.logger.close(e)
+                self.report({'ERROR'}, "Exporter ran into an error, please see the log in your export folder.")
+            else:
+                self.report({'ERROR'}, f"Error during export: {e}")
+            return {'CANCELLED'}
+        
         finally:
             bpy.context.window.cursor_set('DEFAULT')
+            if self.logger:
+                self.logger.close()
+
             for obj in self.visible:
                 try:
                     obj.select_set(state=True)
@@ -330,7 +336,7 @@ class YetAnotherExport(Operator):
                     pass
             armature.hide_set(state=arm_vis)
 
-        if self.file_format == 'MDL' and self.prefs.export.mdl_export == 'BLENDER':
+        if self.file_format == 'MDL':
             get_export_stats(context)
         else:
             self.report({'INFO'}, "Export complete!")
@@ -376,8 +382,6 @@ class YetAnotherExport(Operator):
 
         if devkit:
             devkit.collection_state.export = False
-        
-        return {'FINISHED'}
     
     def batch_export(self) -> set[str]:
         self.props = get_file_props()
@@ -425,7 +429,7 @@ class YetAnotherExport(Operator):
             )
 
         try:
-            self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
+            self.logger.total = len(self.queue)
             for item in self.queue:
                 self.logger.log_progress(operation="Exporting files", clear_messages=True)
                 self.logger.log_separator()
@@ -434,16 +438,8 @@ class YetAnotherExport(Operator):
                 self.logger.log("Applying sizes...", 2)
 
                 self._process_queue(item, self.body_slot, leg_queue=self.leg_queue)
-                    
-        except Exception as e:
-            if self.logger:
-                self.logger.close(e)
-            self.report({'ERROR'}, "Exporter ran into an error, please see the log in your export folder.")
-            return {'FINISHED'}
         
         finally:
-            if self.logger:
-                self.logger.close()
             reset_chest_values()
             get_devkit_props().collection_state.export = False
             bpy.context.view_layer.update()

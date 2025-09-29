@@ -11,8 +11,7 @@ from collections.abc         import Iterable
    
 from ..logging               import YetAnotherLogger
 from ....props               import get_window_props, get_devkit_props, get_studio_props, get_xiv_meshes  
-from .com.space              import lin_to_srgb 
-from ....preferences         import get_prefs        
+from .com.space              import lin_to_srgb       
 from ....mesh.shapes         import get_shape_mix
 from .com.exceptions         import XIVMeshParentError
 from ....mesh.weights        import remove_vertex_groups
@@ -23,6 +22,10 @@ from ...formats.model.vertex import XIV_COL
 
 def create_backfaces(obj:Object) -> None:
     """Assumes the mesh is triangulated to get the faces from _get_backfaces."""
+    
+    if "BACKFACES" not in obj.vertex_groups:
+        return
+    
     mesh = obj.data
     old_poly_count = len(mesh.polygons) 
 
@@ -139,7 +142,6 @@ def colour_layer_correction(obj: Object) -> None:
 
         layer.data.foreach_set("color", rgba)
 
-
 def set_mesh_props(dupes: list[Object]) -> None:
     model  = get_studio_props().model
     meshes = get_xiv_meshes(dupes)  
@@ -171,7 +173,7 @@ class SceneHandler:
         props                            = get_window_props()
         self.depsgraph : Depsgraph       = depsgraph
         self.shapekeys : bool            = props.keep_shapekeys
-        self.xiv_mdl   : bool            = get_prefs().export.mdl_export == 'BLENDER' and props.file.model_format == 'MDL'
+        self.xiv_mdl   : bool            = props.file.model_format == 'MDL'
         self.is_tris   : bool            = props.check_tris or self.xiv_mdl
         self.backfaces : bool            = (props.create_backfaces and self.is_tris)
         self.yas_vag   : bool            = True
@@ -181,21 +183,22 @@ class SceneHandler:
         self.delete    : list[Object]    = []
         self.tri_method: tuple[str, str] = ("BEAUTY", "BEAUTY")
 
-        self.logger    : YetAnotherLogger = logger
-        self.meshes    : dict[Object, dict[str, list | bool]] = {}                       
-    
-    def prepare_meshes(self) -> None:
-        if self.logger:
-            self.logger.log("Preparing meshes...", 2)
-
-        visible_obj = visible_meshobj()
-        no_skeleton = []
-
         # Bools for deciding which waist shape keys to keep. Only relevant for Yet Another Devkit.
         self.rue    = False
         self.buff   = False
         self.torso  = False
         self.devkit = get_devkit_props()
+
+        self.logger     : YetAnotherLogger = logger
+        self.meshes     : dict[Object, dict[str, list | bool]] = {}
+        self.export_objs: list[Object] = []                       
+    
+    def prepare_scene(self) -> None:
+        if self.logger:
+            self.logger.log("Preparing meshes...", 2)
+
+        visible_obj = visible_meshobj()
+        no_skeleton = []
 
         if self.devkit:
             self.devkit_checks(visible_obj)
@@ -270,7 +273,7 @@ class SceneHandler:
 
         return shape_keys
 
-    def process_meshes(self) -> list[Object]:
+    def process_scene(self) -> list[Object]:
         fixed_transp: dict[Object, Object]              = {}
         shape_keys  : list[tuple[Object, Object, list]] = []
         backfaces   : list[Object]                      = []
@@ -325,7 +328,7 @@ class SceneHandler:
             colour_layer_correction(obj)
         
         set_mesh_props(dupes)
-        return dupes
+        self.export_objs = dupes
 
     def handle_transparency(self, transparency: list[Object]) -> dict[Object, Object]:
         if self.logger:

@@ -7,7 +7,8 @@ from ...props         import get_file_props, get_devkit_props, get_window_props,
 from ...preferences   import get_prefs
 from ...props.enums   import RacialCodes
 from ...props.modpack import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry
-        
+
+
 class FileManager(Panel):
     bl_idname = "VIEW3D_PT_YA_FileManager"
     bl_space_type = "VIEW_3D"
@@ -102,31 +103,6 @@ class FileManager(Panel):
         layout.separator(type="LINE")
         
         aligned_row(layout, "IVCS/YAS:", "remove_yas", self.window_props.file.io)
-        
-        if self.window_props.file.model_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
-            body_slots = {
-                "Chest": "top",
-                "Hands": "glv",
-                "Legs":  "dwn",
-                "Feet":  "sho"
-            }
-
-            row = aligned_row(layout, "XIV Path:", "export_xiv_path", self.window_props.file.io)
-            row.label(text="", icon=get_conditional_icon(self.window_props.file.io.valid_xiv_path))
-
-            if self.window_props.file.io.valid_xiv_path:
-                row = layout.row(align=True)
-                split = row.split(factor=0.25, align=True)
-                split.alignment = "RIGHT"
-                split.label(text="")
-                
-                for key, value in body_slots.items():
-                    op = split.operator(
-                        "ya.gamepath_category", 
-                        text=key, depress=True if value == self.window_props.file.io.check_gamepath_category(context) else False)
-                    op.category  = "EXPORT"
-                    op.body_slot = value
-
 
         layout.separator(factor=0.1)
 

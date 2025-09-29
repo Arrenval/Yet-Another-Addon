@@ -4,9 +4,8 @@ from pathlib             import Path
 from bpy.types           import Context, UILayout
    
 from .objects            import visible_meshobj
-from ..preferences       import get_prefs
-from ..xiv.io.model      import ModelExport, SceneHandler, consoletools_mdl
-from ..props.getters     import get_window_props, get_studio_props
+from ..xiv.io.model      import ModelExport, SceneHandler
+from ..props.getters     import get_studio_props
 from ..xiv.io.logging    import YetAnotherLogger
 from ..xiv.io.model.data import get_neck_morphs
 
@@ -110,7 +109,6 @@ class FileExport:
         self.logger      = logger
         self.file_format = file_format
         self.file_path   = file_path
-        self.tt_mdl      = get_prefs().export.mdl_export == 'TT' and file_format == 'MDL'
         self.batch       = batch
  
     def export_template(self):
@@ -118,9 +116,8 @@ class FileExport:
 
         try:
             mesh_handler = SceneHandler(logger=self.logger, batch=self.batch)
-
-            mesh_handler.prepare_meshes()
-            export_obj = mesh_handler.process_meshes()
+            mesh_handler.prepare_scene()
+            mesh_handler.process_scene()
 
             if self.logger:
                 self.logger.log_separator()
@@ -134,27 +131,18 @@ class FileExport:
                                     **get_export_settings('GLTF')
                                 )
 
-            elif self.file_format == 'FBX' or self.tt_mdl:
+            elif self.file_format == 'FBX':
                 bpy.ops.export_scene.fbx(
                                     filepath=str(self.file_path) + ".fbx", 
                                     **get_export_settings('FBX')
                                 )
                 
-                if self.file_format == 'MDL':
-                    if self.logger:
-                        self.logger.log(f"Converting to MDL...", 2)
-                    consoletools_mdl(
-                            str(self.file_path),
-                            export_obj, 
-                            get_prefs().export.textools_dir,
-                            get_window_props().file.io.export_xiv_path.strip()
-                        )
             else:
                 if self.logger:
                     self.logger.log(f"Converting to MDL...", 2)
                 model_props   = get_studio_props().model
                 _export_stats = ModelExport.export_scene(
-                                                export_obj, 
+                                                mesh_handler.export_objs, 
                                                 str(self.file_path) + ".mdl",
                                                 model_props.use_lods,
                                                 get_neck_morphs(model_props.neck_morph),
