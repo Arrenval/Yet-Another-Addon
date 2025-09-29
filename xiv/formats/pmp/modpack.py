@@ -52,7 +52,7 @@ class Modpack:
         self.logger                 = logging.getLogger(f"{self.__class__.__name__}")
 
     @classmethod
-    def from_archive(cls, archive:Path):
+    def from_archive(cls, archive: Path) -> 'Modpack':
         '''Takes a .pmp and reads its JSON data.'''
         modpack = cls()
         with ZipFile(archive, "r") as pmp:
@@ -76,7 +76,7 @@ class Modpack:
         return modpack
 
     @classmethod           
-    def from_folder(cls, folder:Path):
+    def from_folder(cls, folder: Path) -> 'Modpack':
         '''Takes a penumbra mod folder and reads its JSON data.'''
         modpack = cls()
         folder_content = [file for file in folder.glob(f'*.json') if file.is_file()]
@@ -100,13 +100,40 @@ class Modpack:
         
         return modpack
     
+    @classmethod
+    def read_meta(cls, path: Path) -> 'Modpack':
+        '''Takes a .pmp or folder and reads its Meta JSON data.'''
+        modpack = cls()
+        archive = path.suffix == ".pmp"
+        if archive:
+            with ZipFile(archive, "r") as pmp:
+                try:
+                    with pmp.open("meta.json", "r") as file:
+                        modpack.meta = ModMeta.from_dict(json.load(file))
+                except:
+                    raise FileNotFoundError("Modpack lacks a meta.json!")
+                
+        else:
+            folder_content = [file for file in path.glob(f'*.json') if file.is_file()]
+            is_meta_json   = any("meta.json" in file.name for file in folder_content)
+
+            if not is_meta_json:
+                raise FileNotFoundError("Modpack lacks a meta.json!")
+            
+            for file_path in folder_content:
+                if file_path.stem == "meta":
+                    with file_path.open("r") as file:
+                        modpack.meta = ModMeta.from_dict(json.load(file))
+        
+        return modpack
+
     @staticmethod
-    def extract_archive(archive:Path, output_folder:Path):
+    def extract_archive(archive: Path, output_folder: Path):
         with ZipFile(archive, "r") as pmp:
                 pmp.extractall(output_folder)
 
     @staticmethod
-    def delete_orphaned_files(folder:Path) -> set[Path]:
+    def delete_orphaned_files(folder: Path) -> set[Path]:
         modpack = Modpack.from_folder(folder)
 
         file_references = set()
@@ -298,9 +325,9 @@ class Modpack:
                     file_path = os.path.join(root, file)
                     pmp.write(file_path, os.path.relpath(file_path, source_folder))
     
-    def to_folder(self, folder:Path, new_files:dict[Path, str]={}) -> set[Path]:
+    def to_folder(self, folder:Path, new_files:dict[Path, str]={}) -> tuple[set[Path], set[Path]]:
         '''Writes the current modpack instance to a folder. It also calls write_mod_jsons.
-        It takes a file list with the files you want to package and which ingame file it is supposed to replace.
+        It takes a file list with the files you want to package and its relative modpack path.
         Returns two sets of removed files.'''
 
         Path.mkdir(folder, exist_ok=True)

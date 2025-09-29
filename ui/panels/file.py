@@ -1,6 +1,7 @@
-from pathlib          import Path   
+from pathlib          import Path
+from functools        import partial 
 from bpy.types        import Panel, UILayout, Context
-  
+
 from ..draw           import aligned_row, get_conditional_icon, operator_button
 from ...props         import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
 from ...preferences   import get_prefs
@@ -16,7 +17,7 @@ class FileManager(Panel):
     bl_options = {'DEFAULT_CLOSED'}
     bl_order = 3
 
-    def draw(self, context:Context):
+    def draw(self, context:Context) -> None:
         self.prefs        = get_prefs()
         self.window_props = get_window_props()
         self.file_props   = get_file_props()
@@ -29,6 +30,7 @@ class FileManager(Panel):
             "IMPORT": "IMPORT",
             "EXPORT": "EXPORT",
             "MODPACK": "NEWFOLDER",
+            "PENUMBRA": "SHADING_RENDERED",
             }
 
         box = layout.box()
@@ -46,12 +48,15 @@ class FileManager(Panel):
 
         # EXPORT
         if button == "EXPORT":
-            self.draw_export(context, layout)
+            self.draw_export(layout, context)
 
         if button == "MODPACK":
             self.draw_modpack(layout)
 
-    def draw_export(self, context:Context, layout: UILayout):
+        if button == "PENUMBRA":
+            self.draw_penumbra(layout, context)
+
+    def draw_export(self, layout: UILayout, context: Context) -> None:
         is_mdl = self.window_props.file.model_format == 'MDL'
         if is_mdl:
             check_tri_status = True
@@ -313,7 +318,7 @@ class FileManager(Panel):
         text = "Remove" if self.window_props.create_subfolder else "Keep"
         aligned_row(col, "Subfolder:", "create_subfolder", self.window_props, prop_str=text, attr_icon=icon)
 
-    def draw_import(self, layout: UILayout):
+    def draw_import(self, layout: UILayout) -> None:
         layout = self.layout
         row = layout.row(align=True)
 
@@ -367,7 +372,7 @@ class FileManager(Panel):
 
         aligned_row(col, "Armature:", "import_armature", self.file_props)
 
-    def draw_modpack(self, layout: UILayout):
+    def draw_modpack(self, layout: UILayout) -> None:
         option_indent = 0.08
 
         row = aligned_row(layout, "Output:", "modpack_output_display_dir", self.prefs)
@@ -493,6 +498,51 @@ class FileManager(Panel):
                     columns[1].separator(factor=2,type="LINE")
 
                     self.entry_container(columns[1], correction, group_idx, correction_idx)
+
+    def draw_penumbra(self, layout: UILayout, context: Context) -> None:
+        aligned_row(layout, "Mod Name:", "penumbra_mod", self.window_props.file)
+
+        body_slots = {
+                "Chest": "top",
+                "Hands": "glv",
+                "Legs":  "dwn",
+                "Feet":  "sho"
+            }
+
+        row = aligned_row(layout, "XIV Path:", "export_xiv_path", self.window_props.file.io)
+        row.label(text="", icon=get_conditional_icon(self.window_props.file.io.valid_xiv_path))
+
+        if self.window_props.file.io.valid_xiv_path:
+            row = layout.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text="")
+            
+            for key, value in body_slots.items():
+                op = split.operator(
+                    "ya.gamepath_category", 
+                    text=key, depress=True if value == self.window_props.file.io.check_gamepath_category(context) else False)
+                op.category  = "EXPORT"
+                op.body_slot = value
+
+        layout.separator(type='LINE', factor=0.5)
+
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        split = row.split(factor=0.25, align=True)
+        split.alignment = "RIGHT"
+        split.label(text="Redraw:")
+        subrow = split.row(align=True)
+        subrow.prop(self.window_props.file, "redraw_mode", text="Mode", expand=True)
+
+        penum = partial(
+                    operator_button, 
+                    operator="ya.penumbra_call",
+                    icon="NONE",
+                    text="Export",
+                    attributes={}
+                )
+        aligned_row(col, "", function=penum)
 
     def status_info(self, layout: UILayout):
         if self.window_props.file.modpack.modpack_replace and Path(self.window_props.file.modpack.modpack_dir).is_file():

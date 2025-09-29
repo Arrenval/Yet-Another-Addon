@@ -266,11 +266,12 @@ class YetAnotherExport(Operator):
     def invoke(self, context: Context, event):
         self.window      = get_window_props()
         self.prefs       = get_prefs()
+        self.file_format = 'MDL' if self.mode == "PENUMBRA" else self.window.file.model_format
         self.export_dir  = Path(get_prefs().export.output_dir)
         self.visible     = visible_meshobj()
         self.no_armature = verify_armature(self.visible)
 
-        if self.window.file.model_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
+        if self.file_format == 'MDL' and self.prefs.export.mdl_export == 'TT':
             if not self.window.file.io.valid_xiv_path:
                 self.report({'ERROR'}, "Please input a path to your target model.")
                 return {'CANCELLED'}
@@ -285,7 +286,7 @@ class YetAnotherExport(Operator):
             self.report({'ERROR'}, "No export directory selected.")
             return {'CANCELLED'}
         
-        if self.window.check_tris or self.window.file.model_format == 'MDL':
+        if self.window.check_tris or self.file_format == 'MDL':
             not_triangulated = check_triangulation()
             if not_triangulated:
                 self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}.")
@@ -308,17 +309,20 @@ class YetAnotherExport(Operator):
         armature = self.visible[0].parent
         arm_vis  = armature.hide_get()
         armature.hide_set(state=False)
+        bpy.context.window.cursor_set('WAIT')
         try:
             with SceneOptimiser(bpy.context, optimisation_level="high"):
-                if self.mode == "SIMPLE":
-                    if self.user_input.strip() == "":
+                if self.mode in ("SIMPLE", "PENUMBRA"):
+                    file_name: str = self.user_input.strip()
+                    if file_name == "":
                         self.report({'ERROR'}, "Missing file name.")
                         return {'CANCELLED'}
-                    self.simple_export()
+                    self.simple_export(file_name)
                 
                 else:
                     self.batch_export()
         finally:
+            bpy.context.window.cursor_set('DEFAULT')
             for obj in self.visible:
                 try:
                     obj.select_set(state=True)
@@ -326,7 +330,7 @@ class YetAnotherExport(Operator):
                     pass
             armature.hide_set(state=arm_vis)
 
-        if self.window.file.model_format == 'MDL' and self.prefs.export.mdl_export == 'BLENDER':
+        if self.file_format == 'MDL' and self.prefs.export.mdl_export == 'BLENDER':
             get_export_stats(context)
         else:
             self.report({'INFO'}, "Export complete!")
@@ -362,20 +366,16 @@ class YetAnotherExport(Operator):
         if self.mode == "SIMPLE":
             aligned_row(layout, "File Name:", "user_input", self)
 
-    def simple_export(self) -> set[str]:
+    def simple_export(self, file_name) -> set[str]:
         devkit = get_devkit_props()
 
-        bpy.context.window.cursor_set('WAIT')
-        try:
-            if devkit:
-                devkit.collection_state.export = True
-            
-            export_result(self.export_dir / self.user_input, self.window.file.model_format)
-    
-            if devkit:
-                devkit.collection_state.export = False
-        finally:
-            bpy.context.window.cursor_set('DEFAULT')
+        if devkit:
+            devkit.collection_state.export = True
+        
+        export_result(self.export_dir / file_name, self.file_format)
+
+        if devkit:
+            devkit.collection_state.export = False
         
         return {'FINISHED'}
     
@@ -424,7 +424,6 @@ class YetAnotherExport(Operator):
             self.size_options["Pubes"]
             )
 
-        bpy.context.window.cursor_set('WAIT')
         try:
             self.logger = YetAnotherLogger(total=len(self.queue), output_dir=self.export_dir, start_time=time.time())
             for item in self.queue:
@@ -443,7 +442,6 @@ class YetAnotherExport(Operator):
             return {'FINISHED'}
         
         finally:
-            bpy.context.window.cursor_set('DEFAULT')
             if self.logger:
                 self.logger.close()
             reset_chest_values()
@@ -697,7 +695,7 @@ class YetAnotherExport(Operator):
 
     def _export_item(self, file_name: str):
         file_path = get_export_path(self.export_dir, file_name, self.window.create_subfolder, self.body_slot)
-        export_result(file_path, self.window.file.model_format, logger=self.logger, batch=True)
+        export_result(file_path, self.file_format, logger=self.logger, batch=True)
     
 
 CLASSES = [

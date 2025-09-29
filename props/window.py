@@ -345,7 +345,19 @@ class FileWindow(PropertyGroup):
         description="Switch file format", 
         items=_get_formats
         ) # type: ignore
-   
+    
+    penumbra_mod: StringProperty(name="", description="Name of your exported mod", default="Enter a mod name...") #type: ignore
+    redraw_mode : EnumProperty(
+        name="",
+        description="What actors to redraw.",
+        default='GLAM',
+        items=[
+            ('SELF', "SELF", "Redraw self."),
+            ('ALL', "ALL", "Redraw all."),
+            ('GLAM', "GLAM", "Relies on Glamourer to update your character without a full redraw. Does not work on face related models."),
+        ]
+        ) #type: ignore
+    
     ui_tab: EnumProperty(
         name= "",
         description= "Select a manager",
@@ -353,6 +365,7 @@ class FileWindow(PropertyGroup):
             ("IMPORT", "Import", "Import Files", "IMPORT", 0),
             ("EXPORT", "Export", "Export models", "EXPORT", 1),
             ("MODPACK", "Modpack", "Package mods", "NEWFOLDER", 2),
+            ("PENUMBRA", "Penumbra", "Export to Penumbra", "SHADING_RENDERED", 3),
         ]
         )  # type: ignore
     
@@ -360,9 +373,12 @@ class FileWindow(PropertyGroup):
         io     : IOWindow
         modpack: ModpackWindow
 
+        penumbra_mod: str
         model_format: str
-        ui_tab      : str
- 
+        redraw_mode : Literal['SELF', 'ALL', 'GLAM']
+        ui_tab      : Literal['IMPORT', 'EXPORT', 'MODPACK', 'PENUMBRA']
+
+
 class YAWindowProps(PropertyGroup):
     
     studio: PointerProperty(
