@@ -1,15 +1,16 @@
 import numpy as np
 
-from numpy             import ushort, single, ubyte
+from numpy             import single, ubyte
 from bpy.types         import Object
 from numpy.typing      import NDArray
 from collections       import defaultdict
 
+from .shapes           import create_shape_data, submesh_to_mesh_shapes
 from .weights          import sort_weights, normalise_weights, empty_vertices
-from .streams          import create_stream_arrays, get_submesh_streams
+from .streams          import create_stream_arrays, get_submesh_streams, update_mesh_streams
 from .accessors        import get_weights
 from ...logging        import YetAnotherLogger
-from .validators       import clean_material_path  
+from .validators       import clean_material_path, USHORT_LIMIT
 from ..com.helpers     import normalised_int_array 
 from ..com.exceptions  import XIVMeshError
 from ....formats.model import (XIVModel, Mesh as XIVMesh, Submesh,
@@ -17,7 +18,36 @@ from ....formats.model import (XIVModel, Mesh as XIVMesh, Submesh,
                                BoneTable, Lod, ShapeMesh, BoundingBox)
 
 
-USHORT_LIMIT = np.iinfo(ushort).max
+def get_material_idx(obj: Object, material_list: list[str]) -> int:
+    material = obj["xiv_material"] if "xiv_material" in obj else obj.material_slots[0].name
+    material_name = clean_material_path(material)
+
+    if material_name in material_list:
+        material_idx = material_list.index(material_name)
+    else:
+        material_idx = len(material_list)
+        material_list.append(material_name)
+    
+    return material_idx
+
+def bone_bounding_box(positions: NDArray, blend_indices: NDArray, nonzero_mask: NDArray, bone_list: list[str], lod_bones: list[str], bone_bboxes: list[BoundingBox]) -> None:
+    for bone_idx, bone_name in enumerate(bone_list):
+        if bone_name not in lod_bones:
+            continue
+
+        table_idx    = lod_bones.index(bone_name)
+        bone_indices = (blend_indices == table_idx) & nonzero_mask
+        valid_verts  = np.any(bone_indices, axis=1)
+        if not np.any(valid_verts):
+            continue 
+        
+        bone_pos  = positions[valid_verts]
+        bone_bbox = BoundingBox.from_array(bone_pos)
+        
+        if bone_bboxes[bone_idx]:
+            bone_bboxes[bone_idx].merge(bone_bbox)
+        else:
+            bone_bboxes[bone_idx] = bone_bbox
 
 class CreateLOD:
     def __init__(self, model: XIVModel, lod_level: int, shape_value_count: int = 0, logger: YetAnotherLogger = None):
@@ -176,13 +206,13 @@ class CreateLOD:
 
         self.mesh.vertex_count = sum(len(obj.data.vertices) for obj in blend_objs)
         if self.mesh.vertex_count > USHORT_LIMIT:
-            raise XIVMeshError(f"Mesh #{self.mesh_idx} exceeds the {USHORT_LIMIT} vertices limit.")
+            raise XIVMeshError(f"Mesh #{self.mesh_idx}: Exceeds the {USHORT_LIMIT} vertices limit.")
         
         self.mesh.submesh_index       = len(self.model.submeshes)
         self.mesh.bone_table_idx      = self.lod_level
         self.mesh.vertex_stream_count = 2
         try:
-            self.mesh.material_idx    = self._get_material_idx(blend_objs[0]) 
+            self.mesh.material_idx    = get_material_idx(blend_objs[0], self.model.materials) 
         except:
             raise XIVMeshError(f"Mesh #{self.mesh_idx} is missing a material path.")
 
@@ -203,8 +233,11 @@ class CreateLOD:
             submesh_vert_count = len(obj.data.vertices)
             if submesh_vert_count == 0:
                 continue
-
-            self._create_submesh(obj, vert_decl, vert_offset, mesh_geo, mesh_tex)
+            try:
+                self._create_submesh(obj, vert_decl, vert_offset, mesh_geo, mesh_tex, mesh_flow)
+            except XIVMeshError as e:
+                raise XIVMeshError(f"Mesh #{self.mesh_idx}: {e}")
+            
             vert_offset             += submesh_vert_count
             self.mesh.submesh_count += 1
         
@@ -217,108 +250,45 @@ class CreateLOD:
             vert_decl.update_usage_type(VertexUsage.BLEND_INDICES, VertexType.UBYTE4)
         
         if self.shape_arrays:
-            self._sort_shape_arrays(self.shape_arrays, mesh_geo, mesh_tex, vert_offset)
+            try:
+                self.shape_value_count += submesh_to_mesh_shapes(
+                                                            self.mesh, 
+                                                            self.mesh_idx, 
+                                                            self.shape_meshes, 
+                                                            self.shape_arrays, 
+                                                            mesh_geo, 
+                                                            mesh_tex, 
+                                                            vert_offset
+                                                        )
+            except XIVMeshError as e:
+                raise XIVMeshError(f"Mesh #{self.mesh_idx}: {e}")
         
         if self.shape_value_count > USHORT_LIMIT:
             raise XIVMeshError(f"Model exceeds the {USHORT_LIMIT} shape values limit. Consider removing unneeded shape keys.")
 
-        mesh_streams = create_stream_arrays(self.mesh.vertex_count, vert_decl)
-        self._mesh_streams(mesh_streams, mesh_geo, mesh_tex)
+        mesh_streams       = create_stream_arrays(self.mesh.vertex_count, vert_decl)
+        self.stream_offset = update_mesh_streams(self.mesh, mesh_streams, mesh_geo, mesh_tex, self.stream_offset, self.bone_limit)
 
-        self.bbox = BoundingBox.from_array(mesh_streams[0]["position"])
-        self._bone_bounding_box(
-                        mesh_streams[0]["position"], 
-                        mesh_streams[0]["blend_indices"], 
-                        mesh_streams[0]["blend_weights"] > 0
-                    )
+        if self.bbox:
+            self.bbox.merge(BoundingBox.from_array(mesh_streams[0]["position"]))
+        else:
+            self.bbox = BoundingBox.from_array(mesh_streams[0]["position"])
+ 
+        bone_bounding_box(
+                mesh_streams[0]["position"], 
+                mesh_streams[0]["blend_indices"], 
+                mesh_streams[0]["blend_weights"] > 0,
+                self.model.bones,
+                self.lod_bones,
+                self.model.bone_bounding_boxes
+            )
         
         self.vertex_buffers.append(mesh_streams[0])
         self.vertex_buffers.append(mesh_streams[1])
         self.indices_buffers.append(self.mesh_indices)
         self.model.meshes.append(self.mesh)
 
-    def _get_material_idx(self, obj: Object) -> int:
-        material = obj["xiv_material"] if "xiv_material" in obj else obj.material_slots[0].name
-        material_name = clean_material_path(material)
-
-        if material_name in self.model.materials:
-            material_idx = self.model.materials.index(material_name)
-        else:
-            material_idx = len(self.model.materials)
-            self.model.materials.append(material_name)
-        
-        return material_idx
-
-    def _sort_shape_arrays(self, shape_arrays: dict[str, list[tuple[NDArray, dict[int, NDArray]]]], mesh_geo: list[NDArray], mesh_tex: list[NDArray], vert_offset: int) -> None:
-        shape_verts = 0
-        for name, arrays in shape_arrays.items():
-            shape_value_count = sum(len(values) for values, streams in arrays)
-            mesh_shape_values = np.zeros(shape_value_count, dtype=self.model.shape_values.dtype)
-
-            arr_offset = 0
-            for values, streams in arrays:
-                self.mesh.vertex_count += len(streams[0])
-                if self.mesh.vertex_count > USHORT_LIMIT:
-                    raise XIVMeshError(f"Mesh #{self.mesh_idx} exceeds the {USHORT_LIMIT} vertices limit due to extra shape keys.")
-                
-                values["replace_vert_idx"] += vert_offset + shape_verts
-                mesh_geo.append(streams[0])
-                mesh_tex.append(streams[1])
-
-                end_offset = arr_offset + len(values)
-                mesh_shape_values[arr_offset: end_offset] = values
-
-                shape_verts += len(streams[0])
-                arr_offset   = end_offset
-
-            self.shape_meshes[name].append((self.mesh_idx, mesh_shape_values))
-            self.shape_value_count += shape_value_count
-
-    def _mesh_streams(self, mesh_streams: dict[int, NDArray], mesh_geo: list[NDArray], mesh_tex: list[NDArray]) -> None:
-        
-        def update_geo_stream(mesh_geo_stream: NDArray, submesh_geo_stream: NDArray):
-            if self.bone_limit < 5:
-                for field in geo_stream.dtype.names:
-                    if field in ["blend_weights", "blend_indices"]:
-                        mesh_geo_stream[field][:] = submesh_geo_stream[field][:, :4]
-                    else:
-                        mesh_geo_stream[field][:] = submesh_geo_stream[field]
-            else:
-                mesh_geo_stream[:] = geo_stream
-
-        for stream, mesh_arr in mesh_streams.items():
-            stride = mesh_arr.dtype.itemsize
-            self.mesh.vertex_buffer_offset[stream] = self.stream_offset
-            self.mesh.vertex_buffer_stride[stream] = stride
-            self.stream_offset += stride * len(mesh_arr)
-            
-        offset = 0
-        for geo_stream, tex_stream in zip(mesh_geo, mesh_tex):
-            update_geo_stream(mesh_streams[0][offset: offset + len(geo_stream)], geo_stream)
-            mesh_streams[1][offset: offset + len(tex_stream)] = tex_stream
-            offset += len(geo_stream)
-
-    def _bone_bounding_box(self, positions: NDArray, blend_indices: NDArray, nonzero_mask: NDArray) -> None:
-        bone_bboxes = self.model.bone_bounding_boxes
-        for bone_idx, bone_name in enumerate(self.model.bones):
-            if bone_name not in self.lod_bones:
-                continue
-  
-            table_idx    = self.lod_bones.index(bone_name)
-            bone_indices = (blend_indices == table_idx) & nonzero_mask
-            valid_verts  = np.any(bone_indices, axis=1)
-            if not np.any(valid_verts):
-                continue 
-            
-            bone_pos  = positions[valid_verts]
-            bone_bbox = BoundingBox.from_array(bone_pos)
-            
-            if bone_bboxes[bone_idx]:
-                bone_bboxes[bone_idx].merge(bone_bbox)
-            else:
-                bone_bboxes[bone_idx] = bone_bbox
-
-    def _create_submesh(self, obj: Object, vert_decl: VertexDeclaration, vert_offset: int, mesh_geo: list[NDArray], mesh_tex: list[NDArray]) -> None:
+    def _create_submesh(self, obj: Object, vert_decl: VertexDeclaration, vert_offset: int, mesh_geo: list[NDArray], mesh_tex: list[NDArray], mesh_flow: bool) -> None:
 
         def attribute_bitmask(obj: Object) -> int:
             bitmask = 0
@@ -329,7 +299,7 @@ class CreateLOD:
             return bitmask
         
         submesh = Submesh()
-        indices, submesh_streams, shapes = get_submesh_streams(obj, vert_decl)
+        indices, submesh_streams, shapes = get_submesh_streams(obj, vert_decl, mesh_flow)
         submesh.attribute_idx_mask       = attribute_bitmask(obj)
 
         if obj.vertex_groups:
@@ -337,8 +307,12 @@ class CreateLOD:
             submesh.bone_start_idx = len(self.model.submesh_bonemaps)
             submesh.bone_count     = len(bonemap)
         
-        if shapes:
-            self._create_shape_arrays(shapes, submesh_streams, indices, vert_decl)
+        for shape_name, pos in shapes.items():
+            shape_data = create_shape_data(self.mesh, pos, indices, submesh_streams, vert_decl)
+            if shape_data is None:
+                continue
+            
+            self.shape_arrays[shape_name].append(shape_data)
     
         self.mesh_indices += (indices + vert_offset).tobytes()
 
@@ -354,7 +328,7 @@ class CreateLOD:
     def _create_blend_arrays(self, obj: Object, streams: dict[int, NDArray], ) -> tuple[int, int]:
 
         def check_empty() -> list[int]:
-            empty_groups    : list[int] = []
+            empty_groups: list[int] = []
             for v_group in obj.vertex_groups:
                 if not np.any(weight_matrix[:, v_group.index] > 0.0):
                     empty_groups.append(v_group.index)
@@ -431,44 +405,4 @@ class CreateLOD:
         self.model.submesh_bonemaps.extend(bonemap)
 
         return bonemap
-    
-    def _create_shape_arrays(self, shapes: dict[str, NDArray], submesh_streams: dict[int, NDArray], indices: NDArray, vert_decl: VertexDeclaration, threshold: int=1e-6) -> None:
-        
-        def set_shape_stream_values(shape_streams: dict[int, NDArray], submesh_streams: dict[int, NDArray]) -> None:
-            for stream_idx, stream in submesh_streams.items():
-                for field_name in stream.dtype.names:
-                    if field_name == "position":
-                        shape_streams[stream_idx][field_name] = pos[vert_mask]
-                    else:
-                        shape_streams[stream_idx][field_name] = stream[field_name][vert_mask]
-
-        for shape_name, pos in shapes.items():
-            abs_diff      = np.abs(pos - submesh_streams[0]["position"])
-            vert_mask     = np.any(abs_diff > threshold, axis=1)
-            vert_count    = np.sum(vert_mask)
-
-            if vert_count == 0:
-                continue
-            
-            shape_indices = np.where(vert_mask)[0]
-            indices_mask  = np.isin(indices, shape_indices)
-            indices_idx   = np.where(indices_mask)[0]
-
-            if len(indices_idx) == 0:
-                continue
-
-            shape_streams = create_stream_arrays(vert_count, vert_decl)
-            set_shape_stream_values(shape_streams, submesh_streams)
-
-            if indices_idx.max() + self.mesh.idx_count > USHORT_LIMIT:
-                raise XIVMeshError(f"Mesh #{self.mesh_idx} exceeds the {USHORT_LIMIT} indices limit for shape keys.")
-            
-            vert_map = np.full(len(submesh_streams[0]), -1, dtype=np.int32)
-            vert_map[shape_indices] = np.arange(len(shape_indices))
-
-            shape_values = np.zeros(len(indices_idx), dtype=self.model.shape_values.dtype)
-            shape_values["base_indices_idx"] = indices_idx + self.mesh.idx_count
-            shape_values["replace_vert_idx"] = vert_map[indices[indices_idx]]
-
-            self.shape_arrays[shape_name].append((shape_values, shape_streams))
         

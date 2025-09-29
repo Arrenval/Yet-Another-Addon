@@ -6,6 +6,11 @@ from dataclasses import dataclass, field
 from ..utils     import BinaryReader
 
 
+SHAPE_VALUE_DTYPE = [
+                        ("base_indices_idx", '<u2'), 
+                        ("replace_vert_idx", '<u2')
+                    ]
+
 @dataclass
 class Shape:
     name          : str       = ""

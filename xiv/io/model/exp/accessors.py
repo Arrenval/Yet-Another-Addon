@@ -110,14 +110,17 @@ def get_weights(obj: Object, vert_count: int, group_count: int) -> NDArray:
     return weight_matrix
 
 def get_flow(obj: Object, normals: NDArray, bitangents: NDArray, indices: NDArray, vert_count: int, loop_count: int) -> NDArray:
-    flow_layer = obj.data.color_attributes["xiv_flow"]
-    count      = loop_count if flow_layer.domain == 'CORNER' else vert_count
+    if "xiv_flow" in obj.data.color_attributes:
+        flow_layer = obj.data.color_attributes["xiv_flow"]
+        count      = loop_count if flow_layer.domain == 'CORNER' else vert_count
 
-    flow_colour = np.zeros(count * 4, single)
-    flow_layer.data.foreach_get("color", flow_colour)
-    flow_colour = flow_colour.reshape(-1, 4) 
-    if flow_layer.domain == 'CORNER':
-        flow_colour = _loop_to_vert(flow_colour, indices, vert_count, 4)
+        flow_colour = np.zeros(count * 4, single)
+        flow_layer.data.foreach_get("color", flow_colour)
+        flow_colour = flow_colour.reshape(-1, 4) 
+        if flow_layer.domain == 'CORNER':
+            flow_colour = _loop_to_vert(flow_colour, indices, vert_count, 4)
+    else:
+        flow_colour = np.full((vert_count, 2), 0.5, single)
 
     signs        = bitangents[:, 3]
     bitangents   = bitangents[:, :3]

@@ -9,10 +9,10 @@ from numpy.typing import NDArray
 from .lod         import Lod, ExtraLod
 from .bbox        import BoundingBox
 from .mesh        import Mesh, Submesh, TerrainShadowMesh, TerrainShadowSubMesh
-from .face        import NeckMorph
+from .face        import NeckMorph, FACE_DATA_DTYPE
 from .enums       import ModelFlags2
 from ..utils      import BinaryReader, write_padding
-from .shapes      import Shape, ShapeMesh
+from .shapes      import Shape, ShapeMesh, SHAPE_VALUE_DTYPE
 from .vertex      import VertexDeclaration
 from .headers     import FileHeader, MeshHeader
  
@@ -92,15 +92,6 @@ class XIVModel:
     VERTEX_BUFFER_LIMIT = 8388608
 
     def __init__(self):
-        shape_value_dtype = [
-                                ("base_indices_idx", '<u2'), 
-                                ("replace_vert_idx", '<u2')
-                            ]
-        face_data_dtype = [
-                                ("positions", '<f4', (3,)), 
-                                ("sign",      '<u4')
-                            ]
-
         self.header         = FileHeader()
         self.mesh_header    = MeshHeader()
         self.header.version = self.V6
@@ -122,12 +113,12 @@ class XIVModel:
         self.shapes                  : list[Shape]                = []
         self.shape_meshes            : list[ShapeMesh]            = []
         # We use numpy for efficiency, the python class can still be found in the "shapes" module
-        self.shape_values            : NDArray[ushort]            = empty(0, dtype=shape_value_dtype)
+        self.shape_values            : NDArray[ushort]            = empty(0, dtype=SHAPE_VALUE_DTYPE)
 
         self.submesh_bonemaps        : list[int]                  = [] #ushort
         self.neck_morphs             : list[NeckMorph]            = []
         # We use numpy for efficiency, the python class can still be found in the "face" module
-        self.face_data               : NDArray[single]            = empty(0, dtype=face_data_dtype)
+        self.face_data               : NDArray[single]            = empty(0, dtype=FACE_DATA_DTYPE)
 
         self.bounding_box                           = BoundingBox()
         self.mdl_bounding_box                       = BoundingBox()

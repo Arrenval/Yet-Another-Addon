@@ -111,8 +111,8 @@ class VertexDeclaration:
         uv_count  = 1
         has_flow  = False
         for obj in submeshes:
-            if "xiv_flow" in obj.data.color_attributes:
-                flow = True
+            if "xiv_flow" in obj and obj["xiv_flow"]:
+                has_flow = True
 
             col_count = max(col_count, len([layer for layer in obj.data.color_attributes 
                                             if layer.name.lower().startswith(XIV_COL)]))

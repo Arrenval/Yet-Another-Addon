@@ -6,6 +6,11 @@ from dataclasses  import dataclass, field
 from ..utils      import BinaryReader
 
 
+FACE_DATA_DTYPE = [
+                    ("positions", '<f4', (3,)), 
+                    ("sign",      '<u4')
+                ]
+
 @dataclass
 class NeckMorph:
     positions: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])

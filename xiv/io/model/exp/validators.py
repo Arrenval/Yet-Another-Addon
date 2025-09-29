@@ -2,8 +2,11 @@ import re
 import bpy
 import bmesh
 
+from numpy     import ushort, iinfo
 from bpy.types import Object
 
+
+USHORT_LIMIT = iinfo(ushort).max
 
 def clean_material_path(name: str):
     name = re.sub(r'\.\d{3}$', "", name.strip())
