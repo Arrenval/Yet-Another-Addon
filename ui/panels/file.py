@@ -513,10 +513,10 @@ class FileManager(Panel):
 
         penum = partial(
                     operator_button, 
-                    operator="ya.penumbra_call",
+                    operator="ya.export",
                     icon="NONE",
                     text="Export",
-                    attributes={}
+                    attributes={"mode": 'PENUMBRA'}
                 )
         aligned_row(col, "", function=penum)
 

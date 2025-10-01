@@ -1,18 +1,20 @@
 import bpy
 import time
+import tempfile
 
-from pathlib          import Path
-from itertools        import combinations
-from bpy.types        import Operator, Context, Object
-from bpy.props        import StringProperty, BoolProperty
-  
-from ..props          import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
-from ..utils          import SceneOptimiser
-from ..ui.draw        import aligned_row, show_ui_button
-from ..preferences    import get_prefs
-from ..mesh.export    import check_triangulation, get_export_path, export_result, get_export_stats
-from ..mesh.objects   import visible_meshobj
-from ..xiv.io.logging import YetAnotherLogger
+from pathlib           import Path
+from itertools         import combinations
+from bpy.types         import Operator, Context, Object
+from bpy.props         import StringProperty, BoolProperty
+   
+from ..props           import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
+from ..utils           import SceneOptimiser, PenumbraClient
+from ..ui.draw         import aligned_row, show_ui_button
+from ..preferences     import get_prefs
+from ..mesh.export     import check_triangulation, get_export_path, export_result, get_export_stats
+from ..mesh.objects    import visible_meshobj
+from ..xiv.io.logging  import YetAnotherLogger
+from ..xiv.formats.pmp import Modpack, sanitise_path
 
 
 _yab_keys : dict[str, float] = {}
@@ -242,6 +244,12 @@ def set_armature(objects: list[Object], armature: Object) -> None:
             if modifier.type == 'ARMATURE':
                 modifier.object = armature
 
+def check_mod_tag(folder: Path) -> bool:
+    try:
+        pmp = Modpack.read_meta(folder)
+        return "YABlender" in pmp.meta.ModTags
+    except FileNotFoundError:
+        return False
 
 class YetAnotherExport(Operator):
     bl_idname = "ya.export"
@@ -264,21 +272,33 @@ class YetAnotherExport(Operator):
         return context.mode == "OBJECT"
 
     def invoke(self, context: Context, event):
+        self.penumbra    = self.mode == 'PENUMBRA'
         self.window      = get_window_props()
         self.prefs       = get_prefs()
-        self.file_format = 'MDL' if self.mode == "PENUMBRA" else self.window.file.model_format
+        self.file_format = 'MDL' if self.penumbra else self.window.file.model_format
         self.export_dir  = Path(get_prefs().export.output_dir)
         self.visible     = visible_meshobj()
         self.no_armature = verify_armature(self.visible)
+        self.client      = PenumbraClient() if self.penumbra else None
+        penum_mod_name   = self.window.file.penumbra_mod if self.penumbra else None
+        penumbra_dir     = self.client.get_dir() if self.client else None
         self.logger      = YetAnotherLogger(
                                     total=1, 
                                     output_dir=self.export_dir, 
                                     start_time=time.time()
                                 )
 
-        if not self.export_dir.is_dir():
+        if not self.penumbra and not self.export_dir.is_dir():
             self.report({'ERROR'}, "No export directory selected.")
             return {'CANCELLED'}
+        elif self.penumbra and (penumbra_dir is None or not penumbra_dir.strip()):
+            self.report({'ERROR'}, "Couldn't retrieve Penumbra Mod Directory. Make sure FFXIV is running.")
+            return {'CANCELLED'}
+        elif self.penumbra and not penum_mod_name.strip() or not self.window.file.is_property_set("penumbra_mod"):
+            self.report({'ERROR'}, "Please enter a mod name.")
+            return {'CANCELLED'}
+        
+        self.penum_conflict = self._penumbra_validate(penumbra_dir, penum_mod_name)
         
         if self.window.check_tris or self.file_format == 'MDL':
             not_triangulated = check_triangulation()
@@ -286,12 +306,21 @@ class YetAnotherExport(Operator):
                 self.report({'ERROR'}, f"Not Triangulated: {', '.join(not_triangulated)}.")
                 return {'CANCELLED'}
             
-        if self.mode == "SIMPLE" or self.no_armature:
+        if self.mode == "SIMPLE" or self.no_armature or self.penum_conflict:
             bpy.context.window_manager.invoke_props_dialog(self, confirm_text="Export")
             return {'RUNNING_MODAL'}
         else:
             return self.execute(context)
+    
+    def _penumbra_validate(self, penumbra_dir: str | None, mod_name: str) -> bool:
+        if penumbra_dir is None:
+            return False
         
+        self.penum_mod    = sanitise_path(mod_name)
+        self.penum_folder = Path(penumbra_dir) / self.penum_mod
+
+        return self.penum_folder.is_dir() and not check_mod_tag(self.penum_folder)
+
     def execute(self, context):
         if self.no_armature:
             armature = get_file_props().export_armature
@@ -306,20 +335,35 @@ class YetAnotherExport(Operator):
         bpy.context.window.cursor_set('WAIT')
         try:
             with SceneOptimiser(bpy.context, optimisation_level="high"):
-                if self.mode in ("SIMPLE", "PENUMBRA"):
+                if self.mode == 'SIMPLE':
                     file_name: str = self.user_input.strip()
                     if file_name == "":
                         self.report({'ERROR'}, "Missing file name.")
                         return {'CANCELLED'}
                     self.simple_export(file_name)
                 
+                elif self.mode == 'PENUMBRA':
+                    if not get_window_props().file.io.valid_xiv_path:
+                        self.report({'ERROR'}, "Please input a path to your target model.")
+                        return {'CANCELLED'}
+                    self.penumbra_export()
+                
                 else:
                     self.batch_export()
 
+        except ConnectionError:
+            self.report({'ERROR'}, "Couldn't Connect to Penumbra. Make sure FFXIV is running.")
+            return {'CANCELLED'}
+
         except Exception as e:
             if self.logger:
+                if self.penumbra:
+                    self.export_dir        = self.penum_folder
+                    self.logger.output_dir = self.penum_folder
+                    self.penum_folder.mkdir(exist_ok=True)
+
                 self.logger.close(e)
-                self.report({'ERROR'}, "Exporter ran into an error, please see the log in your export folder.")
+                self.report({'ERROR'}, f"Exporter ran into an error, please see the log in {self.export_dir}.")
             else:
                 self.report({'ERROR'}, f"Error during export: {e}")
             return {'CANCELLED'}
@@ -344,6 +388,13 @@ class YetAnotherExport(Operator):
     
     def draw(self, context):
         layout = self.layout
+        if self.penum_conflict:
+            row = layout.row(align=True)
+            row.alignment = 'CENTER'
+            row.label(icon='INFO', text="Mod already exists, it will be replaced.")
+
+            layout.separator(type='LINE')
+
         if self.no_armature:
             row = layout.row(align=True)
             row.alignment = 'CENTER'
@@ -383,6 +434,37 @@ class YetAnotherExport(Operator):
         if devkit:
             devkit.collection_state.export = False
     
+    def penumbra_export(self) -> set[str]:
+        redraw_mode = get_window_props().file.redraw_mode
+        
+        self.create_modpack(self.penum_folder)
+
+        self.client.open_window()
+        self.client.reload_mod(path=self.penum_mod)
+        self.client.focus_mod(path=self.penum_mod)
+        self.client.set_mod_settings(path=self.penum_mod, priority=999, state=True)
+        if redraw_mode != 'GLAM':
+            self.client.redraw(redraw_mode)
+
+    def create_modpack(self, folder: Path) -> Modpack:
+        file_name = "yamodel_" + hex(int(time.time()))[2:]
+        xiv_path  = get_window_props().file.io.export_xiv_path
+        rel_path  = "Blender\\" + file_name + ".mdl"
+
+        pmp = Modpack()
+        pmp.meta.Author  = "Blender"
+        pmp.meta.Version = "TEST"
+        pmp.meta.Name    = self.penum_mod
+        pmp.meta.ModTags.append("YABlender")
+        pmp.default.Files[xiv_path] = rel_path
+
+        with tempfile.TemporaryDirectory(prefix=f"_penumbra_blender_", ignore_cleanup_errors=True) as temp_dir:
+            temp_path       = Path(temp_dir)
+            self.export_dir = temp_path
+            self.simple_export(file_name)
+            temp_mdl = temp_path / (file_name + ".mdl")
+            pmp.to_folder(folder, {temp_mdl: rel_path})
+
     def batch_export(self) -> set[str]:
         self.props = get_file_props()
         
