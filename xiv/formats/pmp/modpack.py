@@ -58,20 +58,23 @@ class Modpack:
         with ZipFile(archive, "r") as pmp:
             try:
                 with pmp.open("meta.json", "r") as file:
-                    modpack.meta = ModMeta.from_dict(json.load(file))
+                    content = file.read().decode('utf-8-sig')
+                    modpack.meta = ModMeta.from_dict(json.loads(content))
             except:
                 raise FileNotFoundError("Modpack lacks a meta.json!")
             
             try:
                 with pmp.open("default_mod.json", "r") as file:
-                    modpack.default = DefaultMod.from_dict(json.load(file))
+                    content = file.read().decode('utf-8-sig')
+                    modpack.default = DefaultMod.from_dict(json.loads(content))
             except:
                 pass
 
             for file_name in pmp.namelist():
                 if file_name.count('/') == 0 and file_name.startswith("group") and file_name.endswith(".json"):
                     with pmp.open(file_name, "r") as file:
-                        modpack.groups.append(ModGroup.from_dict(json.load(file)))
+                        content = file.read().decode('utf-8-sig')
+                        modpack.groups.append(ModGroup.from_dict(json.loads(content)))
         
         return modpack
 
@@ -87,15 +90,15 @@ class Modpack:
         
         for file_path in folder_content:
             if file_path.stem == "meta":
-                with file_path.open("r") as file:
+                with file_path.open("r", encoding='utf-8-sig') as file:
                     modpack.meta = ModMeta.from_dict(json.load(file))
 
             elif file_path.stem == "default_mod":
-                with file_path.open("r") as file:
+                with file_path.open("r", encoding='utf-8-sig') as file:
                     modpack.default = DefaultMod.from_dict(json.load(file))
 
             elif file_path.stem.startswith("group_"):
-                with file_path.open("r") as file:
+                with file_path.open("r", encoding='utf-8-sig') as file:
                     modpack.groups.append(ModGroup.from_dict(json.load(file)))
         
         return modpack
@@ -109,7 +112,8 @@ class Modpack:
             with ZipFile(archive, "r") as pmp:
                 try:
                     with pmp.open("meta.json", "r") as file:
-                        modpack.meta = ModMeta.from_dict(json.load(file))
+                        content = file.read().decode('utf-8-sig')
+                        modpack.meta = ModMeta.from_dict(json.loads(content))
                 except:
                     raise FileNotFoundError("Modpack lacks a meta.json!")
                 
@@ -122,7 +126,7 @@ class Modpack:
             
             for file_path in folder_content:
                 if file_path.stem == "meta":
-                    with file_path.open("r") as file:
+                    with file_path.open("r", encoding='utf-8-sig') as file:
                         modpack.meta = ModMeta.from_dict(json.load(file))
         
         return modpack
