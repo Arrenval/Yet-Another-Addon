@@ -294,7 +294,7 @@ class YetAnotherExport(Operator):
         elif self.penumbra and (penumbra_dir is None or not penumbra_dir.strip()):
             self.report({'ERROR'}, "Couldn't retrieve Penumbra Mod Directory. Make sure FFXIV is running.")
             return {'CANCELLED'}
-        elif self.penumbra and not penum_mod_name.strip() or not self.window.file.is_property_set("penumbra_mod"):
+        elif self.penumbra and (not penum_mod_name.strip() or not self.window.file.is_property_set("penumbra_mod")):
             self.report({'ERROR'}, "Please enter a mod name.")
             return {'CANCELLED'}
         
