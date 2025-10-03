@@ -32,6 +32,8 @@ class OutfitCategory(Operator):
 
         if self.menu == "WEIGHTS":
             get_studio_props().set_yas_ui_vgroups(context)
+        elif self.menu == "MESH":
+            get_studio_props().set_modifiers(context)
 
         return {'FINISHED'}
     
