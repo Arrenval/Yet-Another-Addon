@@ -320,11 +320,9 @@ class MeshStudio(Panel):
             row.separator()
             row.prop(self.window_props, "add_shrinkwrap", text="Shrinkwrap")
 
-            if self.window_props.studio.shapes_corrections != "None" or self.window_props.add_shrinkwrap:
-                col.separator()
+            col.separator()
 
-            if self.window_props.studio.shapes_corrections != "None":
-                aligned_row(col, "Pin:", "obj_vertex_groups", self.window_props.studio, "", attr_icon='GROUP_VERTEX')
+            aligned_row(col, "Pin:", "obj_vertex_groups", self.window_props.studio, "", attr_icon='GROUP_VERTEX')
 
             if self.window_props.add_shrinkwrap:
                 aligned_row(col, "Exclude:", "exclude_vertex_groups", self.window_props.studio, "", attr_icon='GROUP_VERTEX')
@@ -334,7 +332,7 @@ class MeshStudio(Panel):
 
                 row = aligned_row(col, "Options:", "shapes_type", self.window_props.studio, "")
                 row.separator()
-                row.prop(self.window_props, "include_deforms", text="Deforms")
+                row.prop(self.window_props.studio, "include_deforms", text="Deforms")
 
             if self.window_props.studio.shapes_method == "Chest":
                 col.separator(type="LINE", factor=2)

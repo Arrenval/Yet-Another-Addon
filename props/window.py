@@ -137,7 +137,7 @@ class StudioWindow(PropertyGroup):
 
     obj_vertex_groups: EnumProperty(
         name= "",
-        description= "Select a group to pin, it will be ignored by any smoothing corrections",
+        description= "Select a group to pin, it will be ignored by any deforms",
         items=lambda self, context: self.get_vertex_groups(context, get_studio_props().shapes_target)
         )  # type: ignore
     
