@@ -417,7 +417,7 @@ class YASManager(Operator):
         try:
             if self.mode == "RESTORE":
                 for obj in targets:
-                    if not obj.yas.v_groups:
+                    if not obj or not obj.yas.v_groups:
                         continue
                     if len(obj.data.vertices) != obj.yas.old_count:
                         self.report({'ERROR'}, f"{obj.name}'s vertex count has changed, not possible to restore.")
@@ -435,6 +435,8 @@ class YASManager(Operator):
             else:
                 prefix = self.get_prefix()
                 for obj in targets:
+                    if not obj: 
+                        continue
                     if devkit:
                         skeleton  = bpy.data.objects.get("Skeleton")
                     elif obj.parent.type == 'ARMATURE':
