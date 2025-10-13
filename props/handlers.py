@@ -13,7 +13,7 @@ _pre_tri      = None
 
 
 def frame_ui(dummy):
-    get_window_props().studio.animation_frame = bpy.context.scene.frame_current
+    get_studio_props().animation_frame = bpy.context.scene.frame_current
 
 def get_mesh_props(dummy=None) -> None:
     obj: Object = bpy.context.active_object

@@ -688,7 +688,7 @@ class MeshStudio(Panel):
                 row = col.row(align=True)
                 row.alignment = "CENTER"
                 row.label(text="Animation Frame:")
-                col.prop(self.window_props, "animation_frame", text="")
+                col.prop(self.outfit_props, "animation_frame", text="")
                 row = box.row(align=True)
                 row.alignment = "CENTER"
                 row.operator("ya.frame_jump", text="", icon="FRAME_PREV").end = False

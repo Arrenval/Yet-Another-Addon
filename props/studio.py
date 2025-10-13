@@ -393,7 +393,6 @@ class YAStudioProps(PropertyGroup):
         return armature_actions
     
     def set_action(self, context: Context) -> None:
-        window = get_window_props()
         if not self.outfit_armature:
             return
         if self.actions == "None":
@@ -413,18 +412,18 @@ class YAStudioProps(PropertyGroup):
             self.outfit_armature.animation_data.action_slot = action.slots[0]
         context.scene.frame_end = int(action.frame_end)
 
-        if hasattr(YAWindowProps, "animation_frame"):
-            del YAWindowProps.animation_frame
+        if hasattr(YAStudioProps, "animation_frame"):
+            del YAStudioProps.animation_frame
         
         prop = IntProperty(
             name="Current Frame",
             default=0,
             max=int(action.frame_end),
             min=0,
-            update=lambda self, context: window.animation_frames(context)
+            update=lambda self, context: self.animation_frames(context)
             ) 
         
-        setattr(YAWindowProps, "animation_frame", prop)
+        setattr(YAStudioProps, "animation_frame", prop)
 
     def update_directory(self, context: Context, category: str) -> None:
         prop = context.scene.file_props
@@ -443,6 +442,19 @@ class YAStudioProps(PropertyGroup):
     def validate_shapes_target_enum(self, context) -> None:
         window = get_window_props().studio
         window.shapes_target_enum = "None"
+
+    def animation_frames(self, context: Context) -> None:
+        if context.screen.is_animation_playing:
+            return None
+        else:
+            context.scene.frame_current = self.animation_frame
+    
+    animation_frame: IntProperty(
+        default=0,
+        max=500,
+        min=0,
+        update=lambda self, context: self.animation_frames(context),
+    ) # type: ignore
 
     shapes_source: PointerProperty(
         type= Object,
@@ -587,6 +599,7 @@ class YAStudioProps(PropertyGroup):
         shapes_target          : Object
         outfit_armature        : Object
 
+        animation_frame  : int
         yas_source       : Object
         yas_vindex       : int
         yas_ui_vgroups   : Iterable[YASUIList]

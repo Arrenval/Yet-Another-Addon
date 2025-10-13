@@ -147,19 +147,6 @@ class StudioWindow(PropertyGroup):
         items=lambda self, context: self.get_vertex_groups(context, get_studio_props().shapes_target)
         )  # type: ignore
     
-    def animation_frames(self, context:Context) -> None:
-        if context.screen.is_animation_playing:
-            return None
-        else:
-            context.scene.frame_current = self.animation_frame
-    
-    animation_frame: IntProperty(
-        default=0,
-        max=500,
-        min=0,
-        update=lambda self, context: self.animation_frames(context),
-    ) # type: ignore
-
     yas_storage: EnumProperty(
         name="",
         description="Select what vertex groups to store",
