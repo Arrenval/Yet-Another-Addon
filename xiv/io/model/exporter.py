@@ -24,7 +24,6 @@ class ModelExport:
     def __init__(self, logger: YetAnotherLogger=None, **model_flags):
         self.model             = XIVModel()
         self.logger            = logger
-        self.shape_value_count = 0
 
         self.model_flags : dict[str, bool]      = model_flags
         self.export_stats: dict[str, list[str]] = defaultdict(list)
@@ -73,11 +72,9 @@ class ModelExport:
                                 active_lod, 
                                 face_data, 
                                 sorted_meshes,
-                                self.shape_value_count,
                                 logger=self.logger
                             )
             
-            self.shape_value_count = lod.shape_value_count
             self.export_stats.update(**lod.export_stats)
             self.model.set_lod_count(lod_level + 1)
 

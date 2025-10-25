@@ -12,7 +12,7 @@ from .accessors        import get_weights
 from ...logging        import YetAnotherLogger
 from .validators       import clean_material_path, USHORT_LIMIT
 from ..com.helpers     import normalised_int_array 
-from ..com.exceptions  import XIVMeshError
+from ..com.exceptions  import XIVModelError, XIVMeshError
 from ....formats.model import (XIVModel, Mesh as XIVMesh, Submesh,
                                VertexDeclaration, VertexType, VertexUsage,
                                BoneTable, Lod, ShapeMesh, BoundingBox)
@@ -50,7 +50,7 @@ def bone_bounding_box(positions: NDArray, blend_indices: NDArray, nonzero_mask: 
             bone_bboxes[bone_idx] = bone_bbox
 
 class CreateLOD:
-    def __init__(self, model: XIVModel, lod_level: int, face_data: bool, shape_value_count: int = 0, logger: YetAnotherLogger = None):
+    def __init__(self, model: XIVModel, lod_level: int, face_data: bool, logger: YetAnotherLogger = None):
         self.model     = model
         self.logger    = logger
         self.lod_level = lod_level
@@ -63,16 +63,13 @@ class CreateLOD:
         self.lod_bones      : list[str]     = []
         self.vertex_buffers : list[NDArray] = []
         self.indices_buffers: list[bytes]   = []
-        self.shape_meshes   : dict[str, list[tuple[int, NDArray]]] = defaultdict(list)
-
-        self.shape_value_count = shape_value_count
 
         self.shape_meshes: dict[str, list[tuple[int, NDArray]]] = defaultdict(list)
         self.export_stats: dict[str, list[str]]                 = defaultdict(list)
 
     @classmethod
-    def construct(cls, model: XIVModel, lod_level: int, active_lod: Lod, face_data: bool, sorted_meshes: list[list[Object]], shape_value_count: int = 0, logger: YetAnotherLogger = None ) -> 'CreateLOD':
-        lod = cls(model, lod_level, face_data, shape_value_count, logger=logger)
+    def construct(cls, model: XIVModel, lod_level: int, active_lod: Lod, face_data: bool, sorted_meshes: list[list[Object]], logger: YetAnotherLogger = None ) -> 'CreateLOD':
+        lod = cls(model, lod_level, face_data, logger=logger)
         lod._construct(active_lod, sorted_meshes)
         return lod
 
@@ -90,12 +87,15 @@ class CreateLOD:
             self.model.bone_tables.append(bone_table)
 
         for mesh_scene_idx, blend_objs in enumerate(sorted_meshes):
-            mesh_idx = active_lod.mesh_idx + mesh_scene_idx
+            self.mesh_idx = active_lod.mesh_idx + mesh_scene_idx
             if self.logger:
-                self.logger.last_item = f"Mesh #{mesh_idx}"
-                self.logger.log(f"Processing Mesh #{mesh_idx}...", 3)
-                
-            self._create_mesh(mesh_idx, blend_objs)
+                self.logger.last_item = f"Mesh #{self.mesh_idx}"
+                self.logger.log(f"Processing Mesh #{self.mesh_idx}...", 3)
+            
+            try:
+                self._create_mesh(blend_objs)
+            except XIVMeshError as e:
+                raise XIVMeshError(f"Mesh #{self.mesh_idx}: {e}") 
    
             active_lod.mesh_count            += 1
             # Vanilla models increment these even when not used.
@@ -175,8 +175,8 @@ class CreateLOD:
             self.logger.last_item = f"LOD{lod_level} shape meshes"
 
         arr_offset = len(self.model.shape_values)
-        if arr_offset < self.shape_value_count:
-            self.model.shape_values = np.resize(self.model.shape_values, self.shape_value_count)
+        if arr_offset < self.model.mesh_header.shape_value_count:
+            self.model.shape_values = np.resize(self.model.shape_values, self.model.mesh_header.shape_value_count)
 
         current_count = arr_offset
         for shape_name, arrays in self.shape_meshes.items():
@@ -199,15 +199,15 @@ class CreateLOD:
                 
             shape.mesh_count[lod_level] = shape_mesh_count
 
-    def _create_mesh(self, mesh_idx: int, blend_objs: list[Object]) -> None:
+    def _create_mesh(self, blend_objs: list[Object]) -> None:
         self.mesh         = XIVMesh()
-        self.mesh_idx     = mesh_idx
         self.bone_limit   = 4
         self.mesh_indices = b''
+        mesh_header       = self.model.mesh_header
 
         self.mesh.vertex_count = sum(len(obj.data.vertices) for obj in blend_objs)
         if self.mesh.vertex_count > USHORT_LIMIT:
-            raise XIVMeshError(f"Mesh #{self.mesh_idx}: Exceeds the {USHORT_LIMIT} vertices limit.")
+            raise XIVMeshError(f"Exceeds the {USHORT_LIMIT} vertices limit.")
         
         self.mesh.submesh_index       = len(self.model.submeshes)
         self.mesh.bone_table_idx      = self.lod_level
@@ -215,7 +215,7 @@ class CreateLOD:
         try:
             self.mesh.material_idx    = get_material_idx(blend_objs[0], self.model.materials) 
         except:
-            raise XIVMeshError(f"Mesh #{self.mesh_idx} is missing a material path.")
+            raise XIVMeshError(f"Missing material path.")
 
         mesh_flow = blend_objs[0]["xiv_flow"] if "xiv_flow" in blend_objs[0] else False
         vert_decl = VertexDeclaration.from_blend_mesh(blend_objs, mesh_flow)
@@ -234,11 +234,9 @@ class CreateLOD:
             submesh_vert_count = len(obj.data.vertices)
             if submesh_vert_count == 0:
                 continue
-            try:
-                self._create_submesh(obj, vert_decl, vert_offset, mesh_geo, mesh_tex, mesh_flow)
-            except XIVMeshError as e:
-                raise XIVMeshError(f"Mesh #{self.mesh_idx}: {e}")
-            
+
+            self._create_submesh(obj, vert_decl, vert_offset, mesh_geo, mesh_tex, mesh_flow)
+
             vert_offset             += submesh_vert_count
             self.mesh.submesh_count += 1
         
@@ -251,8 +249,7 @@ class CreateLOD:
             vert_decl.update_usage_type(VertexUsage.BLEND_INDICES, VertexType.UBYTE4)
         
         if self.shape_arrays:
-            try:
-                self.shape_value_count += submesh_to_mesh_shapes(
+            mesh_header.shape_value_count += submesh_to_mesh_shapes(
                                                             self.mesh, 
                                                             self.mesh_idx, 
                                                             self.shape_meshes, 
@@ -261,11 +258,9 @@ class CreateLOD:
                                                             mesh_tex, 
                                                             vert_offset
                                                         )
-            except XIVMeshError as e:
-                raise XIVMeshError(f"Mesh #{self.mesh_idx}: {e}")
-        
-        if self.shape_value_count > USHORT_LIMIT:
-            raise XIVMeshError(f"Model exceeds the {USHORT_LIMIT} shape values limit. Consider removing unneeded shape keys.")
+
+        if mesh_header.shape_value_count > USHORT_LIMIT:
+            raise XIVModelError(f"Model exceeds the {USHORT_LIMIT} shape values limit. Consider removing unneeded shape keys.")
 
         mesh_streams       = create_stream_arrays(self.mesh.vertex_count, vert_decl)
         self.stream_offset = update_mesh_streams(self.mesh, mesh_streams, mesh_geo, mesh_tex, self.stream_offset, self.bone_limit)
@@ -276,13 +271,13 @@ class CreateLOD:
             self.bbox = BoundingBox.from_array(mesh_streams[0]["position"])
  
         bone_bounding_box(
-                mesh_streams[0]["position"], 
-                mesh_streams[0]["blend_indices"], 
-                mesh_streams[0]["blend_weights"] > 0,
-                self.model.bones,
-                self.lod_bones,
-                self.model.bone_bounding_boxes
-            )
+                    mesh_streams[0]["position"], 
+                    mesh_streams[0]["blend_indices"], 
+                    mesh_streams[0]["blend_weights"] > 0,
+                    self.model.bones,
+                    self.lod_bones,
+                    self.model.bone_bounding_boxes
+                )
         
         if self.face_data:
             create_face_data(self.model, mesh_streams[0]["position"])

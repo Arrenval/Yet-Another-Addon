@@ -26,11 +26,17 @@ class ModpackGamePathError(ModpackError):
     """XIV game path is not valid"""
     pass
 
-class XIVMeshError(Exception):
-    """Base class"""
+class XIVModelError(Exception):
+    """Error in XIVModel"""
+    pass
+
+class XIVMeshError(XIVModelError):
+    """Error in a XIVMesh"""
     pass
 
 class XIVMeshIDError(XIVMeshError):
+    """Meshes uses an x.y identifier in their name before processing.
+    Unable to resolve said identifier."""
     pass
 
 class XIVMeshParentError(XIVMeshError):

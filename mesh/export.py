@@ -115,9 +115,9 @@ class FileExport:
         global _export_stats
 
         try:
-            mesh_handler = SceneHandler(logger=self.logger, batch=self.batch)
-            mesh_handler.prepare_scene()
-            mesh_handler.process_scene()
+            scene_handler = SceneHandler(logger=self.logger, batch=self.batch)
+            scene_handler.prepare_scene()
+            scene_handler.process_scene()
 
             if self.logger:
                 self.logger.log_separator()
@@ -142,7 +142,7 @@ class FileExport:
                     self.logger.log(f"Converting to MDL...", 2)
                 model_props   = get_studio_props().model
                 _export_stats = ModelExport.export_scene(
-                                                mesh_handler.export_objs, 
+                                                scene_handler.export_objs, 
                                                 str(self.file_path) + ".mdl",
                                                 model_props.use_lods,
                                                 get_neck_morphs(model_props.neck_morph),
@@ -154,6 +154,6 @@ class FileExport:
             raise e
 
         finally:
-            if mesh_handler:
-                mesh_handler.restore_meshes()
+            if scene_handler:
+                scene_handler.restore_meshes()
         

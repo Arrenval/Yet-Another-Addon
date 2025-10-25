@@ -36,7 +36,7 @@ def create_shape_data(mesh: XIVMesh, pos: NDArray, indices: NDArray, submesh_str
     _set_shape_stream_values(shape_streams, submesh_streams, pos, vert_mask)
 
     if indices_idx.max() + mesh.idx_count > USHORT_LIMIT:
-        raise XIVMeshError(f"Exceeds the {USHORT_LIMIT} indices limit for shape keys exceeded.")
+        raise XIVMeshError(f"Exceeds the {USHORT_LIMIT} indices limit for shape keys.")
     
     vert_map = np.full(len(submesh_streams[0]), -1, dtype=np.int32)
     vert_map[shape_indices] = np.arange(len(shape_indices))
