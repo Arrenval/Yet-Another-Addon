@@ -5,7 +5,7 @@ from bpy.types         import Object
 from numpy.typing      import NDArray
 from collections       import defaultdict
 
-from .shapes           import create_shape_data, submesh_to_mesh_shapes
+from .shapes           import create_shape_data, submesh_to_mesh_shapes, create_face_data
 from .weights          import sort_weights, normalise_weights, empty_vertices
 from .streams          import create_stream_arrays, get_submesh_streams, update_mesh_streams
 from .accessors        import get_weights
@@ -50,10 +50,11 @@ def bone_bounding_box(positions: NDArray, blend_indices: NDArray, nonzero_mask: 
             bone_bboxes[bone_idx] = bone_bbox
 
 class CreateLOD:
-    def __init__(self, model: XIVModel, lod_level: int, shape_value_count: int = 0, logger: YetAnotherLogger = None):
+    def __init__(self, model: XIVModel, lod_level: int, face_data: bool, shape_value_count: int = 0, logger: YetAnotherLogger = None):
         self.model     = model
         self.logger    = logger
         self.lod_level = lod_level
+        self.face_data = face_data
 
         self.bbox          = BoundingBox()
         self.idx_offset    = 0
@@ -70,8 +71,8 @@ class CreateLOD:
         self.export_stats: dict[str, list[str]]                 = defaultdict(list)
 
     @classmethod
-    def construct(cls, model: XIVModel, lod_level: int, active_lod: Lod, sorted_meshes: list[list[Object]], shape_value_count: int = 0, logger: YetAnotherLogger = None ) -> 'CreateLOD':
-        lod = cls(model, lod_level, shape_value_count, logger = logger)
+    def construct(cls, model: XIVModel, lod_level: int, active_lod: Lod, face_data: bool, sorted_meshes: list[list[Object]], shape_value_count: int = 0, logger: YetAnotherLogger = None ) -> 'CreateLOD':
+        lod = cls(model, lod_level, face_data, shape_value_count, logger=logger)
         lod._construct(active_lod, sorted_meshes)
         return lod
 
@@ -283,6 +284,9 @@ class CreateLOD:
                 self.model.bone_bounding_boxes
             )
         
+        if self.face_data:
+            create_face_data(self.model, mesh_streams[0]["position"])
+    
         self.vertex_buffers.append(mesh_streams[0])
         self.vertex_buffers.append(mesh_streams[1])
         self.indices_buffers.append(self.mesh_indices)

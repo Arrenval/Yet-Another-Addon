@@ -7,7 +7,7 @@ from ..utils      import BinaryReader
 
 
 FACE_DATA_DTYPE = [
-                    ("positions", '<f4', (3,)), 
+                    ("position", '<f4', (3,)), 
                     ("sign",      '<u4')
                 ]
 
@@ -40,12 +40,7 @@ class NeckMorph:
         for idx in self.bone_idx:
             file.write(pack('<B', idx))
 
-# Unclear what this is used for, the data is handed off to some game function that seem to generate an in memory texture. 
-# It contains positional data per vertex and a sign.
-# In the models I've looked at the positional data matches the base position of the model.
-# Without a model with any obvious differences it's hard to know what it exactly is used for.
-# It is possible that this is considered as base data before any form of lighting interactions and shape keys are ignored (?).
-# Sign is always 0 (except the first one).
+# First entry in the face data array always has a sign of 1.
 @dataclass
 class FaceData:
     pos : list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])

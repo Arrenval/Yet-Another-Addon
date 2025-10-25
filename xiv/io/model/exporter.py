@@ -50,10 +50,12 @@ class ModelExport:
                 export_lods: bool, 
                 neck_morphs: list[tuple[list[float], list[float]]]
                 ) -> dict[str, list[str]]:
-        
-        origin  = 0.0
-        max_lod = 3 if export_lods else 1
 
+        origin    = 0.0
+        max_lod   = 3 if export_lods else 1
+        face_data = any(obj.data.shape_keys.key_blocks.get("shp_sdw_a", False) 
+                        for obj in export_obj if obj.data.shape_keys)
+        
         for lod_level, active_lod in enumerate(self.model.lods[:max_lod]):
             if self.logger:
                 self.logger.last_item = f"LOD{lod_level}"
@@ -69,7 +71,8 @@ class ModelExport:
                                 self.model, 
                                 lod_level,
                                 active_lod, 
-                                sorted_meshes, 
+                                face_data, 
+                                sorted_meshes,
                                 self.shape_value_count,
                                 logger=self.logger
                             )
@@ -91,6 +94,9 @@ class ModelExport:
         if neck_morphs:
             self._add_neck_morph(neck_morphs)
 
+        if face_data:
+            self.model.face_data["sign"][0] = 1
+        
         self._set_flags()
         self.model.to_file(file_path)
 

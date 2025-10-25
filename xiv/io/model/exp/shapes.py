@@ -6,7 +6,7 @@ from .streams          import create_stream_arrays
 from .validators       import USHORT_LIMIT
 
 from ..com.exceptions  import XIVMeshError
-from ....formats.model import Mesh as XIVMesh, SHAPE_VALUE_DTYPE, VertexDeclaration
+from ....formats.model import XIVModel, Mesh as XIVMesh, VertexDeclaration, SHAPE_VALUE_DTYPE
 
 
 def _set_shape_stream_values(shape_streams: dict[int, NDArray], submesh_streams: dict[int, NDArray], pos: NDArray, vert_mask: NDArray) -> None:
@@ -74,3 +74,14 @@ def submesh_to_mesh_shapes(mesh: XIVMesh, mesh_idx: int, mesh_shapes: dict[str, 
         total_count += shape_value_count
     
     return total_count
+
+def create_face_data(model: XIVModel, position: NDArray) -> None:
+    total_count = position.shape[0] + model.mesh_header.face_data_count
+    
+    arr_offset  = len(model.face_data)
+    if arr_offset < total_count:
+        model.face_data = np.resize(model.face_data, total_count)
+    
+    model.face_data["position"][arr_offset:] = position.copy()
+
+    model.mesh_header.face_data_count = total_count

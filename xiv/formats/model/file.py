@@ -2,7 +2,7 @@
 from io           import BytesIO
 from numpy        import ushort, single, empty
 from struct       import pack
-from typing       import List
+from typing       import List, Union
 from dataclasses  import dataclass, field
 from numpy.typing import NDArray
  
@@ -334,7 +334,9 @@ class XIVModel:
 
         for mesh in self.shape_meshes:
             mesh.write(file)
-        file.write(self.shape_values.tobytes())
+        
+        if self.mesh_header.shape_value_count:
+            file.write(self.shape_values.tobytes())
         
         file.write(pack('<I', len(self.submesh_bonemaps) * 2))
         for bone in self.submesh_bonemaps:
@@ -343,7 +345,8 @@ class XIVModel:
         for morph in self.neck_morphs:
             morph.write(file)
 
-        file.write(self.face_data.tobytes())
+        if self.mesh_header.face_data_count:
+            file.write(self.face_data.tobytes())
 
         padding = ((file.tell() + 1) & 0b111)
         if padding > 0:
@@ -388,7 +391,7 @@ class XIVModel:
 
             self.lods[i].edge_geometry_data_offset += total_size 
 
-    def get_shape(self, name: str, create_missing: bool=False) -> Shape:
+    def get_shape(self, name: str, create_missing: bool=False) -> Union[Shape, False]:
         for shape in self.shapes:
             if shape.name == name:
                 return shape
@@ -398,7 +401,7 @@ class XIVModel:
             self.shapes.append(new_shape)
             return new_shape
         else:
-            raise ValueError("Shape name not found.")
+            return False
          
     def set_counts(self) -> None:
         self.header.vertex_declaration_count = len(self.vertex_declarations)
