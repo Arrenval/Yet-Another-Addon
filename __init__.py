@@ -57,7 +57,7 @@ def register():
     preferences.register_keymaps()
 
     props.set_handlers()
-    bpy.types.Scene.ya_addon_ver = (1, 0, 3)
+    bpy.types.Scene.ya_addon_ver = (1, 0, 4)
     
 
 def unregister():
