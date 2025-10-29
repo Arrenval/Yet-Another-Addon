@@ -7,10 +7,9 @@ from bpy.props       import StringProperty, EnumProperty, CollectionProperty, Po
 from collections.abc import Iterable
 
 from .enums          import get_racial_enum
-from .window         import YAWindowProps
 from .getters        import get_window_props, get_devkit_props, get_xiv_meshes
 from ..mesh.objects  import visible_meshobj
-from ..utils.typings import BlendEnum
+from ..utils.typings import BlendEnum, BlendCollection
 
 
 XIV_MATERIALS = {
@@ -137,7 +136,7 @@ class ModelProps(PropertyGroup):
         return flags
     
     if TYPE_CHECKING:
-        meshes: list[MeshProps]
+        meshes: BlendCollection[MeshProps]
 
         shadow_disabled            : bool
         light_shadow_disabled      : bool
@@ -204,7 +203,7 @@ class YASGroup(PropertyGroup):
     if TYPE_CHECKING:
         name      : str
         parent    : str
-        vertices  : Iterable[YASWeights]
+        vertices  : BlendCollection[YASWeights]
 
 class YASStorage(PropertyGroup):
     old_count : IntProperty(description="The vertex count of the mesh at the time of storage") # type: ignore
@@ -220,7 +219,7 @@ class YASStorage(PropertyGroup):
         all_groups: bool
         genitalia : bool
         physics   : bool
-        v_groups  : Iterable[YASGroup]
+        v_groups  : BlendCollection[YASGroup]
         
 class ShapeModifiers(PropertyGroup):
     name: StringProperty() # type: ignore
@@ -589,7 +588,7 @@ class YAStudioProps(PropertyGroup):
 
     if TYPE_CHECKING:
         model                  : ModelProps
-        shape_modifiers_group  : Iterable[ShapeModifiers]
+        shape_modifiers_group  : BlendCollection[ShapeModifiers]
         
         pose_display_directory : str
         shape_chest_base       : str
@@ -602,7 +601,7 @@ class YAStudioProps(PropertyGroup):
         animation_frame  : int
         yas_source       : Object
         yas_vindex       : int
-        yas_ui_vgroups   : Iterable[YASUIList]
+        yas_ui_vgroups   : BlendCollection[YASUIList]
         yas_empty        : bool
         mod_shapes_source: Object
 

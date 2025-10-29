@@ -8,7 +8,7 @@ from collections.abc import Iterable
 
 from .getters        import get_studio_props, get_file_props
 from .modpack        import BlendModGroup, modpack_data
-from ..utils.typings import BlendEnum
+from ..utils.typings import BlendEnum, BlendCollection
 
 
 class StudioWindow(PropertyGroup):
@@ -296,7 +296,7 @@ class ModpackWindow(PropertyGroup):
         )  # type: ignore
 
     if TYPE_CHECKING:
-        pmp_mod_groups  : Iterable[BlendModGroup]
+        pmp_mod_groups: BlendCollection[BlendModGroup]
 
         modpack_replace      : bool
         modpack_display_dir  : str

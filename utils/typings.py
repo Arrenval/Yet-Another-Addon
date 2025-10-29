@@ -1,8 +1,10 @@
 
-from typing          import TypedDict
+from typing          import TypedDict, Protocol, TypeVar, Iterator
 from bpy.types       import Object, PropertyGroup
 from collections.abc import Iterable
 
+
+T = TypeVar('T')
 
 Preset = TypedDict(
     "Preset",
@@ -17,6 +19,23 @@ Preset = TypedDict(
 )
 
 BlendEnum   = list[tuple[str, str, str]]
+    
+class BlendCollection(Protocol[T]):
+    """
+    Type hints to mimic Blender Collections.
+    """
+    
+    def add(self) -> T:...
+
+    def remove(self, index: int) -> None:...
+    
+    def clear(self) -> None:...
+
+    def __iter__(self) -> Iterator[T]:...
+
+    def __len__(self) -> int:...
+        
+    def __getitem__(self, index: int) -> T:...
 
 # Classes from Yet Another Devkit
 

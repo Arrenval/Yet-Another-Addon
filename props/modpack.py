@@ -3,11 +3,10 @@ from pathlib           import Path
 from itertools         import chain
 from bpy.types         import PropertyGroup, Context
 from bpy.props         import StringProperty, EnumProperty, CollectionProperty, BoolProperty, IntProperty
-from collections.abc   import Iterable
 
 from .enums            import get_racial_enum
 from .getters          import get_file_props, get_window_props
-from ..utils.typings   import BlendEnum
+from ..utils.typings   import BlendEnum, BlendCollection
 from ..xiv.formats.pmp import Modpack
 
 
@@ -26,11 +25,11 @@ def modpack_data() -> None:
 
     for idx, group in enumerate(modpack.groups):
         new_option = props.loaded_pmp_groups.add()
-        new_option.group_value = str(idx)
-        new_option.group_name = group.Name
+        new_option.group_value       = str(idx)
+        new_option.group_name        = group.Name
         new_option.group_description = group.Description
-        new_option.group_page = group.Page
-        new_option.group_priority = group.Priority
+        new_option.group_page        = group.Page
+        new_option.group_priority    = group.Priority
 
     window.file.modpack.modpack_author  = modpack.meta.Author
     window.file.modpack.modpack_version = modpack.meta.Version
@@ -202,10 +201,10 @@ class ModFileEntry(ModpackHelper):
 class CorrectionEntry(ModpackHelper):
 
     def get_possible_corrections(self, context: Context):
-        props                = get_window_props()
-        group: BlendModGroup = props.file.modpack.pmp_mod_groups[self.group_idx]
-        total_options        = [option.name for option in group.mod_options[:8]]
-        combinations         = [[]]
+        props         = get_window_props()
+        group         = props.file.modpack.pmp_mod_groups[self.group_idx]
+        total_options = [option.name for option in group.mod_options[:8]]
+        combinations  = [[]]
     
         for option in total_options:
             combinations.extend([combo + [option] for combo in combinations])
@@ -232,8 +231,8 @@ class CorrectionEntry(ModpackHelper):
     
     if TYPE_CHECKING:
         group_idx   : int
-        file_entries: Iterable[ModFileEntry]
-        meta_entries: Iterable[ModMetaEntry]
+        file_entries: BlendCollection[ModFileEntry]
+        meta_entries: BlendCollection[ModMetaEntry]
         names       : str
         show_option : bool 
 
@@ -341,8 +340,8 @@ class BlendModOption(ModpackHelper):
         name        : str
         description : str
         priority    : int
-        file_entries: Iterable[ModFileEntry]
-        meta_entries: Iterable[ModMetaEntry]
+        file_entries: BlendCollection[ModFileEntry]
+        meta_entries: BlendCollection[ModMetaEntry]
         show_option : bool
     
 class BlendModGroup(ModpackHelper):
@@ -387,7 +386,7 @@ class BlendModGroup(ModpackHelper):
         window  = get_window_props()
         replace = window.file.modpack.modpack_replace
 
-        modpack: list[LoadedModpackGroup] = props.loaded_pmp_groups
+        modpack = props.loaded_pmp_groups
         
         if self.idx != "New":
             # idx = self.idx - 1
@@ -440,7 +439,7 @@ class BlendModGroup(ModpackHelper):
     def _set_name(self, context):
         props = get_file_props()
         self.name: str
-        scene_groups: list[LoadedModpackGroup] = props.loaded_pmp_groups
+        scene_groups = props.loaded_pmp_groups
 
         existing_names = [group.group_name.lower() for group in scene_groups]
 
@@ -551,10 +550,10 @@ class BlendModGroup(ModpackHelper):
         game_path       : str
         folder_path     : str
         priority        : int
-        mod_options     : Iterable[BlendModOption]
-        corrections     : Iterable[CorrectionEntry]
-        base_phybs      : Iterable[BasePhyb]
-        group_files     : Iterable[GroupFile]
+        mod_options     : BlendCollection[BlendModOption]
+        corrections     : BlendCollection[CorrectionEntry]
+        base_phybs      : BlendCollection[BasePhyb]
+        group_files     : BlendCollection[GroupFile]
         sim_append      : str
         show_folder     : bool
         show_group      : bool

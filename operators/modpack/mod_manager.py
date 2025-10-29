@@ -11,7 +11,6 @@ from ...utils         import RNAPropertyIO
 from ...ui.draw       import aligned_row, get_conditional_icon
 from ...preferences   import get_prefs
 from ...utils.typings import Preset
-from ...props.modpack import BlendModGroup, BlendModOption
 
 
 class RefreshFolder(Operator):
@@ -41,7 +40,7 @@ class MovePropertyItem(Operator):
 
     def execute(self, context):
         mod_groups = get_window_props().file.modpack.pmp_mod_groups
-        group: BlendModGroup = mod_groups[self.group]
+        group      = mod_groups[self.group]
 
         if self.category == "GROUP":
             manager = RNAPropertyIO()
@@ -161,8 +160,8 @@ class ModpackManager(Operator):
         self.option: int
         
         if len(self.mod_groups) > 0:
-            mod_group = self.mod_groups[self.group]
-            group_options:list[BlendModOption] = mod_group.mod_options
+            mod_group     = self.mod_groups[self.group]
+            group_options = mod_group.mod_options
         
         if self.delete:
             manager = RNAPropertyIO()
@@ -258,9 +257,9 @@ class ModpackPresets(Operator):
         if self.delete and not event.ctrl:
             return {"FINISHED"}
         
-        self.prefs  = get_prefs()
-        self.props  = get_window_props()
-        self.mod_group: BlendModGroup = self.props.file.modpack.pmp_mod_groups[self.group]
+        self.prefs     = get_prefs()
+        self.props     = get_window_props()
+        self.mod_group = self.props.file.modpack.pmp_mod_groups[self.group]
 
         if len(self.prefs.modpack_presets) == 0:
             self.new_preset = True

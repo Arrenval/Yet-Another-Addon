@@ -68,7 +68,7 @@ class ModPackager(Operator):
             self.report({'ERROR'}, "Please enter an author.")
             return {'CANCELLED'}
         
-        self.blender_groups: list[BlendModGroup] = self.props.file.modpack.pmp_mod_groups
+        self.blender_groups = self.props.file.modpack.pmp_mod_groups
         if self.category == "SINGLE":
             self.blender_groups = [self.blender_groups[self.group]]
 

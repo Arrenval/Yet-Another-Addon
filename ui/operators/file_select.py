@@ -323,9 +323,9 @@ class ModpackFileSelector(Operator):
             return self.manage_phybs(context, event, mod_group, self.option)
         
         if self.category.endswith("COMBI"):
-            group_options: list[BlendModOption] = mod_group.corrections
+            group_options = mod_group.corrections
         else:
-            group_options: list[BlendModOption] = mod_group.mod_options
+            group_options = mod_group.mod_options
 
         
         self.container = group_options[self.option].file_entries[self.entry]
@@ -462,7 +462,7 @@ class ModpackDirSelector(Operator):
         return {'FINISHED'}
     
     def phybs_from_folder(self, folder: Path) -> None:
-        group: BlendModGroup = get_window_props().file.modpack.pmp_mod_groups[self.group]
+        group = get_window_props().file.modpack.pmp_mod_groups[self.group]
         files = [file for file in folder.glob("*") if file.is_file() and file.suffix in ".phyb"]
         
         group.base_phybs.clear()

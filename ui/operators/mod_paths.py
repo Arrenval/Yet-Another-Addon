@@ -4,7 +4,6 @@ from bpy.props        import StringProperty, IntProperty
 
 from ...props         import get_window_props
 from ...preferences   import get_prefs
-from ...props.modpack import BlendModGroup, BlendModOption, CorrectionEntry
  
 
 class CopyToModpacker(Operator):
@@ -22,11 +21,11 @@ class CopyToModpacker(Operator):
         prefs = get_prefs()
         props = get_window_props()
         export_dir = Path(prefs.export.output_dir)
-        mod_groups: list[BlendModGroup] = props.file.modpack.pmp_mod_groups
+        mod_groups = props.file.modpack.pmp_mod_groups
 
         if len(mod_groups) > 0:
-            mod_group = mod_groups[self.group]
-            group_options:list[BlendModOption] = mod_group.mod_options
+            mod_group     = mod_groups[self.group]
+            group_options = mod_group.mod_options
         
         match self.category:
             case "OUTPUT_PMP":
@@ -70,13 +69,13 @@ class GamepathCategory(Operator):
         return {'FINISHED'}
     
     def modpack_path(self):
-        mod_groups: list[BlendModGroup] = self.props.file.modpack.pmp_mod_groups
-        mod_group: BlendModGroup = self.props.file.modpack.pmp_mod_groups[self.group]
+        mod_groups = self.props.file.modpack.pmp_mod_groups
+        mod_group  = self.props.file.modpack.pmp_mod_groups[self.group]
         
         if self.category.endswith("COMBI"):
-            group_options:list[CorrectionEntry] = mod_group.corrections
+            group_options = mod_group.corrections
         else:
-            group_options:list[BlendModOption] = mod_group.mod_options
+            group_options = mod_group.mod_options
         
         if self.category == "GROUP":
             game_path: str = mod_groups[self.group].game_path
@@ -96,7 +95,7 @@ class GamepathCategory(Operator):
         game_path_split     = game_path.split("_")
         category_split      = game_path_split[-1].split(".")
         category_split[0]   = self.body_slot
-        game_path_split[-1]  = ".".join(category_split)
+        game_path_split[-1] = ".".join(category_split)
 
         game_path = "_".join(game_path_split)
         

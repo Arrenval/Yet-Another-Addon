@@ -82,14 +82,14 @@ class ModelImport:
     @classmethod
     def from_file(cls, file_path: str, import_name: str) -> None:
         importer = cls()
-        importer.import_mdl(XIVModel.from_file(file_path), import_name)
+        importer._import_mdl(XIVModel.from_file(file_path), import_name)
 
     @classmethod
     def from_bytes(cls, data: bytes, import_name: str) -> None:
         importer = cls()
-        importer.import_mdl(XIVModel.from_bytes(data), import_name)
+        importer._import_mdl(XIVModel.from_bytes(data), import_name)
 
-    def import_mdl(self, model: XIVModel, import_name: str) -> None:
+    def _import_mdl(self, model: XIVModel, import_name: str) -> None:
         self.model    = model
         self.obj_name = import_name
         mdl_buffer    = model.buffers

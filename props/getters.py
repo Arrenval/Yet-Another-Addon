@@ -1,7 +1,6 @@
 import re
 import bpy
 
-
 from typing              import TYPE_CHECKING, Literal
 from bpy.types           import Object
 from collections         import defaultdict

@@ -1,11 +1,11 @@
 import os
-import bpy
 
 from typing    import TYPE_CHECKING
 from bpy.types import PropertyGroup, Object, Context
 from bpy.props import StringProperty, CollectionProperty, PointerProperty
 
-from .modpack  import LoadedModpackGroup
+from .modpack        import LoadedModpackGroup
+from ..utils.typings import BlendCollection
 
 
 class YAFileProps(PropertyGroup):
@@ -51,7 +51,7 @@ class YAFileProps(PropertyGroup):
         )  # type: ignore
     
     if TYPE_CHECKING:
-        loaded_pmp_groups : LoadedModpackGroup
+        loaded_pmp_groups : BlendCollection[LoadedModpackGroup]
         import_display_dir: str
         import_armature   : Object
         export_armature   : Object

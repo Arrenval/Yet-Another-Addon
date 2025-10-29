@@ -396,7 +396,6 @@ class FileManager(Panel):
         self.status_info(box)
 
         for group_idx, group in enumerate(self.window_props.file.modpack.pmp_mod_groups):
-            group: BlendModGroup
             box = layout.box()
             button = group.show_group
 
@@ -427,8 +426,6 @@ class FileManager(Panel):
                 continue
 
             for option_idx, option in enumerate(group.mod_options):
-                option: BlendModOption
-
                 row = layout.row(align=True)
                 split = row.split(factor=option_indent)
 
@@ -454,7 +451,6 @@ class FileManager(Panel):
                     self.entry_container(columns[1], option, group_idx, option_idx)
             
             for correction_idx, correction in enumerate(group.corrections):
-                correction: CorrectionEntry
                 row = layout.row(align=True)
                 split = row.split(factor=option_indent)
 
@@ -922,7 +918,7 @@ class FileManager(Panel):
 
         sim_box.separator(factor=0.1,type="SPACE")
         
-    def entry_container(self, layout: UILayout, container:BlendModOption | CorrectionEntry, group_idx:int, option_idx:int):
+    def entry_container(self, layout: UILayout, container: BlendModOption | CorrectionEntry, group_idx:int, option_idx:int):
         file_col = layout.column(align=True)
         for file_idx, file in enumerate(container.file_entries):
             category = "FILE_ENTRY" if isinstance(container, BlendModOption) else "FILE_COMBI"
@@ -1069,7 +1065,7 @@ class FileManager(Panel):
         for attribute, value in attributes.items():
             setattr(op, attribute, value)
     
-    def xiv_path_category(self, layout: UILayout, container:BlendModOption | ModFileEntry, category:str, group_idx:int, option_idx:int=0, entry_idx:int=0, factor:float=0.25):
+    def xiv_path_category(self, layout: UILayout, container: BlendModOption | ModFileEntry, category:str, group_idx:int, option_idx:int=0, entry_idx:int=0, factor:float=0.25):
         if container.valid_path and container.game_path.endswith(".mdl"):
             body_slots = {
                 "Chest": "top",
