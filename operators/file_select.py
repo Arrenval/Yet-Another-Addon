@@ -2,17 +2,17 @@ import os
 import bpy
 import zipfile
 
-from pathlib            import Path
-from bpy.types          import Operator, PropertyGroup, Context
-from bpy.props          import StringProperty, IntProperty, EnumProperty, CollectionProperty
-from collections        import defaultdict
+from pathlib           import Path
+from bpy.types         import Operator, PropertyGroup, Context
+from bpy.props         import StringProperty, IntProperty, EnumProperty, CollectionProperty
+from collections       import defaultdict
 
-from ...props           import get_window_props, get_file_props
-from ...xiv.io.model    import ModelImport
-from ...preferences     import get_prefs
-from ...utils.typings   import BlendEnum
-from ...props.modpack   import BlendModOption, BlendModGroup, ModFileEntry
-from ...xiv.formats.pmp import Modpack
+from ..props           import get_window_props, get_file_props
+from ..xiv.io.model    import ModelImport
+from ..preferences     import get_prefs
+from ..utils.typings   import BlendEnum
+from ..props.modpack   import BlendModOption, BlendModGroup, ModFileEntry
+from ..xiv.formats.pmp import Modpack
 
 
 class PMPOption(PropertyGroup):

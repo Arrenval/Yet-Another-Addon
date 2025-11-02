@@ -1,12 +1,13 @@
 import re
 import bpy
 
-from ..props           import get_file_props, get_window_props
-from bpy.types         import Operator, ArmatureModifier, Context
-from bpy.props         import StringProperty
-from ..preferences     import get_prefs
-from ..mesh.objects    import safe_object_delete
-from ..mesh.transforms import apply_transforms
+from bpy.types          import Operator, ArmatureModifier, Context
+from bpy.props          import StringProperty
+
+from ...props           import get_file_props, get_window_props
+from ...preferences     import get_prefs
+from ...mesh.objects    import safe_object_delete
+from ...mesh.transforms import apply_transforms
 
 
 class SimpleImport(Operator):

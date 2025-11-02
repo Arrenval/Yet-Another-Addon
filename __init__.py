@@ -8,10 +8,7 @@ from importlib import import_module
 
 SUBFOLDERS = [
     "operators",
-    "operators/export",
-    "operators/modpack",
-    "ui/operators",
-    "ui",
+    "ui/ui_lists",
 ]
 
 modules = [
@@ -26,10 +23,10 @@ def load_modules():
 
     for folder in SUBFOLDERS:
         folder_path = addon_dir / folder
-        for py_file in folder_path.glob("*.py"):
+        for py_file in folder_path.rglob("*.py"):
             if py_file.name == "__init__.py":
                 continue
-            relative_path = folder_path.relative_to(addon_dir)
+            relative_path = py_file.parent.relative_to(addon_dir)
             module_name   = f"{__name__}.{'.'.join(relative_path.parts)}.{py_file.stem}"
                         
             try:

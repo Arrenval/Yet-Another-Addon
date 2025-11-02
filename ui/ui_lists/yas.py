@@ -1,7 +1,7 @@
 from functools import cache
 from bpy.types import UIList, UILayout, Context, VertexGroup, ShapeKey
 
-from ..props   import get_studio_props, get_window_props, YASUIList
+from ...props  import get_studio_props, get_window_props, YASUIList
 
 
 @cache
