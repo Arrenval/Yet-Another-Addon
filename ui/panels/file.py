@@ -2,7 +2,7 @@ from pathlib          import Path
 from functools        import partial 
 from bpy.types        import Panel, UILayout, Context
 
-from ..draw           import aligned_row, get_conditional_icon, operator_button
+from ..draw           import aligned_row, get_conditional_icon, operator_button, header_category
 from ...props         import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
 from ...preferences   import get_prefs
 from ...props.enums   import RacialCodes
@@ -34,12 +34,7 @@ class FileManager(Panel):
             "PENUMBRA": "SHADING_RENDERED",
             }
 
-        box = layout.box()
-        row = box.row(align=True)
-        row.label(icon=options[self.window_props.file.ui_tab])
-        row.label(text=f"  {self.window_props.file.ui_tab.capitalize()}")
-        button_row = row.row(align=True)
-        
+        button_row = header_category(layout, self.window_props.file.ui_tab, options[self.window_props.file.ui_tab])
         button_row.prop(self.window_props.file, "ui_tab", expand=True, text="")
 
         # IMPORT

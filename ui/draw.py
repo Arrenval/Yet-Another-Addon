@@ -73,3 +73,13 @@ def ui_category_buttons(layout:UILayout, section_prop, options, operator_str: st
         operator = row.operator(operator_str, text="", icon=icon, depress=depress, emboss=True if depress else False)
         operator.menu = slot.upper()
         row.separator(factor=2)
+
+def header_category(layout: UILayout, category: str, icon: str) -> UILayout:
+    box = layout.box()
+    row = box.row(align=True)
+    row.label(icon=icon)
+    row.label(text=f"  {category.capitalize()}")
+    button_row = row.row(align=True)
+
+    return button_row
+        
