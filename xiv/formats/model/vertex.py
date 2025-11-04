@@ -3,7 +3,6 @@ import numpy as np
 from io          import BytesIO
 from numpy       import short, ushort, half, single, ubyte
 from struct      import pack
-from bpy.types   import Object
 from dataclasses import dataclass
 
 from .enums      import VertexType, VertexUsage
@@ -93,49 +92,6 @@ class VertexDeclaration:
 
         # The file always reserves space for 17 declarations. We skip ahead equal to what we didn't have to read.
         reader.pos += 17 * 8 - (len(decl.vertex_elements) + 1) * 8
-
-        return decl
-    
-    @classmethod
-    def from_blend_mesh(cls, submeshes: list[Object], export_flow=False) -> 'VertexDeclaration':
-        decl = cls()
-
-        decl.create_element(VertexType.SINGLE3, VertexUsage.POSITION, 0)
-        decl.create_element(VertexType.USHORT4, VertexUsage.BLEND_WEIGHTS, 0)
-        decl.create_element(VertexType.USHORT4, VertexUsage.BLEND_INDICES, 0)
-
-        decl.create_element(VertexType.SINGLE3, VertexUsage.NORMAL, 1)
-        decl.create_element(VertexType.NBYTE4, VertexUsage.TANGENT, 1)
-
-        col_count = 1
-        uv_count  = 1
-        has_flow  = False
-        for obj in submeshes:
-            if "xiv_flow" in obj and obj["xiv_flow"]:
-                has_flow = True
-
-            col_count = max(col_count, len([layer for layer in obj.data.color_attributes 
-                                            if layer.name.lower().startswith(XIV_COL)]))
-            
-            uv_count  = max(uv_count, len([layer for layer in obj.data.uv_layers 
-                                        if layer.name.lower().startswith(XIV_UV)]))
-
-        col_count = min(col_count, 2)
-        uv_count  = min(uv_count, 3)
-
-        if has_flow and export_flow:
-            decl.create_element(VertexType.NBYTE4, VertexUsage.FLOW, 1)
-
-        for i in range(col_count):
-            decl.create_element(VertexType.NBYTE4, VertexUsage.COLOUR, 1, i)
-        
-        if uv_count > 1:
-            decl.create_element(VertexType.SINGLE4, VertexUsage.UV, 1)
-        else:
-            decl.create_element(VertexType.SINGLE2, VertexUsage.UV, 1)
-
-        if uv_count == 3:
-            decl.create_element(VertexType.SINGLE2, VertexUsage.UV, 1, 1)
 
         return decl
     

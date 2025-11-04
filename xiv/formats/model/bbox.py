@@ -1,10 +1,10 @@
 from io           import BytesIO
 from copy         import deepcopy
+from numpy        import linalg
 from struct       import pack
 from typing       import List
 from dataclasses  import dataclass, field
 from numpy.typing import NDArray
-from mathutils    import Vector
 
 from ..utils      import BinaryReader
 
@@ -51,7 +51,7 @@ class BoundingBox:
         for i in range(3):
             abs_bbox.append(max(abs(self.max[i]), abs(self.min[i])))
         
-        return Vector(abs_bbox).length
+        return linalg.norm(abs_bbox)
     
     def copy(self) -> 'BoundingBox':
         return deepcopy(self)
