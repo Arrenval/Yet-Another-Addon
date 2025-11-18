@@ -2,16 +2,16 @@ import bpy
 import numpy as np
 import random
 
-from bpy.types        import Mesh, Material
-from numpy            import ushort, byte, ubyte
-from numpy.typing     import NDArray
-from collections      import defaultdict
+from bpy.types       import Mesh, Material
+from numpy           import ushort, byte
+from numpy.typing    import NDArray
+from collections     import defaultdict
 
-from .imp.accessors   import *
-from .imp.streams     import get_submesh_streams, create_stream_arrays
-from .imp.weights     import create_weight_matrix, set_weights
-from .com.exceptions  import XIVMeshError
-from ...formats.model import XIVModel, Submesh, VertexDeclaration, VertexUsage
+from .imp.accessors  import *
+from .imp.streams    import get_submesh_streams, create_stream_arrays
+from .imp.weights    import create_weight_matrix, set_weights
+from ...xivpy.model  import XIVModel, Submesh, VertexDeclaration, VertexUsage
+from .com.exceptions import XIVMeshError
 
     
 def create_material(name: str, col_idx) -> Material:

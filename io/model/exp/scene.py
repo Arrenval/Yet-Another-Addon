@@ -1,12 +1,12 @@
 import re
 
-from bpy.types            import Object
-from collections          import defaultdict
+from bpy.types           import Object
+from collections         import defaultdict
 
-from .validators          import remove_loose_verts, split_seams
-from ..com.exceptions     import XIVMeshIDError
-from ....formats.model    import XIV_ATTR
-from .....mesh.transforms import apply_transforms
+from .validators         import remove_loose_verts, split_seams
+from ..com.exceptions    import XIVMeshIDError
+from ....xivpy.model     import XIV_ATTR
+from ....mesh.transforms import apply_transforms
 
 
 def get_attributes(obj: Object) -> list[str]:

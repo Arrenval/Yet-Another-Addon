@@ -6,7 +6,7 @@ from .exp.scene       import prepare_submeshes
 from .com.exceptions  import XIVMeshError
 from .exp.constructor import CreateLOD
 
-from ...formats.model import (XIVModel, NeckMorph,
+from ...xivpy.model   import (XIVModel, NeckMorph,
                               ModelFlags1, ModelFlags2, ModelFlags3)
 
 

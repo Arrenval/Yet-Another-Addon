@@ -1,13 +1,14 @@
-from typing            import TYPE_CHECKING, Literal
-from pathlib           import Path
-from itertools         import chain
-from bpy.types         import PropertyGroup, Context
-from bpy.props         import StringProperty, EnumProperty, CollectionProperty, BoolProperty, IntProperty
+from typing          import TYPE_CHECKING, Literal
+from pathlib         import Path
+from itertools       import chain
+from bpy.types       import PropertyGroup, Context
+from bpy.props       import StringProperty, EnumProperty, CollectionProperty, BoolProperty, IntProperty
 
-from .enums            import get_racial_enum
-from .getters          import get_file_props, get_window_props
-from ..utils.typings   import BlendEnum, BlendCollection
-from ..xiv.formats.pmp import Modpack
+from .enums          import get_racial_enum
+from .getters        import get_file_props, get_window_props
+from ..xivpy.pmp     import Modpack
+from ..utils.typings import BlendEnum, BlendCollection
+
 
 
 def modpack_data() -> None:

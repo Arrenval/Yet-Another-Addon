@@ -3,16 +3,15 @@ import bpy
 import json
 import tempfile
 
-from math                import pi
-from pathlib             import Path
-from bpy.types           import Operator
-from bpy.props           import BoolProperty
-from collections         import defaultdict
+from math          import pi
+from pathlib       import Path
+from bpy.types     import Operator
+from bpy.props     import BoolProperty
+from collections   import defaultdict
  
-from ..props             import get_window_props
-from ..xiv.io.model      import ModelImport 
-from ..xiv.formats.phyb  import PhybFile
-from ..xiv.formats.model import XIVModel
+from ..props       import get_window_props
+from ..xivpy.phyb  import PhybFile
+from ..xivpy.model import XIVModel
 
 
 def compare_binaries(original_path: str, written_path: str, context_bytes: int=32):

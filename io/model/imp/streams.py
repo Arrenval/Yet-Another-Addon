@@ -1,9 +1,9 @@
 import numpy as np
 
-from numpy.typing      import NDArray
+from numpy.typing    import NDArray
  
-from ..com.schema      import get_array_type
-from ....formats.model import Mesh as XIVMesh, VertexDeclaration
+from ..com.schema    import get_array_type
+from ....xivpy.model import Mesh as XIVMesh, VertexDeclaration
 
 
 def get_submesh_streams(streams: dict[int, NDArray], indices: NDArray) -> tuple[dict[int, NDArray], int]:

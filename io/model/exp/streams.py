@@ -1,12 +1,12 @@
 import numpy as np
 
-from bpy.types         import Object
-from numpy.typing      import NDArray
+from bpy.types       import Object
+from numpy.typing    import NDArray
  
-from .accessors        import *
-from ..com.schema      import get_array_type
-from ..com.helpers     import vector_to_bytes, byte_sign
-from ....formats.model import VertexDeclaration, VertexUsage, Mesh as XIVMesh
+from .accessors      import *
+from ..com.schema    import get_array_type
+from ..com.helpers   import vector_to_bytes, byte_sign
+from ....xivpy.model import VertexDeclaration, VertexUsage, Mesh as XIVMesh
 
 
 def get_submesh_streams(obj: Object, vert_decl: VertexDeclaration, mesh_flow: bool) -> tuple[NDArray, dict[int, NDArray], dict[str, NDArray]]:

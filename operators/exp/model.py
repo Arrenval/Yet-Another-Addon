@@ -2,19 +2,19 @@ import bpy
 import time
 import tempfile
 
-from pathlib            import Path
-from itertools          import combinations
-from bpy.types          import Operator, Context, Object
-from bpy.props          import StringProperty, BoolProperty
+from pathlib         import Path
+from itertools       import combinations
+from bpy.types       import Operator, Context, Object
+from bpy.props       import StringProperty, BoolProperty
    
-from ...props           import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
-from ...utils           import SceneOptimiser, PenumbraClient
-from ...ui.draw         import aligned_row, show_ui_button
-from ...preferences     import get_prefs
-from ...mesh.export     import check_triangulation, get_export_path, export_result, get_export_stats
-from ...mesh.objects    import visible_meshobj
-from ...xiv.io.logging  import YetAnotherLogger
-from ...xiv.formats.pmp import Modpack, sanitise_path
+from ...props        import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
+from ...utils        import SceneOptimiser, PenumbraClient
+from ...ui.draw      import aligned_row, show_ui_button
+from ...io.logging   import YetAnotherLogger
+from ...xivpy.pmp    import Modpack, sanitise_path
+from ...preferences  import get_prefs
+from ...mesh.export  import check_triangulation, get_export_path, export_result, get_export_stats
+from ...mesh.objects import visible_meshobj
 
 
 _yab_keys : dict[str, float] = {}

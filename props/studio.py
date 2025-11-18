@@ -4,7 +4,6 @@ import bpy
 from typing          import TYPE_CHECKING
 from bpy.types       import PropertyGroup, Object, Context
 from bpy.props       import StringProperty, EnumProperty, CollectionProperty, PointerProperty, BoolProperty, IntProperty, FloatProperty
-from collections.abc import Iterable
 
 from .enums          import get_racial_enum
 from .getters        import get_window_props, get_devkit_props, get_xiv_meshes
@@ -61,7 +60,7 @@ class MeshProps(PropertyGroup):
         return value
 
     def _set_material(self, material: str) -> None:
-        from ..xiv.io.model.exp.validators import clean_material_path
+        from ..io.model.exp.validators import clean_material_path
         
         mat_lower = material.lower()
         if mat_lower in XIV_MATERIALS:

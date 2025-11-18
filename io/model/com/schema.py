@@ -1,7 +1,7 @@
-from numpy            import dtype
-from collections      import defaultdict
+from numpy           import dtype
+from collections     import defaultdict
      
-from ....formats.model import VertexDeclaration, VertexUsage, get_vert_struct
+from ....xivpy.model import VertexDeclaration, VertexUsage, get_vert_struct
 
 
 def get_array_type(vert_decl: VertexDeclaration) -> dict[int, dtype]:

@@ -1,11 +1,11 @@
 import re
 import bpy
 
-from typing              import TYPE_CHECKING, Literal
-from bpy.types           import Object
-from collections         import defaultdict
+from typing        import TYPE_CHECKING, Literal
+from bpy.types     import Object
+from collections   import defaultdict
 
-from ..xiv.formats.model import XIV_ATTR
+from ..xivpy.model import XIV_ATTR
 
 if TYPE_CHECKING:
     from .file           import YAFileProps

@@ -1,13 +1,13 @@
 import numpy as np
 
-from numpy             import single, byte, ubyte
-from bpy.types         import Object
-from numpy.typing      import NDArray
+from numpy           import single, byte, ubyte
+from bpy.types       import Object
+from numpy.typing    import NDArray
             
-from ..com.space       import blend_to_xiv_space, world_to_tangent_space
-from ..com.helpers     import average_vert_normals, calc_tangents_with_bitangent, vector_to_bytes, quantise_flow, normalise_vectors
+from ..com.space     import blend_to_xiv_space, world_to_tangent_space
+from ..com.helpers   import average_vert_normals, calc_tangents_with_bitangent, vector_to_bytes, quantise_flow, normalise_vectors
 
-from ....formats.model import XIV_COL, XIV_UV
+from ....xivpy.model import XIV_COL, XIV_UV
 
 
 def _loop_to_vert(loop_arr: NDArray, indices: NDArray, vert_count: int, shape: int) -> NDArray:

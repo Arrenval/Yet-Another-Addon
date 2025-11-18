@@ -1,22 +1,23 @@
 import numpy as np
 
-from numpy             import single, ubyte
-from bpy.types         import Object
-from numpy.typing      import NDArray
-from collections       import defaultdict
+from numpy            import single, ubyte
+from bpy.types        import Object
+from numpy.typing     import NDArray
+from collections      import defaultdict
 
-from .shapes           import create_shape_data, submesh_to_mesh_shapes, create_face_data
-from .weights          import sort_weights, normalise_weights, empty_vertices
-from .streams          import create_stream_arrays, get_submesh_streams, update_mesh_streams
-from .accessors        import get_weights
-from ...logging        import YetAnotherLogger
-from .validators       import clean_material_path, USHORT_LIMIT
-from ..com.helpers     import normalised_int_array 
-from ..com.exceptions  import XIVModelError, XIVMeshError
-from ....formats.model import (XIVModel, Mesh as XIVMesh, Submesh,
-                               VertexDeclaration, VertexType, VertexUsage,
-                               BoneTable, Lod, ShapeMesh, BoundingBox,
-                               XIV_COL, XIV_UV)
+from .shapes          import create_shape_data, submesh_to_mesh_shapes, create_face_data
+from .weights         import sort_weights, normalise_weights, empty_vertices
+from .streams         import create_stream_arrays, get_submesh_streams, update_mesh_streams
+from .accessors       import get_weights
+from ...logging       import YetAnotherLogger
+from .validators      import clean_material_path, USHORT_LIMIT
+from ..com.helpers    import normalised_int_array 
+from ..com.exceptions import XIVModelError, XIVMeshError
+
+from ....xivpy.model  import (XIVModel, Mesh as XIVMesh, Submesh,
+                             VertexDeclaration, VertexType, VertexUsage,
+                             BoneTable, Lod, ShapeMesh, BoundingBox,
+                             XIV_COL, XIV_UV)
 
 
 def get_material_idx(obj: Object, material_list: list[str]) -> int:

@@ -1,11 +1,11 @@
 import bpy
 import numpy as np
 
-from numpy                    import single
-from bpy.props                import IntProperty
-from bpy.types                import Object, Operator, NodesModifier, NodeTree, Nodes, Node, NodeLinks, ShaderNodeMath, ShaderNodeCombineColor
+from numpy                import single
+from bpy.props            import IntProperty
+from bpy.types            import Object, Operator, NodesModifier, NodeTree, Nodes, Node, NodeLinks, ShaderNodeMath, ShaderNodeCombineColor
 
-from ..xiv.io.model.com.space import lin_to_srgb
+from ..io.model.com.space import lin_to_srgb
 
 
 def default_xiv_flow(obj: Object) -> None:

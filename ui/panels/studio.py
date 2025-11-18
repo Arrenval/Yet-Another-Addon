@@ -1,14 +1,14 @@
 import bpy
 
-from functools            import partial
-from bpy.types            import Panel, UILayout, Context, Object
-from collections          import Counter
+from functools       import partial
+from bpy.types       import Panel, UILayout, Context, Object
+from collections     import Counter
          
-from ..draw               import aligned_row, get_conditional_icon, ui_category_buttons, show_ui_button, operator_button
-from ...props             import get_studio_props, get_devkit_props, get_window_props, get_devkit_win_props, get_xiv_meshes
+from ..draw          import aligned_row, get_conditional_icon, ui_category_buttons, show_ui_button, operator_button
+from ...props        import get_studio_props, get_devkit_props, get_window_props, get_devkit_win_props, get_xiv_meshes
 
-from ...mesh.objects      import visible_meshobj
-from ...xiv.formats.model import XIV_COL, XIV_UV
+from ...mesh.objects import visible_meshobj
+from ...xivpy.model  import XIV_COL, XIV_UV
 
 
 class MeshStudio(Panel):

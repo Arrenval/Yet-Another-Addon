@@ -1,13 +1,14 @@
 import bpy
 
-from pathlib             import Path
-from bpy.types           import Context, UILayout
+from pathlib         import Path
+from bpy.types       import Context, UILayout
    
-from .objects            import visible_meshobj
-from ..xiv.io.model      import ModelExport, SceneHandler
-from ..props.getters     import get_studio_props
-from ..xiv.io.logging    import YetAnotherLogger
-from ..xiv.io.model.data import get_neck_morphs
+from .objects        import visible_meshobj
+from ..io.model      import ModelExport, SceneHandler
+from ..io.logging    import YetAnotherLogger
+from ..io.model.data import get_neck_morphs
+from ..props.getters import get_studio_props
+
 
 
 _export_stats: dict[str, list[str]] = {}

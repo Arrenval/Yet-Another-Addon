@@ -1,19 +1,19 @@
 import shutil
 import tempfile
 
-from pathlib             import Path
-from datetime            import datetime
-from itertools           import chain
-from functools           import singledispatchmethod
-from bpy.types           import Operator, Context, UILayout
-from bpy.props           import StringProperty, IntProperty
+from pathlib          import Path
+from datetime         import datetime
+from itertools        import chain
+from functools        import singledispatchmethod
+from bpy.types        import Operator, Context, UILayout
+from bpy.props        import StringProperty, IntProperty
 
-from ...props            import get_window_props
-from ...preferences      import get_prefs
-from ...xiv.io.model     import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError, ModpackPhybCollisionError, ModpackFolderError
-from ...props.modpack    import BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry, modpack_data, yet_another_sort
-from ...xiv.formats.pmp  import *
-from ...xiv.formats.phyb import PhybFile
+from ...props         import get_window_props
+from ...io.model      import ModpackError, ModpackFileError, ModpackGamePathError, ModpackValidationError, ModpackPhybCollisionError, ModpackFolderError
+from ...xivpy.pmp     import *
+from ...xivpy.phyb    import PhybFile
+from ...preferences   import get_prefs
+from ...props.modpack import BlendModGroup, BlendModOption, ModFileEntry, ModMetaEntry, modpack_data, yet_another_sort
 
 
 def get_binary_name(all_options: list, options: set[str]) -> str:

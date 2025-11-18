@@ -1,12 +1,12 @@
 import numpy as np
 
-from numpy.typing      import NDArray
+from numpy.typing     import NDArray
 
-from .streams          import create_stream_arrays
-from .validators       import USHORT_LIMIT
+from .streams         import create_stream_arrays
+from .validators      import USHORT_LIMIT
 
-from ..com.exceptions  import XIVMeshError
-from ....formats.model import XIVModel, Mesh as XIVMesh, VertexDeclaration, SHAPE_VALUE_DTYPE
+from ....xivpy.model  import XIVModel, Mesh as XIVMesh, VertexDeclaration, SHAPE_VALUE_DTYPE
+from ..com.exceptions import XIVMeshError
 
 
 def _set_shape_stream_values(shape_streams: dict[int, NDArray], submesh_streams: dict[int, NDArray], pos: NDArray, vert_mask: NDArray) -> None:
