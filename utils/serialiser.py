@@ -17,10 +17,10 @@ class RNAPropertyIO:
 
     """
 
-    def __init__(self):
-        self.logger = logging.getLogger(f"{self.__class__.__name__}")
+    def __init__(self, indexing=False):
+        self.logger   = logging.getLogger(f"{self.__class__.__name__}")
+        self.indexing = indexing
 
-    
     def extract(self, prop_group: PropertyGroup) -> list[dict]:
         if hasattr(prop_group, '__len__') and hasattr(prop_group, '__iter__'):
             return [self.extract_property_group(item) for item in prop_group]
@@ -39,15 +39,22 @@ class RNAPropertyIO:
             new_item = prop_group.add()
             self.restore_property_group(entry, new_item)
     
-    def remove(self, prop_group: PropertyGroup, idx_to_remove: int) -> bool:
-        """Remove item at specified index and restores PropertyGroup without it, keeping the original order"""
-        if idx_to_remove < 0 or idx_to_remove >= len(prop_group):
+    def remove(self, prop_group: PropertyGroup, idx_to_remove: int | None=None, filter: set[str] | None=None) -> bool:
+        """Remove item at specified index and restores PropertyGroup without it, keeping the original order. 
+        Alternatively use a set of strings to filter which items to keep by name."""
+        if idx_to_remove is not None and filter is not None:
+            raise Exception("Only one filter type and be specified")
+       
+        if filter is None and (idx_to_remove < 0 or idx_to_remove >= len(prop_group)):
             return False
         
         temp_items = []
         for index, item in enumerate(prop_group):
-            if index != idx_to_remove:
-                temp_items.append(self.extract_property_group(item))
+            if index == idx_to_remove:
+                continue
+            if hasattr(item, "name") and filter is not None and item.name not in filter:
+                continue
+            temp_items.append(self.extract_property_group(item))
         
         prop_group.clear()
         for item_data in temp_items:
@@ -71,8 +78,10 @@ class RNAPropertyIO:
         temp_items[current_idx] = temp_copy
 
         prop_group.clear()
-        for item_data in temp_items:
+        for idx, item_data in enumerate(temp_items):
             new_item = prop_group.add()
+            if self.indexing and "index" in item_data:
+                item_data["index"] = idx
             self.restore_property_group(item_data, new_item)
         
         return True
@@ -120,7 +129,7 @@ class RNAPropertyIO:
         for prop_name, value in data.items():
             if not hasattr(prop_group, prop_name):
                 continue
-                
+
             try:
                 prop_def = prop_group.bl_rna.properties.get(prop_name)
                 if prop_def is None:

@@ -2,8 +2,8 @@ import bpy
 
 from .getters         import get_window_props, get_devkit_props, get_studio_props, get_devkit_win_props
 from bpy.types        import Object, Context
-from bpy.app.handlers import persistent
 from ..preferences    import get_prefs
+from bpy.app.handlers import persistent
 
 
 _active_obj = None

@@ -1,8 +1,8 @@
 import os
 
-from typing    import TYPE_CHECKING
-from bpy.types import PropertyGroup, Object, Context
-from bpy.props import StringProperty, CollectionProperty, PointerProperty
+from typing          import TYPE_CHECKING
+from bpy.types       import PropertyGroup, Object, Context
+from bpy.props       import StringProperty, CollectionProperty, PointerProperty
 
 from .modpack        import LoadedModpackGroup
 from ..utils.typings import BlendCollection
@@ -12,9 +12,6 @@ class YAFileProps(PropertyGroup):
 
     GAME_SUFFIX = {".mdl", ".tex", ".phyb"}
 
-    # Used to define operator behaviour.
-    #   Keyword      Keyword       Default  Description
-    
     def update_directory(self, context:Context, category:str) -> None:
         prop = context.scene.file_props
         actual_prop = f"{category}_dir"

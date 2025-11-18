@@ -1,9 +1,9 @@
-from pathlib          import Path
-from bpy.types        import Operator, Context
-from bpy.props        import StringProperty, IntProperty
+from pathlib        import Path
+from bpy.types      import Operator, Context
+from bpy.props      import StringProperty, IntProperty
 
-from ...props         import get_window_props
-from ...preferences   import get_prefs
+from ...props       import get_window_props
+from ...preferences import get_prefs
  
 
 class CopyToModpacker(Operator):

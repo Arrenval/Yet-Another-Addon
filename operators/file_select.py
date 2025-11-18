@@ -92,8 +92,10 @@ class FileSelector(Operator):
         if self.category.startswith("INSP"):
             self.filter_glob = "*.phyb;*.mdl"
 
-        if self.category == 'MDL':
+        elif self.category == 'MDL':
             self.filter_glob = "*.pmp;*.mdl"
+        elif self.category == 'SKLB':
+            self.filter_glob = "*.sklb"
 
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
@@ -122,6 +124,8 @@ class FileSelector(Operator):
             return "insp_file1"
         elif self.category == "INSP2":
             return "insp_file2"
+        elif self.category == "SKLB":
+            return "sklb_file"
 
 class SelectFromPMP(Operator):
     bl_idname      = "ya.select_from_pmp"

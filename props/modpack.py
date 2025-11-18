@@ -10,7 +10,6 @@ from ..xivpy.pmp     import Modpack
 from ..utils.typings import BlendEnum, BlendCollection
 
 
-
 def modpack_data() -> None:
     window = get_window_props()
     props  = get_file_props()
