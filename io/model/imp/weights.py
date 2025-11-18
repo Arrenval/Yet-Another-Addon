@@ -1,9 +1,9 @@
 import numpy as np
 
-from bpy.types         import Object
-from numpy.typing      import NDArray
+from bpy.types        import Object
+from numpy.typing     import NDArray
 
-from .....mesh.weights import add_to_vgroup
+from ....mesh.weights import add_to_vgroup
 
 
 def create_weight_matrix(obj: Object, weight_array: NDArray, bone_indices: NDArray, bone_table: list[int]) -> NDArray:

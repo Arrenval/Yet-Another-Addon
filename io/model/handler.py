@@ -3,21 +3,21 @@ import bpy
 import bmesh
 import numpy as np
 
-from numpy.typing           import NDArray
-from bpy.types              import Object, Depsgraph, ShapeKey
-from bmesh.types            import BMFace, BMesh
-from collections            import defaultdict
-from collections.abc        import Iterable 
+from numpy.typing          import NDArray
+from bpy.types             import Object, Depsgraph, ShapeKey
+from bmesh.types           import BMFace, BMesh
+from collections           import defaultdict
+from collections.abc       import Iterable 
    
-from ..logging              import YetAnotherLogger
-from ....props              import get_window_props, get_devkit_props, get_studio_props, get_xiv_meshes  
-from .com.space             import lin_to_srgb       
-from ....mesh.shapes        import get_shape_mix
-from .com.exceptions        import XIVMeshParentError
-from ....mesh.weights       import remove_vertex_groups
-from ....mesh.objects       import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
-from ....mesh.face_order    import get_original_faces, sequential_faces
-from ....xivpy.model.vertex import XIV_COL
+from ..logging             import YetAnotherLogger
+from ...props              import get_window_props, get_devkit_props, get_studio_props, get_xiv_meshes  
+from .com.space            import lin_to_srgb       
+from ...mesh.shapes        import get_shape_mix
+from .com.exceptions       import XIVMeshParentError
+from ...mesh.weights       import remove_vertex_groups
+from ...mesh.objects       import visible_meshobj, safe_object_delete, copy_mesh_object, quick_copy
+from ...mesh.face_order    import get_original_faces, sequential_faces
+from ...xivpy.model.vertex import XIV_COL
 
 
 def create_backfaces(obj:Object) -> None:
