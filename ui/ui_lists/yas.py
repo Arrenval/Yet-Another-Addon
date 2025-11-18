@@ -1,7 +1,7 @@
 from functools import cache
 from bpy.types import UIList, UILayout, Context, VertexGroup, ShapeKey
 
-from ...props  import get_studio_props, get_window_props, YASUIList
+from ...props  import get_studio_props, get_window_props, get_skeleton_props, YASUIList
 
 
 @cache
@@ -27,7 +27,7 @@ class MESH_UL_YAS(UIList):
 
     def draw_vertex_group(self, layout: UILayout, item: VertexGroup):
         icon     = get_icon_value("GROUP_VERTEX")
-        category = get_studio_props().YAS_BONES.get(item.name, "Unknown")
+        category = get_skeleton_props().YAS_BONES.get(item.name, "Unknown")
    
         if self.layout_type in {"DEFAULT", "COMPACT"}:
             layout.prop(item, "name", text=category, emboss=False, icon_value=icon)

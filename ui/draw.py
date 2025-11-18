@@ -74,12 +74,22 @@ def ui_category_buttons(layout:UILayout, section_prop, options, operator_str: st
         operator.menu = slot.upper()
         row.separator(factor=2)
 
+def centre_header(layout: UILayout, title: str, icon: str) -> UILayout:
+    row = layout.row(align=True)
+    row.alignment = 'CENTER'
+    row.label(text=title, icon=icon)
+    
+    return row
+    
 def header_category(layout: UILayout, category: str, icon: str) -> UILayout:
     box = layout.box()
     row = box.row(align=True)
     row.label(icon=icon)
-    row.label(text=f"  {category.capitalize()}")
+    category = category.capitalize() if len(category) > 3 else category.upper()
+    row.label(text=f"  {category}")
     button_row = row.row(align=True)
 
     return button_row
-        
+
+def padding_icons(layout: UILayout, count: int) -> None:
+    [layout.label(text="", icon='BLANK1') for _ in range(count)]

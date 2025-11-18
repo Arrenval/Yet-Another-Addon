@@ -3,8 +3,7 @@ import platform
 
 from typing          import TYPE_CHECKING, Literal
 from bpy.types       import PropertyGroup, Object, Context
-from bpy.props       import StringProperty, EnumProperty, CollectionProperty, BoolProperty, IntProperty, PointerProperty
-from collections.abc import Iterable
+from bpy.props       import StringProperty, EnumProperty, CollectionProperty, BoolProperty, PointerProperty
 
 from .getters        import get_studio_props, get_file_props
 from .modpack        import BlendModGroup, modpack_data
@@ -365,6 +364,39 @@ class FileWindow(PropertyGroup):
         redraw_mode : Literal['SELF', 'ALL', 'GLAM']
         ui_tab      : Literal['IMPORT', 'EXPORT', 'MODPACK', 'PENUMBRA']
 
+class SkeletonWindow(PropertyGroup):
+
+    ui_tab: EnumProperty(
+        name= "",
+        description= "Select a manager",
+        items= [
+            ("IO", "IO", "Import/Export Files", "IMPORT", 0),
+            ("CONFIG", "Configure", "Configure skeleton", "ARMATURE_DATA", 1),
+            ("COMBINE", "Combine", "Combine skeletons", "GROUP_BONE", 2),
+        ]
+        )  # type: ignore
+    
+    combine_tab: EnumProperty(
+        name= "",
+        description= "Select a manager",
+        items= [
+            ("SELECT", "Selection", "Combine two selected skeletons", ),
+            ("BATCH", "Batch", "Combine several skeletons", ),
+
+        ]
+        )  # type: ignore
+    
+    scale_bones  : BoolProperty(name="", description="Scale bones if skeletons are of different sizes", default=False) #type: ignore
+    base_prefix  : StringProperty(name="", description="Enter a prefix. Needs to end with '_'", default="Enter prefix...") #type: ignore
+    source_prefix: StringProperty(name="", description="Enter a prefix. Needs to end with '_'", default="Enter prefix...") #type: ignore
+    
+    if TYPE_CHECKING:
+        ui_tab     : Literal['IO', 'CONFIG', 'COMBINE']
+        combine_tab: Literal['SELECT', 'COMBINE']
+
+        scale_bones  : bool
+        base_prefix  : str
+        source_prefix: str
 
 class YAWindowProps(PropertyGroup):
     
@@ -374,6 +406,10 @@ class YAWindowProps(PropertyGroup):
     
     file: PointerProperty(
         type=FileWindow
+        ) # type: ignore
+    
+    skeleton: PointerProperty(
+        type=SkeletonWindow
         ) # type: ignore
     
     ui_buttons_list = [
@@ -467,7 +503,13 @@ class YAWindowProps(PropertyGroup):
         maxlen=10,
         )  # type: ignore
     
-
+    sklb_file: StringProperty(
+        name="",
+        default="",
+        description="File to inspect", 
+        maxlen=255,
+        )  # type: ignore
+    
     @staticmethod
     def ui_buttons() -> None:
         for (name, category, description) in YAWindowProps.ui_buttons_list:
@@ -489,6 +531,7 @@ class YAWindowProps(PropertyGroup):
     if TYPE_CHECKING:
         studio          : StudioWindow
         file            : FileWindow
+        skeleton        : SkeletonWindow
 
         insp_file1 : str
         insp_file2 : str
@@ -541,5 +584,6 @@ CLASSES = [
     IOWindow,
     ModpackWindow,
     FileWindow,
+    SkeletonWindow,
     YAWindowProps,
 ]
