@@ -5,7 +5,7 @@ from bpy.types        import Panel, UILayout, Context
 from ..draw           import aligned_row, get_conditional_icon, operator_button, header_category
 from ...props         import get_file_props, get_devkit_props, get_window_props, get_devkit_win_props
 from ...preferences   import get_prefs
-from ...props.enums   import RacialCodes
+from ...props.enums   import get_racial_name
 from ...props.modpack import BlendModGroup, BlendModOption, CorrectionEntry, ModFileEntry
 
 
@@ -825,7 +825,7 @@ class FileManager(Panel):
 
             row = aligned_row(
                         phyb_col, 
-                        "XIV Path:" if phyb.race == '0' else f"{RacialCodes(phyb.race).name.replace('_', ' ').split(' ')[0]}:", 
+                        "XIV Path:" if phyb.race == '0' else f"{get_racial_name(phyb.race, gender=False)}:", 
                         "game_path", 
                         phyb
                     )
