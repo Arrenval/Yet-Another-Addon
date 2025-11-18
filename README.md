@@ -17,16 +17,7 @@ For automatic updates, you should install this as a Blender Extension by adding 
 
 Installing this as an addon and later updating to an extension will incur a loss of user preferences, and vice versa.
 
-## Acknowledgements
-* The `pmp` package is based around Penumbra's [Modpack schemas](https://github.com/xivdev/Penumbra/tree/master/schemas) by [@Ottermandias](https://github.com/Ottermandias) and [@Ny](https://github.com/Exter-N).
-* The `phyb` package uses VFXEditor/Penumbra's Phyb structs by [@0ceal0t](https://github.com/0ceal0t) and [@Ottermandias](https://github.com/Ottermandias).
-* The binary span reader in the `xiv.utils` module is based on [@Ny](https://github.com/Exter-N) and [@Ottermandias](https://github.com/Ottermandias)' [utilities](https://github.com/Ottermandias/Penumbra.GameData/blob/10fdb025436f7ea9f1f5e97635c19eee0578de7b/Files/Utility/SpanBinaryReader.cs).
-* The `xiv.formats.model` package is based on the structs in [Lumina](https://github.com/NotAdam/Lumina/tree/master/src/Lumina/Models/Models) and [Penumbra](https://github.com/Ottermandias/Penumbra.GameData/tree/10fdb025436f7ea9f1f5e97635c19eee0578de7b/Files).
-* [@ackwell](https://github.com/ackwell) for help with understanding XIV primitives and their usage.
-
 ## Licensing
-The format modules based around Penumbra and XIV interop are standalone, exist for compatibility and do not interface directly with the Blender Python API. They inherit their respective source's licenses. See **Acknowledgements** for details.
-
 The remaining code within this tool is made for the Blender API and follows its GPL3 licensing, read the *LICENSE.md* for details. However, I do humbly request that it does not be used for creating mods or assets that are behind a permanent paywall. 
 
 ##### Final Fantasy XIV © SQUARE ENIX CO., LTD. All Rights Reserved. This add-on is not affiliated with SQUARE ENIX CO., LTD. in any way.
