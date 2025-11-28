@@ -1,17 +1,18 @@
 import bpy
 
-from typing    import TYPE_CHECKING
-from bpy.types import Armature, Object
-from bpy.props import PointerProperty,FloatProperty
+from typing     import TYPE_CHECKING
+from bpy.types  import Armature, Object
+from bpy.props  import PointerProperty,FloatProperty
+ 
+from .file      import YAFileProps, CLASSES as FILE_CLS
+from .studio    import YAStudioProps, YASStorage, YASUIList,  CLASSES as STUDIO_CLS
+from .window    import YAWindowProps, CLASSES as WIN_CLS
+from .modpack   import CLASSES as MODPACK_CLS
+from .skeleton  import SkeletonProps, KaosArmature, SklbMapper,  AnimLayer, HkBone, MapBone, CacheBone, CLASSES as SKLT_CLS
+from .animation import AnimationProps, CLASSES as ANIM_CLS
 
-from .file     import YAFileProps, CLASSES as FILE_CLS
-from .studio   import YAStudioProps, YASStorage, YASUIList,  CLASSES as STUDIO_CLS
-from .window   import YAWindowProps, CLASSES as WIN_CLS
-from .modpack  import CLASSES as MODPACK_CLS
-from .skeleton import SkeletonProps, KaosArmature, SklbMapper,  AnimLayer, HkBone, MapBone, CacheBone, CLASSES as SKLT_CLS
-
-from .getters  import get_file_props, get_studio_props, get_window_props, get_devkit_props, get_devkit_win_props, get_xiv_meshes, get_skeleton_props
-from .handlers import set_handlers, remove_handlers
+from .getters   import get_file_props, get_studio_props, get_window_props, get_devkit_props, get_devkit_win_props, get_xiv_meshes, get_skeleton_props
+from .handlers  import set_handlers, remove_handlers
 
 if TYPE_CHECKING:
     from bpy.types import Armature as _Armature, Object as _Object
@@ -38,6 +39,9 @@ def set_addon_properties() -> None:
     bpy.types.Scene.ya_skeleton_props = PointerProperty(
         type=SkeletonProps)
     
+    bpy.types.Scene.ya_animation_props = PointerProperty(
+        type=AnimationProps)
+    
     bpy.types.Object.yas = PointerProperty(name="YAS Weight Storage",
         type=YASStorage)
     
@@ -55,12 +59,14 @@ def set_addon_properties() -> None:
     
 def remove_addon_properties() -> None:
     del bpy.types.Scene.ya_file_props
-    del bpy.types.Scene.ya_skeleton_props
-    del bpy.types.WindowManager.ya_window_props
     del bpy.types.Scene.ya_studio_props
+    del bpy.types.Scene.ya_skeleton_props
+    del bpy.types.Scene.ya_animation_props
+    del bpy.types.WindowManager.ya_window_props
+
     del bpy.types.Object.yas
     del bpy.types.Armature.kaos
     del bpy.types.EditBone.kaos_unk
     del bpy.types.Bone.kaos_unk
 
-CLASSES = MODPACK_CLS + WIN_CLS + STUDIO_CLS + FILE_CLS + SKLT_CLS
+CLASSES = MODPACK_CLS + WIN_CLS + STUDIO_CLS + FILE_CLS + SKLT_CLS + ANIM_CLS

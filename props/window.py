@@ -373,6 +373,7 @@ class SkeletonWindow(PropertyGroup):
             ("IO", "IO", "Import/Export Files", "IMPORT", 0),
             ("CONFIG", "Configure", "Configure skeleton", "ARMATURE_DATA", 1),
             ("COMBINE", "Combine", "Combine skeletons", "GROUP_BONE", 2),
+            ("ANIMATION", "Animation", "Patch Animations", "RENDER_ANIMATION", 3),
         ]
         )  # type: ignore
     
@@ -391,12 +392,18 @@ class SkeletonWindow(PropertyGroup):
     source_prefix: StringProperty(name="", description="Enter a prefix. Needs to end with '_'", default="Enter prefix...") #type: ignore
     
     if TYPE_CHECKING:
-        ui_tab     : Literal['IO', 'CONFIG', 'COMBINE']
+        ui_tab     : Literal['IO', 'CONFIG', 'COMBINE', 'ANIMATION']
         combine_tab: Literal['SELECT', 'COMBINE']
 
         scale_bones  : bool
         base_prefix  : str
         source_prefix: str
+
+class AnimationWindow(PropertyGroup):
+    sklb: StringProperty(name="", description="Skeleton used for animation import", default="Select a skeleton...") #type: ignore
+
+    if TYPE_CHECKING:
+        sklb: str
 
 class YAWindowProps(PropertyGroup):
     
@@ -410,6 +417,10 @@ class YAWindowProps(PropertyGroup):
     
     skeleton: PointerProperty(
         type=SkeletonWindow
+        ) # type: ignore
+    
+    anim: PointerProperty(
+        type=AnimationWindow
         ) # type: ignore
     
     ui_buttons_list = [
@@ -532,6 +543,7 @@ class YAWindowProps(PropertyGroup):
         studio          : StudioWindow
         file            : FileWindow
         skeleton        : SkeletonWindow
+        anim            : AnimationWindow
 
         insp_file1 : str
         insp_file2 : str
@@ -585,5 +597,6 @@ CLASSES = [
     ModpackWindow,
     FileWindow,
     SkeletonWindow,
+    AnimationWindow,
     YAWindowProps,
 ]

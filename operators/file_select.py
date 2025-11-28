@@ -94,7 +94,11 @@ class FileSelector(Operator):
 
         elif self.category == 'MDL':
             self.filter_glob = "*.pmp;*.mdl"
+
         elif self.category == 'SKLB':
+            self.filter_glob = "*.sklb"
+
+        elif self.category == 'ANIM':
             self.filter_glob = "*.sklb"
 
         context.window_manager.fileselect_add(self)
@@ -113,8 +117,14 @@ class FileSelector(Operator):
                 self.report({"INFO"}, "Model Imported!")
             elif file.suffix == '.pmp':
                 bpy.ops.ya.select_from_pmp('INVOKE_DEFAULT', filepath=self.filepath)
+
         else:
-            setattr(get_window_props(), self.attr_from_category(), self.filepath)
+            if self.category == 'ANIM':
+                prop = get_window_props().anim
+            else:
+                prop = get_window_props()
+
+            setattr(prop, self.attr_from_category(), self.filepath)
             self.report({"INFO"}, "File selected!")
         
         return {'FINISHED'}
@@ -126,6 +136,8 @@ class FileSelector(Operator):
             return "insp_file2"
         elif self.category == "SKLB":
             return "sklb_file"
+        elif self.category == "ANIM":
+            return "sklb"
 
 class SelectFromPMP(Operator):
     bl_idname      = "ya.select_from_pmp"
