@@ -4,10 +4,15 @@ from functools       import singledispatch
 from mathutils       import Vector, Quaternion, Matrix
 
 from ....props       import Armature, SklbMapper, MapBone
-from ..com.space     import blend_to_hkvec, blend_to_hkquat
 from ..com.integrity import verify_cache
 
 
+BLEND_TO_HK = Matrix((
+                    (0, 1, 0, 0),
+                    (0, 0, 1, 0),
+                    (1, 0, 0, 0),
+                    (0, 0, 0, 1)
+                ))
 class BoneNode:
     local_trs: Vector     = None
     local_rot: Quaternion = None
@@ -34,6 +39,7 @@ def _from_armature(armature: Armature, bone_indices: dict[str, int]):
     cache_fail = set()
     
     for bone in armature.bones:
+        node_data[bone.name] = calc_bone_node(bone, bone_indices)
         valid_cache  = verify_cache(bone, cache[bone.name]) if bone.name in cache else False
         valid_parent = not bone.parent or bone.parent.name not in cache_fail
 
@@ -51,30 +57,27 @@ def _from_armature(armature: Armature, bone_indices: dict[str, int]):
 def _from_mapper(mapper: SklbMapper, bone_indices: dict[str, int]):
     node_data = {}
     for bone in mapper.bone_list:
-        print(bone.name)
         node_data[bone.name] = get_cached_bone(bone, bone_indices)
 
     return node_data
 
 def calc_bone_node(bone: Bone, bone_indices: dict[str, int]) -> BoneNode:
     node = BoneNode()
-
-    if bone.parent:
+    
+    if not bone.parent:
+        mat = Matrix.Rotation(radians(90), 4, 'Z') @ bone.matrix_local 
+    else:
         node.parent = bone_indices[bone.parent.name]
         mat = bone.parent.matrix_local.inverted_safe() @ bone.matrix_local
-    else:
-        mat = Matrix.Rotation(radians(90), 4, 'Z') @ bone.matrix_local 
 
+    mat = BLEND_TO_HK @ mat @ BLEND_TO_HK.inverted()
+    
     trs, rot, scale = mat.decompose()
     if rot.w < 0: rot.negate()
-
-    temp_rot       = blend_to_hkquat(rot)  
-    node.local_trs = blend_to_hkvec(trs)
-    node.local_rot = Quaternion([temp_rot.x, temp_rot.y, temp_rot.z, temp_rot.w])
+  
+    node.local_trs = trs
+    node.local_rot = Quaternion([rot.x, rot.y, rot.z, rot.w])
     node.unknown   = bone.kaos_unk or 0
-
-    if node.local_rot[3] < 0:  
-        node.local_rot = [-component for component in node.local_rot]
 
     return node
 

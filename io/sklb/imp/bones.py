@@ -1,9 +1,8 @@
-from math            import degrees
-from mathutils       import Vector, Matrix, Quaternion
-from dataclasses     import dataclass, field
-from collections     import defaultdict
-
-from ..com.space      import hkvec_to_blend, hkquat_to_blend
+from math         import radians
+from mathutils    import Vector, Matrix, Quaternion
+from dataclasses  import dataclass, field
+from collections  import defaultdict
+from numpy.typing import NDArray
 
 
 CONNECTING_BONES: dict[str, str] = {
@@ -29,7 +28,7 @@ class BoneData:
     unknown  : int         = None
     raw      : list[float] = field(default_factory=list)       
 
-def calc_bone_data(bone_list: list[str], bone_parents: list[int], bone_values: list[float]) -> dict[str, BoneData]:
+def calc_bone_data(bone_list: list[str], bone_parents: list[int], bone_values: NDArray) -> dict[str, BoneData]:
     child_bones = defaultdict(list)
     bone_data: dict[str, BoneData] = {}
     for bone_idx, bone_name in enumerate(bone_list):
@@ -47,8 +46,8 @@ def calc_bone_data(bone_list: list[str], bone_parents: list[int], bone_values: l
         
         scale = Vector(values[8:])
         
-        bone.local_trs = hkvec_to_blend(pos)
-        bone.local_rot = hkquat_to_blend(rot) 
+        bone.local_trs = pos
+        bone.local_rot = rot 
         bone.local_scl = scale.xzyw
         bone.unknown   = values[3]
         bone.raw       = values
@@ -86,7 +85,8 @@ def calc_arma_matrix(data: BoneData, bone_data: dict[str, BoneData]) -> None:
                         )
         
         if data.parent is None:
-            data.arma_mat = local_matrix
+            correction = Matrix.Rotation(radians(90), 4, 'X')
+            data.arma_mat = correction @ local_matrix
         else:
             parent_arma   = bone_data[data.parent].arma_mat
             data.arma_mat = parent_arma @ local_matrix
