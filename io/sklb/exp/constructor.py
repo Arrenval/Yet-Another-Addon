@@ -1,3 +1,5 @@
+import numpy as np
+
 from typing         import Literal, TYPE_CHECKING
 
 from .nodes         import create_node
@@ -11,15 +13,56 @@ if TYPE_CHECKING:
                                   hkaSkeletonMapperNode as MapperNode,
                                   hkaSkeletonMapperDataNode as MapperDataNode)
 
-MAPPER_NODES = {"hkaSkeletonMapper", "hkaSkeletonMapperData", 
-                "hkaSkeletonMapperDataSimpleMapping", "hkaSkeletonMapperDataChainMapping"}
+MAPPER_DEFINITIONS = {"hkaSkeletonMapper", "hkaSkeletonMapperData", 
+                      "hkaSkeletonMapperDataSimpleMapping", "hkaSkeletonMapperDataChainMapping"}
+
+USED_DEFINITIONS = {
+                        "hkRootLevelContainer"              : "0",
+                        "hkRootLevelContainerNamedVariant"  : "1",
+                        "hkBaseObject"                      : "0",
+                        "hkReferencedObject"                : "0",
+                        "hkaAnimationContainer"             : "1",
+                        "hkaSkeleton"                       : "3",
+                        "hkaBone"                           : "0",
+                        "hkaSkeletonLocalFrameOnBone"       : "0",
+                        "hkLocalFrame"                      : "0",
+                        "hkaAnimation"                      : "3",
+                        "hkaAnimatedReferenceFrame"         : "0",
+                        "hkaAnnotationTrack"                : "0",
+                        "hkaAnnotationTrackAnnotation"      : "0",
+                        "hkaAnimationBinding"               : "1",
+                        "hkaBoneAttachment"                 : "2",
+                        "hkaMeshBinding"                    : "3",
+                        "hkxMesh"                           : "1",
+                        "hkxMeshSection"                    : "2",
+                        "hkxVertexBuffer"                   : "1",
+                        "hkxVertexBufferVertexData"         : "0",
+                        "hkxVertexDescription"              : "1",
+                        "hkxVertexDescriptionElementDecl"   : "2",
+                        "hkxIndexBuffer"                    : "1",
+                        "hkxAttributeHolder"                : "2",
+                        "hkxAttributeGroup"                 : "0",
+                        "hkxAttribute"                      : "1",
+                        "hkxMaterial"                       : "2",
+                        "hkxMaterialTextureStage"           : "1",
+                        "hkxMaterialProperty"               : "0",
+                        "hkxMeshUserChannelInfo"            : "0",
+                        "hkaMeshBindingMapping"             : "0",
+                        "hkaSkeletonMapper"                 : "0",
+                        "hkaSkeletonMapperData"             : "1",
+                        "hkaSkeletonMapperDataSimpleMapping": "0",
+                        "hkaSkeletonMapperDataChainMapping" : "0"
+                    }
 
 def sort_definitions(mappers: list[int]) -> list[Definition]:
+    all_definitions = get_definitions()
+
     definitions = []
-    for defn in get_definitions().values():
-        if not mappers and defn["name"] in MAPPER_NODES:
+    for name, version in USED_DEFINITIONS.items():
+        if not mappers and name in MAPPER_DEFINITIONS:
             continue
-        definitions.append(Definition.from_dict(defn))
+
+        definitions.append(Definition.from_dict(all_definitions[name][version]))
     
     return definitions
 
@@ -85,15 +128,18 @@ class SklbConstructor:
             self._create_skeleton_mapper(mapper)
 
     def _create_hkbones(self, skl_node: 'SkelNode', bone_indices: dict[str, int], bone_data: dict[str, BoneNode]) -> None:
-        print(bone_indices)
-        skl_node["name"] = "skeleton"
-        for bone_name in bone_indices.keys():
-            bone_idx, bnode = create_node("hkaBone", self.kaos)
+        skl_node["name"]          = "skeleton"
+
+        ref_pose = []
+        for bone_name, bone_idx in bone_indices.items():
+            node_idx, bnode = create_node("hkaBone", self.kaos)
             bnode["name"]   = bone_name
 
-            skl_node["bones"].append(bone_idx)
+            skl_node["bones"].append(node_idx)
             skl_node["parentIndices"].append(bone_data[bone_name].parent)
-            skl_node["referencePose"].append(bone_data[bone_name].to_list())
+            ref_pose.append(bone_data[bone_name].to_list())
+
+        skl_node["referencePose"] = np.array(ref_pose, dtype=np.float32)
 
     def _create_skeleton_mapper(self, mapper: SklbMapper) -> int:
         header_idx = str(self.map_ids.index(int(mapper.race_id)))
