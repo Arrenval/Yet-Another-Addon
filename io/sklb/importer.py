@@ -2,6 +2,7 @@ import bpy
 
 from mathutils     import Vector
 from bpy.types     import Object
+from numpy.typing  import NDArray
 
 from ...props      import Armature, KaosArmature
 from .imp.bones    import BoneData, calc_bone_data, blend_bones
@@ -34,9 +35,9 @@ class SklbImport:
     
     def _create_armature(self, name: str) -> None:
         sklt_node = self.kaos.get_skeleton_node()
-        bone_parents: list[int]   = sklt_node["parentIndices"]
-        bone_values : list[float] = sklt_node["referencePose"]
-        bone_list   : list[str]   = self.kaos.get_bone_list(sklt_node)
+        bone_parents: list[int] = sklt_node["parentIndices"]
+        bone_values : NDArray   = sklt_node["referencePose"]
+        bone_list   : list[str] = self.kaos.get_bone_list(sklt_node)
         bone_data = calc_bone_data(bone_list, bone_parents, bone_values)
         blend_bones(bone_list, bone_data)
 
@@ -63,13 +64,13 @@ class SklbImport:
             new_bone = armature.edit_bones.new(bone)
             arma_mat = data.arma_mat
 
-            new_bone.head     = arma_mat @ Vector((0, 0, 0))
-            new_bone.tail     = arma_mat @ Vector((1, 0, 0))
-            new_bone.length   = data.length
-            new_bone.kaos_unk = data.unknown
-
+            new_bone.head     = arma_mat @ Vector((0, 0, 0)) # XIV Native direction is (0, 1, 0)
+            new_bone.tail     = arma_mat @ Vector((1, 0, 0)) # Native roll is (0, 0 , 1)
+            new_bone.length   = data.length                  # Blender Conventions:
+            new_bone.kaos_unk = data.unknown                 # Direction is (1, 0, 0)
+                                                             # Roll is (0, 1, 0)
             new_bone.inherit_scale = 'NONE'
-            new_bone.align_roll(arma_mat @ Vector((0, 0, 1)) - new_bone.head)
+            new_bone.align_roll(arma_mat @ Vector((0, 1, 0)) - new_bone.head)
             
         for bone, data in bone_data.items():
             if data.parent is not None:
@@ -145,3 +146,4 @@ class SklbImport:
 
                 new_bone.name  = bone_name
                 new_bone.index = bone_indices[bone_name]
+

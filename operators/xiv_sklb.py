@@ -227,6 +227,9 @@ class SklbConfig(Operator):
         self.blend_bones = {bone.name: bone for bone in self.armature.bones}
         if not self.armature:
             return {'FINISHED'}
+        if self.props.bone_idx >= len(self.armature.kaos.bone_list): 
+            self.props.bone_idx = 0
+            
         context.window_manager.invoke_props_dialog(self, width=500)
         return {'RUNNING_MODAL'}
     

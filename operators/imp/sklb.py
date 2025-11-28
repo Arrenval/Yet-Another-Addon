@@ -3,6 +3,7 @@ from bpy.types  import Operator
 from bpy.props  import StringProperty
 
 from ...io.sklb import SklbImport
+
    
 class SkeletonImport(Operator):
     bl_idname      = "ya.sklb_import"
@@ -28,8 +29,6 @@ class SkeletonImport(Operator):
             return {'FINISHED'}
  
         SklbImport.from_file(self.filepath, file.stem)
-        # save_bone_list(list(skeleton.data.kaos.get_bone_indices().keys()), "IVCS")
-        
         return {'FINISHED'}
 
 
