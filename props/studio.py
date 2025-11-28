@@ -307,6 +307,10 @@ class YAStudioProps(PropertyGroup):
     def set_action(self, context: Context) -> None:
         if not self.outfit_armature:
             return
+        
+        if self.outfit_armature.animation_data is None:
+            self.outfit_armature.animation_data_create()
+            
         if self.actions == "None":
             self.outfit_armature.animation_data.action = None
             for bone in self.outfit_armature.pose.bones:

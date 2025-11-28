@@ -24,6 +24,7 @@ class SkelUtilities(Panel):
             "IO":  "IMPORT",
             "CONFIG":  "ARMATURE_DATA",
             "COMBINE": "GROUP_BONE",
+            "ANIMATION": "RENDER_ANIMATION",
             }
 
         button_row = header_category(layout, ui_tab, options[ui_tab])
@@ -76,6 +77,11 @@ class SkelUtilities(Panel):
             row = layout.row(align=True)
             row.prop(self.window.skeleton, "scale_bones", text="", icon='FIXED_SIZE')
             row.operator("ya.sklb_combine", text="Combine")
+
+        elif ui_tab == 'ANIMATION':
+            row = aligned_row(layout, "Sklb:", "sklb", self.window.anim)
+            row.operator("ya.file_selector", text="", icon='FILE_FOLDER').category = "ANIM"
+            layout.operator("ya.pap_import", text="Import")
 
         else:
             row = layout.row(align=True)
