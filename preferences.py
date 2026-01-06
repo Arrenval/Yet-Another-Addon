@@ -46,6 +46,14 @@ class MenuSelect(PropertyGroup):
         else:
             bpy.utils.unregister_class(FileUtilities)
 
+    def register_sklb_panel(self, context) -> None:
+        from .ui.panels.sklb import SkelUtilities
+
+        if self.util_panel:
+            bpy.utils.register_class(SkelUtilities)
+        else:
+            bpy.utils.unregister_class(SkelUtilities)
+
     def register_sym_panel(self, context) -> None:
         from .ui.panels.v_groups import AddSymmetryGroups
 
@@ -73,6 +81,13 @@ class MenuSelect(PropertyGroup):
         description="Show Utilities",
         default=False,
         update=register_util_panel
+        ) # type: ignore
+    
+    sklb_panel: BoolProperty(
+        name="",
+        description="Show Utilities",
+        default=True,
+        update=register_sklb_panel
         ) # type: ignore
     
     sym_panel: BoolProperty(
@@ -114,6 +129,7 @@ class MenuSelect(PropertyGroup):
         outfit_panel: bool
         file_panel  : bool
         util_panel  : bool
+        sklb_panel  : bool
         weight_menu : bool
         mod_button  : bool
 
@@ -400,6 +416,7 @@ def register_menus() -> None:
     from .ui.panels.studio    import MeshStudio
     from .ui.panels.file      import FileManager
     from .ui.panels.utilities import FileUtilities
+    from .ui.panels.sklb      import SkelUtilities
     from .ui.panels.v_groups  import AddSymmetryGroups
     from .ui.menu             import menu_vertex_group_append, draw_modifier_options
 
@@ -411,6 +428,8 @@ def register_menus() -> None:
         bpy.utils.register_class(FileManager)
     if menus.util_panel:
         bpy.utils.register_class(FileUtilities)
+    if menus.sklb_panel:
+        bpy.utils.register_class(SkelUtilities)
     if menus.sym_panel:
         bpy.utils.register_class(AddSymmetryGroups)
     if menus.weight_menu:
@@ -426,6 +445,7 @@ def unregister_menus() -> None:
     from .ui.panels.studio    import MeshStudio
     from .ui.panels.file      import FileManager
     from .ui.panels.utilities import FileUtilities
+    from .ui.panels.sklb      import SkelUtilities
     from .ui.panels.v_groups  import AddSymmetryGroups
     from .ui.menu             import menu_vertex_group_append, draw_modifier_options
 
@@ -437,6 +457,8 @@ def unregister_menus() -> None:
         bpy.utils.unregister_class(FileManager)
     if menus.util_panel:
         bpy.utils.unregister_class(FileUtilities)
+    if menus.sklb_panel:
+        bpy.utils.unregister_class(SkelUtilities)
     if menus.sym_panel:
         bpy.utils.unregister_class(AddSymmetryGroups)
     if menus.weight_menu:

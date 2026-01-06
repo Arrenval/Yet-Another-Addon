@@ -10,6 +10,7 @@ from ..xivpy.model import XIV_ATTR
 if TYPE_CHECKING:
     from .file           import YAFileProps
     from .studio         import YAStudioProps
+    from .skeleton       import SkeletonProps
     from .window         import YAWindowProps
     from ..utils.typings import DevkitProps, DevkitWindowProps
     
@@ -19,6 +20,9 @@ def get_file_props() -> 'YAFileProps':
 
 def get_studio_props() -> 'YAStudioProps':
     return bpy.context.scene.ya_studio_props
+
+def get_skeleton_props() -> 'SkeletonProps':
+    return bpy.context.scene.ya_skeleton_props
 
 def get_window_props() -> 'YAWindowProps':
     return bpy.context.window_manager.ya_window_props
