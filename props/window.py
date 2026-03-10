@@ -314,18 +314,11 @@ class FileWindow(PropertyGroup):
         ) # type: ignore
     
     def _get_formats(self, context) -> None:
-        if self.ui_tab == 'IMPORT' or platform.system() == 'Windows':
-            return [
-            ('MDL', "MDL", "Export FBX and convert to MDL."),
-            ('FBX', "FBX", "Export FBX."),
-            ('GLTF', "GLTF", "Export GLTF"),
-            ]
-        
-        else:
-            return [
-            ('FBX', "FBX", "Export FBX."),
-            ('GLTF', "GLTF", "Export GLTF"),
-            ]
+        return [
+        ('MDL', "MDL", "Export FBX and convert to MDL."),
+        ('FBX', "FBX", "Export FBX."),
+        ('GLTF', "GLTF", "Export GLTF"),
+        ]
     
     model_format: EnumProperty(
         name="",
