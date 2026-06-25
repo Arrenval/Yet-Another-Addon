@@ -303,6 +303,15 @@ class ModpackWindow(PropertyGroup):
         modpack_dir          : str
         modpack_version      : str
         modpack_author       : str
+
+# Static helper method
+def _get_formats(self, context):
+    fItems = [
+        ('MDL', "MDL", "Export FBX and convert to MDL."),
+        ('FBX', "FBX", "Export FBX."),
+        ('GLTF', "GLTF", "Export GLTF"),
+    ]
+    return fItems
         
 class FileWindow(PropertyGroup):
     io: PointerProperty(
@@ -312,13 +321,6 @@ class FileWindow(PropertyGroup):
     modpack: PointerProperty(
         type=ModpackWindow
         ) # type: ignore
-    
-    def _get_formats(self, context) -> None:
-        return [
-        ('MDL', "MDL", "Export FBX and convert to MDL."),
-        ('FBX', "FBX", "Export FBX."),
-        ('GLTF', "GLTF", "Export GLTF"),
-        ]
     
     model_format: EnumProperty(
         name="",

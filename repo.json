@@ -7,7 +7,7 @@
       "id": "yet_another_addon_ffxiv",
       "name": "Yet Another Addon",
       "tagline": "Several tools to speed up XIV modding workflows",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "type": "add-on",
       "maintainer": "Aleks",
       "license": [
