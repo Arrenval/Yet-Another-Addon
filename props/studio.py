@@ -384,9 +384,17 @@ class YAStudioProps(PropertyGroup):
 
     def scene_actions(self, context) -> BlendEnum: 
         armature_actions = [("None", "None", ""), None]
-    
+
         for action in bpy.data.actions:
-            if action.id_root == "OBJECT":
+            slots = getattr(action, "slots", None)
+            if slots is not None:
+                # Blender 4.4+ stores the target ID type on action slots.
+                is_object_action = any(slot.target_id_type == "OBJECT" for slot in slots)
+            else:
+                # Keep support for legacy Blender versions which use id_root.
+                is_object_action = getattr(action, "id_root", None) == "OBJECT"
+
+            if is_object_action:
                 armature_actions.append((action.name , action.name, "Action"))
         return armature_actions
     
@@ -405,9 +413,12 @@ class YAStudioProps(PropertyGroup):
     
         action = bpy.data.actions.get(self.actions)
 
-        self.outfit_armature.animation_data.action = action
-        if bpy.app.version >= (4, 4, 0):
-            self.outfit_armature.animation_data.action_slot = action.slots[0]
+        animation_data = self.outfit_armature.animation_data_create()
+        animation_data.action = action
+        if hasattr(animation_data, "action_suitable_slots"):
+            suitable_slots = animation_data.action_suitable_slots
+            if suitable_slots:
+                animation_data.action_slot = suitable_slots[0]
         context.scene.frame_end = int(action.frame_end)
 
         if hasattr(YAStudioProps, "animation_frame"):
